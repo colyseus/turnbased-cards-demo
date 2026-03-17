@@ -4,7 +4,7 @@
   font-weight: 400;
 
   color-scheme: light dark;
-  background-color: #3499db;
+  background-color: #145a30;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -12,9 +12,213 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-* { margin: 0; padding: 0;}
+* { margin: 0; padding: 0; }
 
 body, #root {
   height: 100vh;
   width: 100vw;
+  overflow: hidden;
+  position: relative;
+}
+
+.hud {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.player-label {
+  position: absolute;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+  transition: color 0.3s, transform 0.3s;
+}
+
+.player-label.active {
+  color: #ffcc00;
+  transform: scale(1.1);
+}
+
+.player-label.p0 { bottom: 4%; left: 50%; translate: -50% 0; }
+.player-label.p1 { left: 2%; top: 50%; translate: 0 -50%; }
+.player-label.p2 { top: 4%; left: 50%; translate: -50% 0; }
+.player-label.p3 { right: 2%; top: 50%; translate: 0 -50%; }
+
+.player-label .card-count {
+  display: inline-block;
+  margin-left: 6px;
+  background: rgba(0,0,0,0.4);
+  border-radius: 8px;
+  padding: 1px 6px;
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.winner-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  animation: fadeIn 0.5s ease-out;
+}
+
+.winner-text {
+  font-size: 48px;
+  font-weight: 800;
+  color: #ffcc00;
+  text-shadow: 0 2px 12px rgba(0,0,0,0.7), 0 0 40px rgba(255,204,0,0.3);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.new-game-btn {
+  pointer-events: auto;
+  background: #ffcc00;
+  color: #1a1a1a;
+  border: none;
+  border-radius: 12px;
+  padding: 14px 40px;
+  font-size: 18px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+}
+
+.new-game-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.4);
+}
+
+.new-game-btn:active {
+  transform: scale(0.97);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Lobby */
+
+.lobby {
+  height: 100vh;
+  width: 100vw;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(ellipse at center, #1e8e45 0%, #145a30 60%, #0d3d20 100%);
+}
+
+.lobby-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 32px;
+  animation: fadeIn 0.6s ease-out;
+}
+
+.lobby-header {
+  position: relative;
+}
+
+.lobby-title {
+  position: relative;
+  z-index: 1;
+  font-size: 64px;
+  font-weight: 900;
+  color: #ffcc00;
+  text-shadow: 0 4px 20px rgba(0,0,0,0.5), 0 0 60px rgba(255,204,0,0.2);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin-bottom: -20px;
+}
+
+.lobby-hero-card {
+  position: absolute;
+  right: -90px;
+  bottom: -40px;
+  width: 80px;
+  filter: drop-shadow(0 6px 20px rgba(0,0,0,0.5));
+  animation: cardFloat 3s ease-in-out infinite;
+  transform: rotate(12deg);
+}
+
+@keyframes cardFloat {
+  0%, 100% { translate: 0 0; rotate: 12deg; }
+  50% { translate: 0 -10px; rotate: 16deg; }
+}
+
+.lobby-subtitle {
+  font-size: 16px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.5);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.lobby-form {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.lobby-input {
+  width: 260px;
+  padding: 14px 20px;
+  border: 2px solid rgba(255,255,255,0.2);
+  border-radius: 12px;
+  background: rgba(0,0,0,0.3);
+  color: #fff;
+  font-size: 18px;
+  font-family: inherit;
+  text-align: center;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.lobby-input::placeholder {
+  color: rgba(255,255,255,0.4);
+}
+
+.lobby-input:focus {
+  border-color: #ffcc00;
+}
+
+.lobby-btn {
+  width: 260px;
+  padding: 14px 40px;
+  background: #ffcc00;
+  color: #1a1a1a;
+  border: none;
+  border-radius: 12px;
+  font-size: 18px;
+  font-weight: 700;
+  font-family: inherit;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+}
+
+.lobby-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.4);
+}
+
+.lobby-btn:active {
+  transform: scale(0.97);
 }
