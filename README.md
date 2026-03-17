@@ -2,7 +2,7 @@
 
 A 3D interactive Uno card game built with R3F (React + Three.js). Single-player against 3 AI opponents.
 
-Multiplayer version coming soon.
+(This project is going to be used as multiplayer demo for [Colyseus](https://colyseus.io/), but the single-player version is looking okay, so I decided to share it!)
 
 https://github.com/user-attachments/assets/c569cb71-a366-4a22-8e40-79bcdb281ca3
 
