@@ -1,30 +1,34 @@
-# React + TypeScript + Vite
+# "UNO" Playing Cards Demo
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A 3D interactive Uno card game built with R3F (React + Three.js). Single-player against 3 AI opponents.
 
-Currently, two official plugins are available:
+Multiplayer version coming soon.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+<video src="demo.mp4" autoplay loop muted playsinline></video>
 
-## Expanding the ESLint configuration
+## Features
 
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
+- Full 108-card Uno deck with standard rules (Skip, Reverse, Draw 2, Wild, Wild Draw 4)
+- 3D card rendering with spring physics animations
+- Lobby screen with name entry
+- Turn-based play against 3 AI players
+- Color picker for wild cards
+- Winner screen with restart
 
-- Configure the top-level `parserOptions` property like this:
+## Dependencies
 
-```js
-export default {
-  // other rules...
-  parserOptions: {
-    ecmaVersion: 'latest',
-    sourceType: 'module',
-    project: ['./tsconfig.json', './tsconfig.node.json'],
-    tsconfigRootDir: __dirname,
-  },
-}
+### Runtime
+
+| Package | Description |
+|---------|-------------|
+| [react](https://react.dev/) | UI framework |
+| [react-dom](https://react.dev/) | React DOM renderer |
+| [three](https://threejs.org/) | 3D graphics library |
+| [@react-three/fiber](https://r3f.docs.pmnd.rs/) | React renderer for Three.js |
+
+## Getting Started
+
+```bash
+npm install
+npm run dev
 ```
-
-- Replace `plugin:@typescript-eslint/recommended` to `plugin:@typescript-eslint/recommended-type-checked` or `plugin:@typescript-eslint/strict-type-checked`
-- Optionally add `plugin:@typescript-eslint/stylistic-type-checked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and add `plugin:react/recommended` & `plugin:react/jsx-runtime` to the `extends` list
