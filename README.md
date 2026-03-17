@@ -4,7 +4,7 @@ A 3D interactive Uno card game built with R3F (React + Three.js). Single-player 
 
 Multiplayer version coming soon.
 
-<video src="demo.mp4?raw=1" autoplay loop muted playsinline></video>
+https://github.com/user-attachments/assets/c569cb71-a366-4a22-8e40-79bcdb281ca3
 
 ## Features
 
