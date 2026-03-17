@@ -32,3 +32,7 @@ https://github.com/user-attachments/assets/c569cb71-a366-4a22-8e40-79bcdb281ca3
 npm install
 npm run dev
 ```
+
+## Disclaimer
+
+"UNO" is a registered trademark of Mattel, Inc. This project is not affiliated with, endorsed by, or sponsored by Mattel. It is an independent, open-source fan project created for educational and demonstration purposes only.
