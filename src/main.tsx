@@ -19,7 +19,7 @@ function Lobby({ onPlay }: { onPlay: (name: string) => void }) {
       <div className="lobby-card">
         <div className="lobby-header">
           <h1 className="lobby-title">Card Game</h1>
-          <img src="/cards/wild_draw4.png" alt="" className="lobby-hero-card" />
+          <img src={`${import.meta.env.BASE_URL}cards/wild_draw4.png`} alt="" className="lobby-hero-card" />
         </div>
         <p className="lobby-subtitle">Colyseus Demo</p>
         <form onSubmit={handleSubmit} className="lobby-form">

@@ -2,7 +2,7 @@ import { createContext, useContext, useMemo } from 'react';
 import { useLoader } from '@react-three/fiber';
 import * as THREE from 'three';
 
-const CARDS_PATH = '/cards/';
+const CARDS_PATH = `${import.meta.env.BASE_URL}cards/`;
 const COLORS = ['red', 'blue', 'green', 'yellow'] as const;
 const NUMBERS = ['0','1','2','3','4','5','6','7','8','9'] as const;
 const ACTIONS = ['skip', 'reverse', 'draw2'] as const;
