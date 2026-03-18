@@ -1,38 +1,30 @@
-# "UNO" Playing Cards Demo
+# Demo: Turn-Based UNO Card Game
 
-A 3D interactive Uno card game built with R3F (React + Three.js). Single-player against 3 AI opponents.
+A multiplayer UNO card game built with [Colyseus](https://colyseus.io/). Multiple frontend implementations share the same authoritative game server.
 
-(This project is going to be used as multiplayer demo for [Colyseus](https://colyseus.io/), but the single-player version is looking okay, so I decided to share it!)
+## Project Structure
 
-https://github.com/user-attachments/assets/c569cb71-a366-4a22-8e40-79bcdb281ca3
+The `server/` directory contains the shared game server powered by Colyseus 0.17.
 
-## Features
-
-- Full 108-card Uno deck with standard rules (Skip, Reverse, Draw 2, Wild, Wild Draw 4)
-- 3D card rendering with spring physics animations
-- Lobby screen with name entry
-- Turn-based play against 3 AI players
-- Color picker for wild cards
-- Winner screen with restart
-
-## Dependencies
-
-### Runtime
-
-| Package | Description |
-|---------|-------------|
-| [react](https://react.dev/) | UI framework |
-| [react-dom](https://react.dev/) | React DOM renderer |
-| [three](https://threejs.org/) | 3D graphics library |
-| [@react-three/fiber](https://r3f.docs.pmnd.rs/) | React renderer for Three.js |
+| Client | Directory | Rendering | Platforms | Screenshot |
+|---|---|---|---|---|
+| React + R3F | [`web-react/`](web-react/) | 3D | Web | ![React](screenshot.webp) |
 
 ## Getting Started
 
+Start the server:
+
 ```bash
-npm install
+cd server && npm install
 npm run dev
 ```
+
+See each client's README for setup instructions.
 
 ## Disclaimer
 
 "UNO" is a registered trademark of Mattel, Inc. This project is not affiliated with, endorsed by, or sponsored by Mattel. It is an independent, open-source fan project created for educational and demonstration purposes only.
+
+## License
+
+MIT — See [LICENSE](LICENSE) file.

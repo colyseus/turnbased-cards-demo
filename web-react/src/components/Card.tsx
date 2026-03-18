@@ -15,6 +15,8 @@ interface CardProps {
   faceUp: boolean;
   scale: number;
   shake?: boolean;
+  /** When set, the card starts here on first mount and springs to `position`. */
+  initialPosition?: [number, number, number];
 }
 
 export function Card({
@@ -24,6 +26,7 @@ export function Card({
   faceUp,
   scale: targetScale,
   shake,
+  initialPosition,
 }: CardProps) {
   const groupRef = useRef<THREE.Group>(null!);
   const flipRef = useRef<THREE.Group>(null!);
@@ -56,10 +59,17 @@ export function Card({
 
     if (!mounted.current) {
       mounted.current = true;
-      g.position.copy(t.pos);
+      if (initialPosition) {
+        // Start at the given position and let spring animate to target
+        g.position.set(...initialPosition);
+        f.rotation.y = Math.PI; // start face-down
+      } else {
+        // Snap to target (no animation)
+        g.position.copy(t.pos);
+        f.rotation.y = t.flipY;
+      }
       g.rotation.z = t.rotZ;
       g.scale.setScalar(t.scale);
-      f.rotation.y = t.flipY;
       return;
     }
 

@@ -1,0 +1,17 @@
+{
+  "name": "uno-server",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "dev": "tsx watch src/index.ts"
+  },
+  "dependencies": {
+    "@colyseus/core": "^0.17.0",
+    "@colyseus/schema": "^4.0.7",
+    "@colyseus/tools": "^0.17.0",
+    "@colyseus/ws-transport": "^0.17.0",
+    "express": "^4.21.0",
+    "tsx": "^4.0.0"
+  }
+}

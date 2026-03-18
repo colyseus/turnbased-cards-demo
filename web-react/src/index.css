@@ -28,6 +28,40 @@ body, #root {
   z-index: 1;
 }
 
+.room-code {
+  position: absolute;
+  top: 12px;
+  left: 16px;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  font-family: monospace;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.5);
+  pointer-events: auto;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.room-code:hover {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.room-code:active,
+.room-code.copied {
+  color: #ffcc00;
+}
+
+.copy-icon {
+  margin-left: 5px;
+  vertical-align: middle;
+  opacity: 0.6;
+}
+
+.room-code:hover .copy-icon {
+  opacity: 1;
+}
+
 .player-label {
   position: absolute;
   color: rgba(255, 255, 255, 0.7);
@@ -49,6 +83,13 @@ body, #root {
 .player-label.p1 { left: 2%; top: 50%; translate: 0 -50%; }
 .player-label.p2 { top: 4%; left: 50%; translate: -50% 0; }
 .player-label.p3 { right: 2%; top: 50%; translate: 0 -50%; }
+
+.turn-timer {
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 5px;
+  filter: drop-shadow(0 1px 3px rgba(0,0,0,0.5));
+}
 
 .player-label .card-count {
   display: inline-block;
@@ -221,4 +262,40 @@ body, #root {
 
 .lobby-btn:active {
   transform: scale(0.97);
+}
+
+.lobby-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.lobby-divider {
+  color: rgba(255,255,255,0.35);
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.lobby-join-code {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.lobby-code-input {
+  width: 160px !important;
+  font-family: monospace;
+  letter-spacing: 0.1em;
+}
+
+.lobby-join-btn {
+  width: auto !important;
+  padding: 14px 24px !important;
+}
+
+.lobby-error {
+  color: #ff6b6b;
+  font-size: 14px;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.4);
 }

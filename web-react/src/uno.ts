@@ -293,3 +293,23 @@ export function aiTurn(state: UnoState): UnoState {
 
   return playCard(state, player, card.id, chosenColor);
 }
+
+// ── Schema-compatible helpers (for multiplayer) ─────────────────
+
+/** Card texture name from schema card data */
+export function cardTextureFromSchema(card: { cardType: string; color: string; value: string }): string {
+  if (card.cardType === 'wild') return card.value;
+  return `${card.color}_${card.value}`;
+}
+
+/** Can this schema card be played on top of the discard pile? */
+export function canPlaySchema(
+  card: { cardType: string; color: string; value: string },
+  topCard: { cardType: string; value: string },
+  activeColor: string,
+): boolean {
+  if (card.cardType === 'wild') return true;
+  if (card.color === activeColor) return true;
+  if (topCard.cardType === 'color' && card.value === topCard.value) return true;
+  return false;
+}
