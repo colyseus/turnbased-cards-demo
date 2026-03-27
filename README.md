@@ -8,7 +8,8 @@ The `server/` directory contains the shared game server powered by Colyseus 0.17
 
 | Client | Directory | Rendering | Platforms | Screenshot |
 |---|---|---|---|---|
-| React + R3F | [`web-react/`](web-react/) | 3D | Web | ![React](screenshot.webp) |
+| React + R3F | [`web-react/`](web-react/) | 3D | Web | ![React](web-react/screenshot.webp) |
+| Haxe + Heaps | [`haxe/`](haxe/) | 2D | Web, Desktop | ![Haxe](haxe/screenshot.webp) |
 
 ## Getting Started
 

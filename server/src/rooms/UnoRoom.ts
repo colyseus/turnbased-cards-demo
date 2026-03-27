@@ -4,7 +4,7 @@ import { UnoRoomState, PlayerSchema, UnoCardSchema } from "./schema/UnoRoomState
 import {
   UnoCard, UnoColor, UnoValue, WildType,
   createUnoDeck, shuffleDeck,
-} from "../../../src/uno.ts";
+} from "../../shared/uno.ts";
 
 const NUM_PLAYERS = 4;
 const HAND_SIZE = 7;

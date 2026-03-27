@@ -4,40 +4,22 @@ import { createRoot } from "react-dom/client";
 import { Canvas } from "@react-three/fiber";
 import { Game, GameHud } from "./components/Game";
 import { TextureProvider } from "./components/Preloader";
-import { joinOrCreate, joinById } from "./colyseus";
+import { client, RoomProvider, useRoom } from "./colyseus";
 
-function Lobby({ onJoined }: { onJoined: () => void }) {
+function Lobby({ onJoined }: { onJoined: (connect: () => Promise<any>) => void }) {
   const [name, setName] = useState("");
   const [roomCode, setRoomCode] = useState("");
-  const [joining, setJoining] = useState(false);
-  const [error, setError] = useState("");
 
-  const handleQuickPlay = async (e: React.FormEvent) => {
+  const handleQuickPlay = (e: React.FormEvent) => {
     e.preventDefault();
-    setJoining(true);
-    setError("");
-    try {
-      const trimmed = name.trim() || "Player";
-      await joinOrCreate("uno", { name: trimmed });
-      onJoined();
-    } catch (err: any) {
-      setError(err.message || "Failed to connect");
-      setJoining(false);
-    }
+    const trimmed = name.trim() || "Player";
+    onJoined(() => client.joinOrCreate("uno", { name: trimmed }));
   };
 
-  const handleJoinByCode = async () => {
+  const handleJoinByCode = () => {
     if (!roomCode.trim()) return;
-    setJoining(true);
-    setError("");
-    try {
-      const trimmed = name.trim() || "Player";
-      await joinById(roomCode.trim(), { name: trimmed });
-      onJoined();
-    } catch (err: any) {
-      setError(err.message || "Failed to join room");
-      setJoining(false);
-    }
+    const trimmed = name.trim() || "Player";
+    onJoined(() => client.joinById(roomCode.trim(), { name: trimmed }));
   };
 
   return (
@@ -61,9 +43,8 @@ function Lobby({ onJoined }: { onJoined: () => void }) {
             onChange={(e) => setName(e.target.value)}
             maxLength={16}
             autoFocus
-            disabled={joining}
           />
-          <button className="lobby-btn" type="submit" disabled={joining}>
+          <button className="lobby-btn" type="submit">
             Quick Play
           </button>
         </form>
@@ -75,27 +56,44 @@ function Lobby({ onJoined }: { onJoined: () => void }) {
             placeholder="Room code..."
             value={roomCode}
             onChange={(e) => setRoomCode(e.target.value)}
-            disabled={joining}
           />
           <button
             className="lobby-btn lobby-join-btn"
             onClick={handleJoinByCode}
-            disabled={joining || !roomCode.trim()}
+            disabled={!roomCode.trim()}
           >
             Join
           </button>
         </div>
-        {error && <p className="lobby-error">{error}</p>}
       </div>
     </div>
   );
 }
 
-function App() {
-  const [playing, setPlaying] = useState(false);
+function GameContent({ onDisconnect }: { onDisconnect: () => void }) {
+  const { room, error, isConnecting } = useRoom();
 
-  if (!playing) {
-    return <Lobby onJoined={() => setPlaying(true)} />;
+  if (error) {
+    return (
+      <div className="lobby">
+        <div className="lobby-card">
+          <p className="lobby-error">{error.message || "Failed to connect"}</p>
+          <button className="lobby-btn" onClick={onDisconnect}>
+            Back to Lobby
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (isConnecting || !room) {
+    return (
+      <div className="lobby">
+        <div className="lobby-card">
+          <p className="lobby-subtitle">Connecting...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -111,6 +109,20 @@ function App() {
       </Canvas>
       <GameHud />
     </>
+  );
+}
+
+function App() {
+  const [connectFn, setConnectFn] = useState<(() => Promise<any>) | null>(null);
+
+  if (!connectFn) {
+    return <Lobby onJoined={(fn) => setConnectFn(() => fn)} />;
+  }
+
+  return (
+    <RoomProvider connect={connectFn}>
+      <GameContent onDisconnect={() => setConnectFn(null)} />
+    </RoomProvider>
   );
 }
 

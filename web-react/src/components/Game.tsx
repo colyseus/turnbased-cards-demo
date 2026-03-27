@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useThree, useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { Card } from "./Card";
-import { UnoColor, cardTextureFromSchema, canPlaySchema } from "../uno";
+import { UnoColor, cardTextureFromSchema, canPlaySchema } from "../../../server/shared/uno";
 import { useRoom, useRoomState } from "../colyseus";
 
 // ── Helpers ─────────────────────────────────────────────────────
@@ -345,8 +345,8 @@ function createFeltTexture(): THREE.CanvasTexture {
 // ── Main Game component ─────────────────────────────────────────
 
 export function Game() {
-  const room = useRoom();
-  const [state, sv] = useRoomState();
+  const { room } = useRoom();
+  const state = useRoomState();
   const { viewport } = useThree();
   const vw = viewport.width;
   const vh = viewport.height;
@@ -363,41 +363,39 @@ export function Game() {
   // ── Local seat detection ──────────────────────────────────────
 
   const localSeatIndex = useMemo(() => {
-    if (!state || !room) return 0;
+    if (!state?.players || !room) return 0;
     let seat = 0;
-    state.players.forEach((p: any) => {
+    for (const p of Object.values(state.players) as any[]) {
       if (p.sessionId === room.sessionId) seat = p.seatIndex;
-    });
+    }
     return seat;
-  }, [sv, room]);
+  }, [state, room]);
 
   // ── Players by visual position ────────────────────────────────
 
   const playersByVisualPos = useMemo(() => {
-    if (!state) return [];
+    if (!state?.players) return [];
     const result: {
       seatIndex: number;
       visualPos: number;
       player: any;
     }[] = [];
-    state.players.forEach((player: any) => {
+    for (const player of Object.values(state.players) as any[]) {
       result.push({
         seatIndex: player.seatIndex,
         visualPos: getVisualPosition(player.seatIndex, localSeatIndex),
         player,
       });
-    });
+    }
     return result.sort((a, b) => a.visualPos - b.visualPos);
-  }, [sv, localSeatIndex]);
+  }, [state, localSeatIndex]);
 
   // ── Local player's hand ───────────────────────────────────────
 
   const localHand: any[] = useMemo(() => {
     const entry = playersByVisualPos.find((p) => p.visualPos === 0);
     if (!entry?.player?.hand) return [];
-    const result: any[] = [];
-    entry.player.hand.forEach((card: any) => result.push(card));
-    return result;
+    return [...entry.player.hand];
   }, [playersByVisualPos]);
 
   // ── Playable cards set ────────────────────────────────────────
@@ -423,7 +421,7 @@ export function Game() {
       }
     }
     return set;
-  }, [sv, localHand, localSeatIndex, showcaseCardId, colorPickerFor]);
+  }, [state, localHand, localSeatIndex, showcaseCardId, colorPickerFor]);
 
   // ── Showcase / play card ──────────────────────────────────────
 
@@ -482,7 +480,7 @@ export function Game() {
     ) return;
     const timer = setTimeout(() => room.send("draw_card"), 800);
     return () => clearTimeout(timer);
-  }, [sv, room, localSeatIndex, showcaseCardId, colorPickerFor]);
+  }, [state, room, localSeatIndex, showcaseCardId, colorPickerFor]);
 
   // Auto-draw when local player has no playable cards
   useEffect(() => {
@@ -494,7 +492,7 @@ export function Game() {
     ) return;
     const timer = setTimeout(() => room.send("draw_card"), 800);
     return () => clearTimeout(timer);
-  }, [sv, room, localSeatIndex, showcaseCardId, colorPickerFor, playableSet, localHand]);
+  }, [state, room, localSeatIndex, showcaseCardId, colorPickerFor, playableSet, localHand]);
 
   // ── Layout ────────────────────────────────────────────────────
 
@@ -598,7 +596,7 @@ export function Game() {
     }
 
     return anims;
-  }, [sv, state, localSeatIndex, localHand, playersByVisualPos, L]);
+  }, [state, localSeatIndex, localHand, playersByVisualPos, L]);
 
   // Update tracking ref after render
   useEffect(() => {
@@ -612,7 +610,7 @@ export function Game() {
     const ids = new Set<string>();
     for (const card of localHand) ids.add(card.id);
     prev.localHandIds = ids;
-  }, [sv, state, playersByVisualPos, localHand]);
+  }, [state, playersByVisualPos, localHand]);
 
   // ── Build card renders ────────────────────────────────────────
 
@@ -766,7 +764,7 @@ export function Game() {
 
     return result;
   }, [
-    sv,
+    state,
     hoveredCard,
     showcaseCardId,
     playableSet,
@@ -961,21 +959,23 @@ function TurnTimer({ deadline, isBot }: { deadline: number; isBot: boolean }) {
 // ── HUD overlay ─────────────────────────────────────────────────
 
 export function GameHud() {
-  const room = useRoom();
-  const [state, _sv] = useRoomState();
+  const { room } = useRoom();
+  const state = useRoomState();
   const [copied, setCopied] = useState(false);
 
-  if (!state || !room) return null;
+  if (!state?.players || !room) return null;
+
+  const players = Object.values(state.players) as any[];
 
   // Find local seat
   let localSeatIndex = 0;
-  state.players.forEach((p: any) => {
+  for (const p of players) {
     if (p.sessionId === room.sessionId) localSeatIndex = p.seatIndex;
-  });
+  }
 
   // Build player labels
   const labels: React.ReactNode[] = [];
-  state.players.forEach((player: any) => {
+  for (const player of players) {
     const visualPos = getVisualPosition(player.seatIndex, localSeatIndex);
     const isActive =
       state.currentPlayer === player.seatIndex && state.winner === -1;
@@ -991,14 +991,14 @@ export function GameHud() {
         <span className="card-count">{player.handCount}</span>
       </div>,
     );
-  });
+  }
 
   // Find winner name
   let winnerName = "";
   if (state.winner !== -1) {
-    state.players.forEach((p: any) => {
+    for (const p of players) {
       if (p.seatIndex === state.winner) winnerName = p.name;
-    });
+    }
   }
 
   return (
