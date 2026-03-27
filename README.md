@@ -22,6 +22,10 @@ npm run dev
 
 See each client's README for setup instructions.
 
+## Assets
+
+Card art from [4Colour Cards](https://verzatiledev.itch.io/4colour) by VerzatileDev.
+
 ## Disclaimer
 
 "UNO" is a registered trademark of Mattel, Inc. This project is not affiliated with, endorsed by, or sponsored by Mattel. It is an independent, open-source fan project created for educational and demonstration purposes only.
