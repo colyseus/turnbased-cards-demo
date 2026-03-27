@@ -470,30 +470,6 @@ export function Game() {
     [room, colorPickerFor],
   );
 
-  // ── Auto-draw for pending +2/+4 on human's turn ──────────────
-
-  useEffect(() => {
-    if (
-      !state || !room || showcaseCardId || colorPickerFor ||
-      state.currentPlayer !== localSeatIndex ||
-      state.winner !== -1 || state.pendingDraw <= 0
-    ) return;
-    const timer = setTimeout(() => room.send("draw_card"), 800);
-    return () => clearTimeout(timer);
-  }, [state, room, localSeatIndex, showcaseCardId, colorPickerFor]);
-
-  // Auto-draw when local player has no playable cards
-  useEffect(() => {
-    if (
-      !state || !room || showcaseCardId || colorPickerFor ||
-      state.currentPlayer !== localSeatIndex ||
-      state.winner !== -1 || state.pendingDraw > 0 ||
-      playableSet.size > 0 || localHand.length === 0
-    ) return;
-    const timer = setTimeout(() => room.send("draw_card"), 800);
-    return () => clearTimeout(timer);
-  }, [state, room, localSeatIndex, showcaseCardId, colorPickerFor, playableSet, localHand]);
-
   // ── Layout ────────────────────────────────────────────────────
 
   const L = useMemo(() => {

@@ -207,6 +207,17 @@ export class UnoRoom extends Room<{ state: RoomState }> {
     }
   }
 
+  private playerCanAct(): boolean {
+    if (this.state.pendingDraw > 0) return false;
+    const player = this.getPlayerBySeat(this.state.currentPlayer);
+    const topDiscard = this.state.discardPile[this.state.discardPile.length - 1];
+    if (!topDiscard) return false;
+    for (let i = 0; i < player.hand.length; i++) {
+      if (canPlaySchema(player.hand[i], topDiscard, this.state.activeColor)) return true;
+    }
+    return false;
+  }
+
   // ── Game Logic ────────────────────────────────────────────────
 
   private dealGame() {
@@ -269,7 +280,8 @@ export class UnoRoom extends Room<{ state: RoomState }> {
     if (this.state.phase !== "playing" || this.state.winner !== -1) return;
 
     const player = this.getPlayerBySeat(this.state.currentPlayer);
-    const delay = player.isBot ? BOT_TURN_DELAY : HUMAN_TURN_TIMEOUT;
+    const canAct = this.playerCanAct();
+    const delay = (!canAct || player.isBot) ? BOT_TURN_DELAY : HUMAN_TURN_TIMEOUT;
 
     this.state.turnDeadline = Date.now() + delay;
 

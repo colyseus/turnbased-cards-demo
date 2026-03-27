@@ -94,8 +94,6 @@ class Game {
 	var showcaseCardId:String = "";
 	var showcaseTimer:Float = 0;
 	var colorPickerForId:String = "";
-	var autoDrawTimer:Float = -1;
-
 	// Previous state for animation tracking
 	var prevDiscardLen:Int = 0;
 	var prevHandCounts:Map<Int, Int> = new Map();
@@ -980,54 +978,6 @@ class Game {
 		}
 	}
 
-	// ── Auto-draw logic ─────────────────────────────────────────────
-
-	function updateAutoDraw(dt:Float) {
-		if (state == null || room == null)
-			return;
-		if (showcaseCardId != "" || colorPickerForId != "")
-			return;
-		if (state.currentPlayer != localSeatIndex)
-			return;
-		if (state.winner != -1)
-			return;
-
-		var shouldAutoDraw = false;
-
-		if (state.pendingDraw > 0) {
-			shouldAutoDraw = true;
-		} else {
-			if (state.discardPile.items.length > 0) {
-				var topCard = state.discardPile.items[state.discardPile.items.length - 1];
-				if (topCard != null) {
-					var hasPlayable = false;
-					var localHand = getLocalHandDirect();
-					for (card in localHand) {
-						if (canPlayCard(card, topCard, state.activeColor)) {
-							hasPlayable = true;
-							break;
-						}
-					}
-					if (!hasPlayable && localHand.length > 0) {
-						shouldAutoDraw = true;
-					}
-				}
-			}
-		}
-
-		if (shouldAutoDraw) {
-			if (autoDrawTimer < 0)
-				autoDrawTimer = 0.8;
-			autoDrawTimer -= dt;
-			if (autoDrawTimer <= 0) {
-				network.sendDrawCard();
-				autoDrawTimer = -1;
-			}
-		} else {
-			autoDrawTimer = -1;
-		}
-	}
-
 	// ── Main update loop ────────────────────────────────────────────
 
 	public function update(dt:Float) {
@@ -1052,9 +1002,6 @@ class Game {
 				showcaseCardId = "";
 			}
 		}
-
-		// Auto-draw
-		updateAutoDraw(dt);
 
 		// Mouse hover
 		updateHover(s2d.mouseX, s2d.mouseY);
