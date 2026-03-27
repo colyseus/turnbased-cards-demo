@@ -28,10 +28,13 @@ export function cardTexture(card: UnoCard): string {
   return `${card.color}_${card.value}`;
 }
 
+/** Monotonic counter so card IDs are unique across rounds */
+let globalUid = 0;
+
 /** Build a full 108-card Uno deck */
 export function createUnoDeck(): UnoCard[] {
   const deck: UnoCard[] = [];
-  let uid = 0;
+  let uid = globalUid;
 
   const colors: UnoColor[] = ['red', 'blue', 'green', 'yellow'];
   const values: UnoValue[] = ['0','1','2','3','4','5','6','7','8','9','skip','reverse','draw2'];
@@ -52,6 +55,7 @@ export function createUnoDeck(): UnoCard[] {
     deck.push({ type: 'wild', wildType: 'wild_draw4', chosenColor: null, id: `wild_draw4_${uid++}` });
   }
 
+  globalUid = uid;
   return deck;
 }
 
