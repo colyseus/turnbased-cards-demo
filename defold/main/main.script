@@ -280,8 +280,8 @@ local function screen_to_world(sx, sy)
 	return sx - SCREEN_W / 2, sy - SCREEN_H / 2
 end
 
--- State is now received from lobby via split msg.post messages
--- (state_begin, state_player, state_hand_card, state_discard_card, state_done)
+-- State is received incrementally from lobby via schema callbacks
+-- (state_scalar, player_add/update/remove, hand_card_add/remove, discard_card_add/remove)
 
 -- ── Card rendering logic ───────────────────────────────────────
 
@@ -300,9 +300,10 @@ local function build_card_renders(self)
 	local local_hand = {}
 	for _, p in pairs(self.players) do
 		if p.seatIndex == self.local_seat_index then
-			for idx, card in pairs(p.hand) do
+			for _, card in pairs(p.hand) do
 				table.insert(local_hand, card)
 			end
+			table.sort(local_hand, function(a, b) return a.order < b.order end)
 			break
 		end
 	end
@@ -313,11 +314,11 @@ local function build_card_renders(self)
 	-- Discard pile info
 	local discard_len = 0
 	local discard_cards = {}
-	for idx, card in pairs(self.discard_pile) do
+	for _, card in pairs(self.discard_pile) do
 		discard_len = discard_len + 1
-		table.insert(discard_cards, { idx = idx, card = card })
+		table.insert(discard_cards, card)
 	end
-	table.sort(discard_cards, function(a, b) return a.idx < b.idx end)
+	table.sort(discard_cards, function(a, b) return a.order < b.order end)
 
 	local discard_base_z = 0.5
 	local discard_top_z = discard_base_z + discard_len * 0.02
@@ -332,7 +333,7 @@ local function build_card_renders(self)
 		and self.pending_draw == 0
 		and discard_len > 0 then
 
-		local top_card = discard_cards[discard_len] and discard_cards[discard_len].card or nil
+		local top_card = discard_cards[discard_len] or nil
 		if top_card then
 			for _, card in ipairs(local_hand) do
 				if can_play_schema(card, top_card, self.active_color) then
@@ -349,12 +350,11 @@ local function build_card_renders(self)
 	-- automatically animate it from its hand position to the discard pile.
 	local discard_start = math.max(1, discard_len - 10)
 	for i = discard_start, discard_len do
-		local entry = discard_cards[i]
-		if not entry then break end
-		local card = entry.card
+		local card = discard_cards[i]
+		if not card then break end
 		if not placed[card.id] then
 			placed[card.id] = true
-			local idx = entry.idx
+			local order = card.order
 			local card_z = discard_base_z + i * 0.02
 			table.insert(renders, {
 				key = card.id,
@@ -362,11 +362,11 @@ local function build_card_renders(self)
 				origin = last_player_origin,
 				texture_id = card_texture_from_schema(card),
 				pos = {
-					L.pileX + ((idx * 13) % 7 - 3) * 0.03,
-					((idx * 7) % 5 - 2) * 0.03,
+					L.pileX + ((order * 13) % 7 - 3) * 0.03,
+					((order * 7) % 5 - 2) * 0.03,
 					card_z,
 				},
-				rot_z = hash_rotation(card.id, idx),
+				rot_z = hash_rotation(card.id, order),
 				face_up = true,
 				scale = L.discardScale,
 			})
@@ -760,13 +760,14 @@ local function test_card_hit(self, screen_x, screen_y)
 
 	local L = self.layout
 
-	-- Get local hand
+	-- Get local hand (sorted by order to match rendered positions)
 	local local_hand = {}
 	for _, p in pairs(self.players) do
 		if p.seatIndex == self.local_seat_index then
 			for _, card in pairs(p.hand) do
 				table.insert(local_hand, card)
 			end
+			table.sort(local_hand, function(a, b) return a.order < b.order end)
 			break
 		end
 	end
@@ -814,6 +815,8 @@ function init(self)
 	self.phase = "waiting"
 	self.turn_deadline = 0
 	self.draw_pile_count = 0
+	self.session_id = nil
+	self.room_id = nil
 
 	-- UI state
 	self.hovered_card = nil
@@ -831,9 +834,9 @@ function init(self)
 	-- Layout
 	self.layout = compute_layout()
 
-	-- Animation tracking
-	self.prev_local_hand_ids = {}
-	-- (pending_play_card removed — spring physics handles hand→discard transition naturally)
+	-- Incremental state counters
+	self.hand_counter = 0
+	self.discard_counter = 0
 
 	-- State dirty flag
 	self.state_dirty = false
@@ -902,58 +905,10 @@ function update(self, dt)
 		end
 	end
 
-	-- Track local hand for draw animation state_dirty trigger
-	local current_hand_ids = {}
-	for _, p in pairs(self.players) do
-		if p.seatIndex == self.local_seat_index then
-			for _, card in pairs(p.hand) do
-				current_hand_ids[card.id] = true
-				if not self.prev_local_hand_ids[card.id] then
-					self.state_dirty = true
-				end
-			end
-			break
-		end
-	end
-	self.prev_local_hand_ids = current_hand_ids
-
 	-- Rebuild card renders if state changed
 	if self.state_dirty then
 		self.state_dirty = false
-
-		-- Debug: log state summary
-		if not self._render_logged then
-			self._render_logged = true
-			local player_count = 0
-			local local_hand_count = 0
-			for k, p in pairs(self.players) do
-				player_count = player_count + 1
-				if p.seatIndex == self.local_seat_index then
-					for _ in pairs(p.hand) do local_hand_count = local_hand_count + 1 end
-				end
-			end
-			local discard_count = 0
-			for _ in pairs(self.discard_pile) do discard_count = discard_count + 1 end
-			print("[RENDER] first render: phase=" .. tostring(self.phase)
-				.. " players=" .. player_count
-				.. " localSeat=" .. tostring(self.local_seat_index)
-				.. " localHand=" .. local_hand_count
-				.. " discard=" .. discard_count
-				.. " drawPile=" .. tostring(self.draw_pile_count))
-		end
-
 		local renders = build_card_renders(self)
-
-		if not self._renders_logged then
-			self._renders_logged = true
-			print("[RENDER] renders count=" .. #renders)
-			for i, r in ipairs(renders) do
-				if i <= 5 then
-					print("[RENDER]   " .. r.key .. " tex=" .. tostring(r.texture_id) .. " pos=" .. r.pos[1] .. "," .. r.pos[2] .. " scale=" .. tostring(r.scale))
-				end
-			end
-		end
-
 		sync_card_objects(self, renders)
 		update_hud(self)
 	end
@@ -1030,33 +985,58 @@ end
 function on_message(self, message_id, message)
 	if message_id == hash("room_joined") then
 		self.room_active = true
-		print("[MAIN] room_joined received")
-
-	elseif message_id == hash("state_begin") then
-		-- Store previous state for animation detection
-		self._prev_players = self.players
-		self._prev_current_player = self.current_player
-
-		-- Apply scalar state
-		self.phase = message.phase
-		self.current_player = message.current_player
-		self.direction = message.direction
-		self.active_color = message.active_color
-		self.pending_draw = message.pending_draw
-		self.winner = message.winner
-		self.turn_deadline = message.turn_deadline
-		self.draw_pile_count = message.draw_pile_count
-		self.local_seat_index = message.local_seat_index
+		self.session_id = message.session_id
 		self.room_id = message.room_id
-		self._session_id = message.session_id
 
-		-- Reset accumulation tables for this batch
-		self._next_players = {}
-		self._next_hand = {}
-		self._next_discard = {}
+	elseif message_id == hash("state_scalar") then
+		local field = message.field
+		if field == "phase" then
+			self.phase = message.value or "waiting"
+		elseif field == "currentPlayer" then
+			local prev = self.current_player
+			self.current_player = message.value or -1
+			if prev ~= self.current_player and prev >= 0 then
+				self.prev_current_player = prev
+				if self.local_seat_index >= 0 then
+					local vp = get_visual_position(self.current_player, self.local_seat_index)
+					local target = PLAYER_ANGLE[vp]
+					local diff = target - self.arrow_angle
+					while diff > math.pi do diff = diff - math.pi * 2 end
+					while diff < -math.pi do diff = diff + math.pi * 2 end
+					if math.abs(diff) < 0.01 then
+						diff = (self.direction or 1) * math.pi * 2
+					end
+					self.arrow_target = self.arrow_angle + diff
+				end
+				self.auto_draw_timer = AUTO_DRAW_DELAY
+			end
+		elseif field == "direction" then
+			self.direction = message.value or 1
+		elseif field == "activeColor" then
+			self.active_color = message.value or "red"
+		elseif field == "pendingDraw" then
+			self.pending_draw = message.value or 0
+		elseif field == "winner" then
+			local prev_winner = self.winner
+			self.winner = message.value or -1
+			if self.winner >= 0 and prev_winner < 0 then
+				local winner_name = "Player"
+				for _, p in pairs(self.players) do
+					if p.seatIndex == self.winner then winner_name = p.name; break end
+				end
+				msg.post("hud#gui", "show_winner", { name = winner_name })
+			elseif self.winner < 0 and prev_winner >= 0 then
+				msg.post("hud#gui", "hide_winner", {})
+			end
+		elseif field == "turnDeadline" then
+			self.turn_deadline = message.value or 0
+		elseif field == "drawPileCount" then
+			self.draw_pile_count = message.value or 0
+		end
+		self.state_dirty = true
 
-	elseif message_id == hash("state_player") then
-		self._next_players[message.key] = {
+	elseif message_id == hash("player_add") then
+		self.players[message.key] = {
 			sessionId = message.sessionId,
 			seatIndex = message.seatIndex,
 			name = message.name,
@@ -1065,75 +1045,67 @@ function on_message(self, message_id, message)
 			handCount = message.handCount,
 			hand = {},
 		}
-
-	elseif message_id == hash("state_hand_card") then
-		self._next_hand[message.idx] = {
-			id = message.id,
-			cardType = message.cardType,
-			color = message.color,
-			value = message.value,
-			chosenColor = message.chosenColor,
-		}
-
-	elseif message_id == hash("state_discard_card") then
-		self._next_discard[message.idx] = {
-			id = message.id,
-			cardType = message.cardType,
-			color = message.color,
-			value = message.value,
-			chosenColor = message.chosenColor,
-		}
-
-	elseif message_id == hash("state_done") then
-		-- Assign hand to local player
-		for _, p in pairs(self._next_players) do
-			if p.sessionId == self._session_id then
-				p.hand = self._next_hand
-			end
+		if message.is_local then
+			self.local_seat_index = message.seatIndex
 		end
-
-		-- Animation: turn indicator
-		local turn_changed = self.current_player ~= self._prev_current_player
-		if turn_changed then
-			self.prev_current_player = self._prev_current_player
-			if self.local_seat_index >= 0 then
-				local vp = get_visual_position(self.current_player, self.local_seat_index)
-				local target = PLAYER_ANGLE[vp]
-				local diff = target - self.arrow_angle
-				while diff > math.pi do diff = diff - math.pi * 2 end
-				while diff < -math.pi do diff = diff + math.pi * 2 end
-				if math.abs(diff) < 0.01 then
-					diff = (self.direction or 1) * math.pi * 2
-				end
-				self.arrow_target = self.arrow_angle + diff
-			end
-			self.auto_draw_timer = AUTO_DRAW_DELAY
-		end
-
-		-- (timer is computed continuously in update_hud using turnDeadline)
-
-		-- Winner overlay
-		local prev_winner = self._prev_players and self.winner or -1
-		if self.winner >= 0 then
-			local winner_name = "Player"
-			for _, p in pairs(self._next_players) do
-				if p.seatIndex == self.winner then winner_name = p.name; break end
-			end
-			msg.post("hud#gui", "show_winner", { name = winner_name })
-		end
-
-		-- Commit
-		self.players = self._next_players
-		self.discard_pile = self._next_discard
 		self.state_dirty = true
 
-		if not self._state_logged then
-			self._state_logged = true
-			local pc = 0 for _ in pairs(self.players) do pc = pc + 1 end
-			local dc = 0 for _ in pairs(self.discard_pile) do dc = dc + 1 end
-			local hc = 0 for _ in pairs(self._next_hand) do hc = hc + 1 end
-			print("[MAIN] first state: phase=" .. tostring(self.phase) .. " players=" .. pc .. " hand=" .. hc .. " discard=" .. dc)
+	elseif message_id == hash("player_update") then
+		local p = self.players[message.key]
+		if p then
+			p.seatIndex = message.seatIndex
+			p.name = message.name
+			p.isBot = message.isBot
+			p.connected = message.connected
+			p.handCount = message.handCount
 		end
+		self.state_dirty = true
+
+	elseif message_id == hash("player_remove") then
+		self.players[message.key] = nil
+		self.state_dirty = true
+
+	elseif message_id == hash("hand_card_add") then
+		self.hand_counter = self.hand_counter + 1
+		for _, p in pairs(self.players) do
+			if p.seatIndex == self.local_seat_index then
+				p.hand[message.id] = {
+					order = self.hand_counter,
+					id = message.id,
+					cardType = message.cardType,
+					color = message.color,
+					value = message.value,
+					chosenColor = message.chosenColor,
+				}
+				break
+			end
+		end
+		self.state_dirty = true
+
+	elseif message_id == hash("hand_card_remove") then
+		for _, p in pairs(self.players) do
+			if p.seatIndex == self.local_seat_index then
+				p.hand[message.id] = nil
+				break
+			end
+		end
+		self.state_dirty = true
+
+	elseif message_id == hash("discard_card_add") then
+		self.discard_counter = self.discard_counter + 1
+		self.discard_pile[message.id] = {
+			order = self.discard_counter,
+			id = message.id,
+			cardType = message.cardType,
+			color = message.color,
+			value = message.value,
+			chosenColor = message.chosenColor,
+		}
+		self.state_dirty = true
+
+	elseif message_id == hash("discard_card_remove") then
+		self.discard_pile[message.id] = nil
+		self.state_dirty = true
 
 	elseif message_id == hash("color_picker_hover") then
 		local color = message.color

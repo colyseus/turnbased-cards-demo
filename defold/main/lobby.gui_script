@@ -7,53 +7,36 @@ local Colyseus = require "colyseus.sdk"
 
 local MAX_NAME_LENGTH = 16
 
--- ── Helpers ───────────────────────────────────────────────────
+-- ── Room setup ────────────────────────────────────────────────
 
-local function read_card(card)
-	return {
-		id = card.id,
-		cardType = card.cardType,
-		color = card.color,
-		value = card.value,
-		chosenColor = card.chosenColor,
-	}
-end
+local function setup_room(self, room)
+	self.room = room
+	local callbacks = Colyseus.callbacks(room)
 
--- Send state to game#script in small messages (Defold msg.post has a 2KB buffer limit)
-local function send_state_to_game(self)
-	local room = self.room
-	local state = room.state
-	if not state then return end
-
-	-- Find local seat
-	local local_seat_index = -1
-	if state.players then
-		state.players:each(function(player)
-			if player.sessionId == room.session_id then
-				local_seat_index = player.seatIndex
-			end
-		end)
-	end
-
-	-- 1. Scalar state (small, always fits)
-	msg.post("game#script", "state_begin", {
-		phase = state.phase or "waiting",
-		current_player = state.currentPlayer or -1,
-		direction = state.direction or 1,
-		active_color = state.activeColor or "red",
-		pending_draw = state.pendingDraw or 0,
-		winner = state.winner or -1,
-		turn_deadline = state.turnDeadline or 0,
-		draw_pile_count = state.drawPileCount or 0,
-		local_seat_index = local_seat_index,
+	-- Notify game controller
+	msg.post("game#script", "room_joined", {
 		session_id = room.session_id,
 		room_id = room.room_id,
 	})
 
-	-- 2. Each player (one message each)
-	if state.players then
-		state.players:each(function(player, key)
-			msg.post("game#script", "state_player", {
+	-- ── Players (register before scalars so initial state populates players first) ──
+	callbacks:on_add("players", function(player, key)
+		local is_local = (player.sessionId == room.session_id)
+
+		msg.post("game#script", "player_add", {
+			key = key,
+			sessionId = player.sessionId,
+			seatIndex = player.seatIndex,
+			name = player.name or "Player",
+			isBot = player.isBot,
+			connected = player.connected,
+			handCount = player.handCount or 0,
+			is_local = is_local,
+		})
+
+		-- Track property changes on this player
+		callbacks:on_change(player, function()
+			msg.post("game#script", "player_update", {
 				key = key,
 				sessionId = player.sessionId,
 				seatIndex = player.seatIndex,
@@ -62,65 +45,59 @@ local function send_state_to_game(self)
 				connected = player.connected,
 				handCount = player.handCount or 0,
 			})
-
-			-- Send hand cards for local player
-			if player.hand and player.sessionId == room.session_id then
-				player.hand:each(function(card, idx)
-					msg.post("game#script", "state_hand_card", {
-						idx = idx,
-						id = card.id,
-						cardType = card.cardType,
-						color = card.color,
-						value = card.value,
-						chosenColor = card.chosenColor,
-					})
-				end)
-			end
 		end)
-	end
 
-	-- 3. Discard pile — collect, sort by index, send only the top 12
-	-- (pairs() order is random; sending all cards overflows the message queue)
-	if state.discardPile then
-		local sorted_discard = {}
-		state.discardPile:each(function(card, idx)
-			table.insert(sorted_discard, { idx = idx, card = card })
-		end)
-		table.sort(sorted_discard, function(a, b) return a.idx < b.idx end)
+		-- Track local player's hand
+		if is_local then
+			callbacks:on_add(player, "hand", function(card, idx)
+				msg.post("game#script", "hand_card_add", {
+					idx = idx,
+					id = card.id,
+					cardType = card.cardType,
+					color = card.color,
+					value = card.value,
+					chosenColor = card.chosenColor,
+				})
+			end)
 
-		local send_start = math.max(1, #sorted_discard - 11)
-		for i = send_start, #sorted_discard do
-			local entry = sorted_discard[i]
-			msg.post("game#script", "state_discard_card", {
-				idx = entry.idx,
-				id = entry.card.id,
-				cardType = entry.card.cardType,
-				color = entry.card.color,
-				value = entry.card.value,
-				chosenColor = entry.card.chosenColor,
-			})
+			callbacks:on_remove(player, "hand", function(card, idx)
+				msg.post("game#script", "hand_card_remove", { idx = idx, id = card.id })
+			end)
 		end
-	end
-
-	-- 4. Signal all state sent
-	msg.post("game#script", "state_done", {})
-end
-
--- ── Room setup ────────────────────────────────────────────────
-
-local function setup_room(self, room)
-	self.room = room
-
-	room:on("statechange", function(state)
-		send_state_to_game(self)
 	end)
+
+	callbacks:on_remove("players", function(player, key)
+		msg.post("game#script", "player_remove", { key = key })
+	end)
+
+	-- ── Discard pile ──
+	callbacks:on_add("discardPile", function(card, idx)
+		msg.post("game#script", "discard_card_add", {
+			idx = idx,
+			id = card.id,
+			cardType = card.cardType,
+			color = card.color,
+			value = card.value,
+			chosenColor = card.chosenColor,
+		})
+	end)
+
+	callbacks:on_remove("discardPile", function(card, idx)
+		msg.post("game#script", "discard_card_remove", { idx = idx, id = card.id })
+	end)
+
+	-- ── Scalar state ──
+	local scalar_fields = { "phase", "currentPlayer", "direction", "activeColor", "pendingDraw", "winner", "turnDeadline", "drawPileCount" }
+	for _, field in ipairs(scalar_fields) do
+		callbacks:listen(field, function(value, prev)
+			msg.post("game#script", "state_scalar", { field = field, value = value })
+		end)
+	end
 
 	-- Hide lobby GUI (can't disable component — need on_message for room commands)
 	gui.set_enabled(gui.get_node("bg"), false)
 	msg.post(".", "release_input_focus")
 
-	-- Notify game controller
-	msg.post("game#script", "room_joined", {})
 	print("[LOBBY] room joined id=" .. tostring(room.room_id))
 end
 
