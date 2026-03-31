@@ -1,0 +1,12 @@
+mouse_trigger {
+  input: MOUSE_BUTTON_LEFT
+  action: "touch"
+}
+key_trigger {
+  input: KEY_BACKSPACE
+  action: "backspace"
+}
+text_trigger {
+  input: TEXT
+  action: "text"
+}

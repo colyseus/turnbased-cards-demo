@@ -1,0 +1,35 @@
+name: "main"
+embedded_instances {
+  id: "game"
+  data: "components {\n"
+  "  id: \"script\"\n"
+  "  component: \"/main/main.script\"\n"
+  "}\n"
+  "embedded_components {\n"
+  "  id: \"card_factory\"\n"
+  "  type: \"factory\"\n"
+  "  data: \"prototype: \\\"/main/card.go\\\"\\n\"\n"
+  "}\n"
+  "embedded_components {\n"
+  "  id: \"indicator_factory\"\n"
+  "  type: \"factory\"\n"
+  "  data: \"prototype: \\\"/main/indicator.go\\\"\\n\"\n"
+  "}\n"
+  ""
+}
+embedded_instances {
+  id: "hud"
+  data: "components {\n"
+  "  id: \"gui\"\n"
+  "  component: \"/main/hud.gui\"\n"
+  "}\n"
+  ""
+}
+embedded_instances {
+  id: "lobby"
+  data: "components {\n"
+  "  id: \"gui\"\n"
+  "  component: \"/main/lobby.gui\"\n"
+  "}\n"
+  ""
+}

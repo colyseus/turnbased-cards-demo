@@ -1,0 +1,289 @@
+script: "/main/hud.gui_script"
+fonts {
+  name: "default"
+  font: "/builtins/fonts/default.font"
+}
+textures {
+  name: "ui"
+  texture: "/gfx/ui.atlas"
+}
+nodes {
+  position {
+    x: 16.0
+    y: 628.0
+  }
+  size {
+    x: 200.0
+    y: 20.0
+  }
+  type: TYPE_TEXT
+  font: "default"
+  id: "room_code"
+  pivot: PIVOT_NW
+  alpha: 0.5
+  outline_alpha: 0.5
+  shadow_alpha: 0.5
+}
+nodes {
+  position {
+    x: 480.0
+    y: 26.0
+  }
+  size {
+    x: 300.0
+    y: 20.0
+  }
+  type: TYPE_TEXT
+  font: "default"
+  id: "player_label_0"
+  alpha: 0.7
+  outline_alpha: 0.5
+  shadow_alpha: 0.5
+}
+nodes {
+  position {
+    x: 20.0
+    y: 320.0
+  }
+  size {
+    x: 200.0
+    y: 20.0
+  }
+  type: TYPE_TEXT
+  font: "default"
+  id: "player_label_1"
+  pivot: PIVOT_W
+  alpha: 0.7
+  outline_alpha: 0.5
+  shadow_alpha: 0.5
+}
+nodes {
+  position {
+    x: 480.0
+    y: 614.0
+  }
+  size {
+    x: 300.0
+    y: 20.0
+  }
+  type: TYPE_TEXT
+  font: "default"
+  id: "player_label_2"
+  alpha: 0.7
+  outline_alpha: 0.5
+  shadow_alpha: 0.5
+}
+nodes {
+  position {
+    x: 940.0
+    y: 320.0
+  }
+  size {
+    x: 200.0
+    y: 20.0
+  }
+  type: TYPE_TEXT
+  font: "default"
+  id: "player_label_3"
+  pivot: PIVOT_E
+  alpha: 0.7
+  outline_alpha: 0.5
+  shadow_alpha: 0.5
+}
+nodes {
+  position {
+    x: 480.0
+    y: 320.0
+  }
+  size {
+    x: 960.0
+    y: 640.0
+  }
+  color {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+  }
+  type: TYPE_BOX
+  id: "winner_overlay"
+  alpha: 0.5
+  visible: false
+}
+nodes {
+  position {
+    y: 40.0
+  }
+  scale {
+    x: 2.5
+    y: 2.5
+  }
+  size {
+    x: 400.0
+    y: 60.0
+  }
+  color {
+    y: 0.8
+    z: 0.0
+  }
+  type: TYPE_TEXT
+  font: "default"
+  id: "winner_text"
+  parent: "winner_overlay"
+  outline_alpha: 0.7
+  shadow_alpha: 0.5
+}
+nodes {
+  position {
+    y: -40.0
+  }
+  size {
+    x: 200.0
+    y: 40.0
+  }
+  color {
+    y: 0.8
+    z: 0.0
+  }
+  type: TYPE_BOX
+  id: "new_game_btn"
+  parent: "winner_overlay"
+}
+nodes {
+  scale {
+    x: 1.2
+    y: 1.2
+  }
+  size {
+    x: 180.0
+    y: 30.0
+  }
+  color {
+    x: 0.1
+    y: 0.1
+    z: 0.1
+  }
+  type: TYPE_TEXT
+  text: "NEW GAME"
+  font: "default"
+  id: "new_game_text"
+  parent: "new_game_btn"
+  outline_alpha: 0.0
+  shadow_alpha: 0.0
+}
+nodes {
+  position {
+    x: 480.0
+    y: 320.0
+  }
+  size {
+    x: 960.0
+    y: 640.0
+  }
+  color {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+  }
+  type: TYPE_BOX
+  texture: "ui/white"
+  id: "color_picker_overlay"
+  alpha: 0.5
+}
+nodes {
+  position {
+    x: 42.0
+    y: 42.0
+  }
+  size {
+    x: 60.0
+    y: 60.0
+  }
+  color {
+    y: 0.2
+    z: 0.2
+  }
+  type: TYPE_BOX
+  texture: "ui/white"
+  id: "picker_red"
+  parent: "color_picker_overlay"
+}
+nodes {
+  position {
+    x: -42.0
+    y: 42.0
+  }
+  size {
+    x: 60.0
+    y: 60.0
+  }
+  color {
+    y: 0.8
+    z: 0.0
+  }
+  type: TYPE_BOX
+  texture: "ui/white"
+  id: "picker_yellow"
+  parent: "color_picker_overlay"
+}
+nodes {
+  position {
+    x: -42.0
+    y: -42.0
+  }
+  size {
+    x: 60.0
+    y: 60.0
+  }
+  color {
+    x: 0.2
+    y: 0.733
+    z: 0.267
+  }
+  type: TYPE_BOX
+  texture: "ui/white"
+  id: "picker_green"
+  parent: "color_picker_overlay"
+}
+nodes {
+  position {
+    x: 42.0
+    y: -42.0
+  }
+  size {
+    x: 60.0
+    y: 60.0
+  }
+  color {
+    x: 0.2
+    y: 0.467
+  }
+  type: TYPE_BOX
+  texture: "ui/white"
+  id: "picker_blue"
+  parent: "color_picker_overlay"
+}
+nodes {
+  position {
+    x: 930.0
+    y: 610.0
+  }
+  scale {
+    x: 3.0
+    y: 3.0
+  }
+  size {
+    x: 50.0
+    y: 20.0
+  }
+  color {
+    x: 0.2
+    y: 0.733
+    z: 0.267
+  }
+  type: TYPE_TEXT
+  font: "default"
+  id: "timer_text"
+  pivot: PIVOT_E
+  shadow_alpha: 0.0
+}
+material: "/builtins/materials/gui.material"

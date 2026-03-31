@@ -1,0 +1,1169 @@
+-- UNO Card Game — Defold client
+-- Main game controller with spring physics, card layout, and Colyseus networking
+
+-- NOTE: In Defold, .script and .gui_script have fully sandboxed Lua environments.
+-- The lobby gui_script owns the Colyseus room and forwards state via msg.post.
+
+-- ── Constants ──────────────────────────────────────────────────
+
+local SCREEN_W = 960
+local SCREEN_H = 640
+
+-- Spring physics
+local STIFFNESS = 200
+local DAMPING = 30
+
+-- Turn indicator spring
+local TURN_STIFFNESS = 120
+local TURN_DAMPING = 22
+
+-- Card aspect ratio (width/height)
+local CARD_ASPECT = 240 / 375
+
+-- Showcase duration
+local SHOWCASE_DURATION = 0.7
+
+-- Auto-draw delay
+local AUTO_DRAW_DELAY = 0.8
+
+-- Color palette
+local COLOR_HEX = {
+	red = vmath.vector4(1, 0.2, 0.2, 1),
+	blue = vmath.vector4(0.2, 0.467, 1, 1),
+	green = vmath.vector4(0.2, 0.733, 0.267, 1),
+	yellow = vmath.vector4(1, 0.8, 0, 1),
+}
+
+local FELT_COLOR = vmath.vector4(0.102, 0.478, 0.235, 1)
+
+-- Player angles for turn indicator: 0=bottom, 1=left, 2=top, 3=right
+local PLAYER_ANGLE = {
+	[0] = -math.pi / 2,
+	[1] = math.pi,
+	[2] = math.pi / 2,
+	[3] = 0,
+}
+
+-- ── Helpers ────────────────────────────────────────────────────
+
+local function clamp(v, lo, hi)
+	return math.min(hi, math.max(lo, v))
+end
+
+local function get_visual_position(seat_index, local_seat_index)
+	return ((seat_index - local_seat_index) + 4) % 4
+end
+
+local function get_player_hand_origin(seat_index, local_seat_index, L)
+	if seat_index < 0 or local_seat_index < 0 then return nil end
+	if seat_index == local_seat_index then
+		return { 0, L.bottomY }
+	end
+	local vp = get_visual_position(seat_index, local_seat_index)
+	if vp == 1 then return { -L.sideX, L.sideYOffset }
+	elseif vp == 2 then return { 0, L.topY }
+	elseif vp == 3 then return { L.sideX, L.sideYOffset }
+	end
+	return nil
+end
+
+local function hash_rotation(id, index)
+	local h = index * 7
+	for i = 1, #id do
+		h = (h * 31 + string.byte(id, i)) % 2147483647
+	end
+	return ((h % 40) - 20) * (math.pi / 180)
+end
+
+local function card_texture_from_schema(card)
+	if card.cardType == "wild" then
+		return card.value
+	end
+	return card.color .. "_" .. card.value
+end
+
+local function can_play_schema(card, top_card, active_color)
+	if card.cardType == "wild" then return true end
+	if card.color == active_color then return true end
+	if top_card.cardType == "color" and card.value == top_card.value then return true end
+	return false
+end
+
+-- Spring step: returns new_value, new_velocity
+local function spring_step(current, target, velocity, dt, stiffness, damping)
+	stiffness = stiffness or STIFFNESS
+	damping = damping or DAMPING
+	local acc = stiffness * (target - current) - damping * velocity
+	local new_vel = velocity + acc * dt
+	return current + new_vel * dt, new_vel
+end
+
+-- ── Layout computation ─────────────────────────────────────────
+
+local function compute_layout()
+	local vw = SCREEN_W
+	local vh = SCREEN_H
+	local portrait = vw < vh
+	local unit = math.min(vw, vh)
+
+	local L = {}
+	L.vw = vw
+	L.vh = vh
+
+	-- Local player hand
+	L.playerScale = portrait and vw * 0.25 or unit * 0.21
+	L.playerSpacing = L.playerScale * (portrait and 0.28 or 0.36)
+	L.playerHoverScale = L.playerScale * 1.12
+	L.hoverLift = L.playerScale * 0.3
+	L.bottomY = -vh * 0.39
+
+	-- Opponent hands
+	L.opponentScale = portrait and vw * 0.13 or unit * 0.11
+	L.hSpacing = L.opponentScale * 0.35
+	L.vSpacing = L.opponentScale * 0.35
+	L.topY = vh * 0.35
+	L.sideX = clamp(vw * 0.42, unit * 0.3, 5.5 * unit / 10)
+	L.sideYOffset = -vh * 0.03
+
+	-- Piles
+	L.pileX = clamp(unit * 0.12, unit * 0.06, unit * 0.19)
+	L.pileScale = portrait and vw * 0.14 or unit * 0.11
+	L.discardScale = portrait and vw * 0.16 or unit * 0.13
+
+	-- Showcase
+	L.showcaseScale = portrait and vw * 0.4 or unit * 0.3
+
+	return L
+end
+
+-- ── Card object management ─────────────────────────────────────
+
+local function create_card_obj(self, key, texture_id, face_up)
+	local card = {
+		key = key,
+		-- Game object IDs
+		go_id = nil,
+		-- Current state
+		pos = vmath.vector3(0, 0, 0),
+		vel = vmath.vector3(0, 0, 0),
+		rot_z = 0,
+		vel_rot_z = 0,
+		scale = 1,
+		vel_scale = 0,
+		flip_y = face_up and 0 or math.pi,
+		vel_flip_y = 0,
+		-- Target state
+		target_pos = vmath.vector3(0, 0, 0),
+		target_rot_z = 0,
+		target_scale = 1,
+		target_flip_y = face_up and 0 or math.pi,
+		-- Shake
+		shake = false,
+		shake_time = 0,
+		-- State
+		texture_id = texture_id,
+		face_up = face_up,
+		showing_front = nil, -- tracks enable/disable state to avoid sending every frame
+		initialized = false,
+	}
+
+	-- Create the game object from factory
+	local spawn_pos = vmath.vector3(SCREEN_W / 2, SCREEN_H / 2, 0)
+	card.go_id = factory.create("#card_factory", spawn_pos)
+
+	-- Set front texture
+	local front_url = msg.url(nil, card.go_id, "front")
+	local back_url = msg.url(nil, card.go_id, "back")
+
+	-- Set the front sprite to show the card face
+	if texture_id and texture_id ~= "" then
+		sprite.play_flipbook(front_url, hash(texture_id))
+	end
+	sprite.play_flipbook(back_url, hash("back"))
+
+	self.card_objects[key] = card
+	return card
+end
+
+local function destroy_card_obj(self, key)
+	local card = self.card_objects[key]
+	if card and card.go_id then
+		go.delete(card.go_id)
+	end
+	self.card_objects[key] = nil
+end
+
+local function update_card_sprite(card, texture_id)
+	if card.texture_id ~= texture_id then
+		card.texture_id = texture_id
+		if card.go_id then
+			local front_url = msg.url(nil, card.go_id, "front")
+			sprite.play_flipbook(front_url, hash(texture_id))
+		end
+	end
+end
+
+-- ── Turn indicator ─────────────────────────────────────────────
+
+local function create_turn_indicator(self)
+	-- Main arrow
+	self.arrow_id = factory.create("#indicator_factory", vmath.vector3(SCREEN_W / 2, SCREEN_H / 2, 0.8))
+	sprite.play_flipbook(msg.url(nil, self.arrow_id, "sprite"), hash("arrow"))
+	go.set_scale(vmath.vector3(0.5, 0.5, 1), self.arrow_id)
+	sprite.set_constant(msg.url(nil, self.arrow_id, "sprite"), "tint", vmath.vector4(1, 1, 1, 0.8))
+
+	-- Direction arrows (4 small arrows)
+	self.dir_arrows = {}
+	for i = 1, 4 do
+		local id = factory.create("#indicator_factory", vmath.vector3(SCREEN_W / 2, SCREEN_H / 2, 0.7))
+		sprite.play_flipbook(msg.url(nil, id, "sprite"), hash("arrow"))
+		go.set_scale(vmath.vector3(0.3, 0.3, 1), id)
+		sprite.set_constant(msg.url(nil, id, "sprite"), "tint", vmath.vector4(1, 1, 1, 0.3))
+		self.dir_arrows[i] = id
+	end
+
+	self.arrow_angle = -math.pi / 2 -- start at bottom
+	self.arrow_target = -math.pi / 2
+	self.arrow_vel = 0
+	self.dir_spin = 0
+end
+
+local function destroy_turn_indicator(self)
+	if self.arrow_id then
+		go.delete(self.arrow_id)
+		self.arrow_id = nil
+	end
+	if self.dir_arrows then
+		for _, id in ipairs(self.dir_arrows) do
+			go.delete(id)
+		end
+		self.dir_arrows = nil
+	end
+end
+
+-- ── Active color ring ──────────────────────────────────────────
+
+local function create_color_ring(self)
+	-- Outer colored circle
+	self.ring_outer_id = factory.create("#indicator_factory", vmath.vector3(SCREEN_W / 2, SCREEN_H / 2, 0.3))
+	sprite.play_flipbook(msg.url(nil, self.ring_outer_id, "sprite"), hash("circle"))
+	sprite.set_constant(msg.url(nil, self.ring_outer_id, "sprite"), "tint", vmath.vector4(1, 0.2, 0.2, 1))
+
+	-- Inner green circle (creates ring effect)
+	self.ring_inner_id = factory.create("#indicator_factory", vmath.vector3(SCREEN_W / 2, SCREEN_H / 2, 0.31))
+	sprite.play_flipbook(msg.url(nil, self.ring_inner_id, "sprite"), hash("circle"))
+	sprite.set_constant(msg.url(nil, self.ring_inner_id, "sprite"), "tint", FELT_COLOR)
+
+	self.ring_scale = 1
+	self.ring_vel = 0
+	self.ring_inner_scale = 1
+	self.ring_inner_vel = 0
+	self.ring_visible = false
+end
+
+local function destroy_color_ring(self)
+	if self.ring_outer_id then go.delete(self.ring_outer_id); self.ring_outer_id = nil end
+	if self.ring_inner_id then go.delete(self.ring_inner_id); self.ring_inner_id = nil end
+end
+
+-- ── World <-> Screen coordinate conversion ─────────────────────
+
+-- Our "world" is centered at screen center. Cards use world units where
+-- the screen is conceptually [-vw/2, vw/2] x [-vh/2, vh/2].
+-- We scale world units so that 1 world unit = ~1 pixel for simplicity.
+
+local function world_to_screen(wx, wy, wz)
+	return SCREEN_W / 2 + wx, SCREEN_H / 2 + wy, wz or 0
+end
+
+local function screen_to_world(sx, sy)
+	return sx - SCREEN_W / 2, sy - SCREEN_H / 2
+end
+
+-- State is now received from lobby via split msg.post messages
+-- (state_begin, state_player, state_hand_card, state_discard_card, state_done)
+
+-- ── Card rendering logic ───────────────────────────────────────
+
+local function build_card_renders(self)
+	-- Returns a list of card render descriptors
+	local renders = {}
+	local placed = {}
+	local L = self.layout
+
+	-- Compute origin for discard card animations (where the last player's hand is)
+	local last_player_origin = get_player_hand_origin(
+		self.prev_current_player, self.local_seat_index, L
+	)
+
+	-- Get local player hand
+	local local_hand = {}
+	for _, p in pairs(self.players) do
+		if p.seatIndex == self.local_seat_index then
+			for idx, card in pairs(p.hand) do
+				table.insert(local_hand, card)
+			end
+			break
+		end
+	end
+
+	-- Sort local hand by index for consistent ordering
+	-- (hand is keyed by schema array index)
+
+	-- Discard pile info
+	local discard_len = 0
+	local discard_cards = {}
+	for idx, card in pairs(self.discard_pile) do
+		discard_len = discard_len + 1
+		table.insert(discard_cards, { idx = idx, card = card })
+	end
+	table.sort(discard_cards, function(a, b) return a.idx < b.idx end)
+
+	local discard_base_z = 0.5
+	local discard_top_z = discard_base_z + discard_len * 0.02
+
+	-- Compute playable set
+	local playable_set = {}
+	if self.phase == "playing"
+		and not self.showcase_card_id
+		and not self.color_picker_for
+		and self.current_player == self.local_seat_index
+		and self.winner < 0
+		and self.pending_draw == 0
+		and discard_len > 0 then
+
+		local top_card = discard_cards[discard_len] and discard_cards[discard_len].card or nil
+		if top_card then
+			for _, card in ipairs(local_hand) do
+				if can_play_schema(card, top_card, self.active_color) then
+					playable_set[card.id] = true
+				end
+			end
+		end
+	end
+	self.playable_set = playable_set
+
+	-- 1. Discard pile (only render the top cards to save sprites)
+	-- When the local player plays a card, the card object persists (same card.id key)
+	-- as it transitions from hand renders to discard renders. Spring physics
+	-- automatically animate it from its hand position to the discard pile.
+	local discard_start = math.max(1, discard_len - 10)
+	for i = discard_start, discard_len do
+		local entry = discard_cards[i]
+		if not entry then break end
+		local card = entry.card
+		if not placed[card.id] then
+			placed[card.id] = true
+			local idx = entry.idx
+			local card_z = discard_base_z + i * 0.02
+			table.insert(renders, {
+				key = card.id,
+				group = "discard",
+				origin = last_player_origin,
+				texture_id = card_texture_from_schema(card),
+				pos = {
+					L.pileX + ((idx * 13) % 7 - 3) * 0.03,
+					((idx * 7) % 5 - 2) * 0.03,
+					card_z,
+				},
+				rot_z = hash_rotation(card.id, idx),
+				face_up = true,
+				scale = L.discardScale,
+			})
+		end
+	end
+
+	-- 3. Local player hand
+	local hand_cards = {}
+	for _, card in ipairs(local_hand) do
+		if not placed[card.id] then
+			table.insert(hand_cards, card)
+		end
+	end
+
+	for i, card in ipairs(hand_cards) do
+		placed[card.id] = true
+		local center = (i - 1) - (#hand_cards - 1) / 2
+		local playable = playable_set[card.id]
+		local hovered = playable and card.id == self.hovered_card
+		local lift = 0
+		if self.color_picker_hovered_color and card.cardType == "color" and card.color == self.color_picker_hovered_color then
+			lift = L.hoverLift * 0.5
+		elseif playable then
+			lift = L.hoverLift * 0.35
+		end
+
+		local y_pos = L.bottomY + (hovered and L.hoverLift or lift) - math.abs(center) * 0.03
+		local z_pos = (i - 1) * 0.01 + (hovered and 0.1 or 0)
+		local card_scale = hovered and L.playerHoverScale or L.playerScale
+
+		table.insert(renders, {
+			key = card.id,
+			group = "hand",
+			texture_id = card_texture_from_schema(card),
+			pos = { center * L.playerSpacing, y_pos, z_pos },
+			rot_z = -center * 0.03,
+			face_up = true,
+			scale = card_scale,
+			shake = #hand_cards == 1 and self.winner < 0,
+		})
+	end
+
+	-- 4. Opponent hands
+	for _, p in pairs(self.players) do
+		if p.seatIndex ~= self.local_seat_index then
+			local vp = get_visual_position(p.seatIndex, self.local_seat_index)
+			for i = 0, p.handCount - 1 do
+				local center = i - (p.handCount - 1) / 2
+				local px, py, pz, rot
+
+				if vp == 1 then
+					px = -L.sideX
+					py = center * L.vSpacing + L.sideYOffset
+					pz = i * 0.01
+					rot = math.pi / 2
+				elseif vp == 2 then
+					px = center * L.hSpacing
+					py = L.topY
+					pz = i * 0.01
+					rot = 0
+				elseif vp == 3 then
+					px = L.sideX
+					py = center * L.vSpacing + L.sideYOffset
+					pz = i * 0.01
+					rot = -math.pi / 2
+				end
+
+				if px then
+					local op_key = "opponent-" .. p.seatIndex .. "-" .. i
+					table.insert(renders, {
+						key = op_key,
+						group = "opponent",
+						texture_id = "back",
+						pos = { px, py, pz },
+						rot_z = rot,
+						face_up = false,
+						scale = L.opponentScale,
+						shake = p.handCount == 1 and self.winner < 0,
+					})
+				end
+			end
+		end
+	end
+
+	-- 5. Draw pile
+	local draw_count = self.draw_pile_count or 0
+	local visible_count = math.min(draw_count, 8)
+	for i = 0, visible_count - 1 do
+		local depth = visible_count > 1 and (visible_count - 1 - i) / (visible_count - 1) or 0
+		table.insert(renders, {
+			key = "draw-" .. i,
+			group = "draw",
+			texture_id = "back",
+			pos = {
+				-L.pileX + depth * L.pileScale * 0.06,
+				-depth * L.pileScale * 0.12,
+				i * 0.008,
+			},
+			rot_z = 0,
+			face_up = false,
+			scale = L.pileScale,
+		})
+	end
+
+	return renders
+end
+
+local function sync_card_objects(self, renders)
+	-- Sync card game objects with render descriptors
+	local active_keys = {}
+
+	for _, r in ipairs(renders) do
+		active_keys[r.key] = true
+		local card = self.card_objects[r.key]
+
+		if not card then
+			-- Create new card object
+			card = create_card_obj(self, r.key, r.texture_id, r.face_up)
+		end
+
+		-- Update texture if changed
+		update_card_sprite(card, r.texture_id)
+
+		-- Set targets
+		card.target_pos.x = r.pos[1]
+		card.target_pos.y = r.pos[2]
+		card.target_pos.z = r.pos[3]
+		card.target_rot_z = r.rot_z
+		card.target_scale = r.scale
+		card.target_flip_y = r.face_up and 0 or math.pi
+		card.shake = r.shake or false
+
+		if not card.initialized then
+			card.initialized = true
+			if r.group == "draw" then
+				-- Draw pile cards: snap to position (no animation)
+				card.pos.x = r.pos[1]
+				card.pos.y = r.pos[2]
+				card.pos.z = r.pos[3]
+				card.rot_z = r.rot_z
+				card.scale = r.scale
+				card.flip_y = r.face_up and 0 or math.pi
+			elseif r.group == "discard" then
+				-- Discard cards: animate from the player who played this card
+				if r.origin then
+					card.pos.x = r.origin[1]
+					card.pos.y = r.origin[2]
+				else
+					card.pos.x = 0
+					card.pos.y = 0
+				end
+				card.pos.z = r.pos[3]
+				card.rot_z = 0
+				card.scale = r.scale
+				card.flip_y = math.pi -- start face down, flip to face up
+			elseif r.group == "opponent" then
+				-- Opponent hand cards: animate from draw pile
+				local L = compute_layout()
+				card.pos.x = -L.pileX
+				card.pos.y = 0
+				card.pos.z = r.pos[3]
+				card.rot_z = r.rot_z
+				card.scale = r.scale
+				card.flip_y = math.pi
+			else
+				-- Local hand cards: animate from draw pile
+				local L = compute_layout()
+				card.pos.x = -L.pileX
+				card.pos.y = 0
+				card.pos.z = r.pos[3]
+				card.rot_z = r.rot_z
+				card.scale = r.scale
+				card.flip_y = math.pi -- flip from back to front
+			end
+		end
+	end
+
+	-- Remove cards that are no longer active
+	local to_remove = {}
+	for key, _ in pairs(self.card_objects) do
+		if not active_keys[key] then
+			table.insert(to_remove, key)
+		end
+	end
+	for _, key in ipairs(to_remove) do
+		destroy_card_obj(self, key)
+	end
+end
+
+-- ── Update card positions with spring physics ──────────────────
+
+local function update_card_physics(self, dt)
+	local clamped_dt = math.min(dt, 0.05)
+
+	for key, card in pairs(self.card_objects) do
+		-- Spring X
+		card.pos.x, card.vel.x = spring_step(card.pos.x, card.target_pos.x, card.vel.x, clamped_dt)
+
+		-- Spring Y
+		card.pos.y, card.vel.y = spring_step(card.pos.y, card.target_pos.y, card.vel.y, clamped_dt)
+
+		-- Spring Z (snap up instantly, spring down)
+		if card.target_pos.z > card.pos.z then
+			card.pos.z = card.target_pos.z
+			card.vel.z = 0
+		else
+			card.pos.z, card.vel.z = spring_step(card.pos.z, card.target_pos.z, card.vel.z, clamped_dt)
+		end
+
+		-- Spring rotation Z
+		card.rot_z, card.vel_rot_z = spring_step(card.rot_z, card.target_rot_z, card.vel_rot_z, clamped_dt)
+
+		-- Shake effect
+		local final_rot_z = card.rot_z
+		if card.shake then
+			card.shake_time = card.shake_time + clamped_dt
+			local t = card.shake_time
+			final_rot_z = final_rot_z + math.sin(t * 22) * 0.06 + math.sin(t * 37) * 0.03
+		end
+
+		-- Spring flip
+		card.flip_y, card.vel_flip_y = spring_step(card.flip_y, card.target_flip_y, card.vel_flip_y, clamped_dt)
+
+		-- Spring scale
+		card.scale, card.vel_scale = spring_step(card.scale, card.target_scale, card.vel_scale, clamped_dt)
+
+		-- Apply to game object
+		if card.go_id then
+			local sx, sy, sz = world_to_screen(card.pos.x, card.pos.y, card.pos.z)
+			go.set_position(vmath.vector3(sx, sy, sz), card.go_id)
+			go.set_rotation(vmath.quat_rotation_z(final_rot_z), card.go_id)
+
+			-- Scale: apply card scale (world units to pixel size)
+			-- Card sprites are ~240x375 pixels. We want `card.scale` world units = card height.
+			-- So go_scale = card.scale / sprite_height
+			local sprite_h = 375 -- approximate card sprite height in pixels
+			local go_scale = card.scale / sprite_h
+			go.set_scale(vmath.vector3(go_scale, go_scale, 1), card.go_id)
+
+			-- Show/hide front/back based on flip angle (only send when changed)
+			local show_front = math.cos(card.flip_y) > 0
+			if show_front ~= card.showing_front then
+				card.showing_front = show_front
+				local front_url = msg.url(nil, card.go_id, "front")
+				local back_url = msg.url(nil, card.go_id, "back")
+				msg.post(front_url, show_front and "enable" or "disable")
+				msg.post(back_url, show_front and "disable" or "enable")
+			end
+		end
+	end
+end
+
+-- ── Turn indicator update ──────────────────────────────────────
+
+local function update_turn_indicator(self, dt)
+	if not self.arrow_id then return end
+	if self.phase ~= "playing" or self.winner >= 0 then
+		-- Hide indicator
+		msg.post(msg.url(nil, self.arrow_id, "sprite"), "disable")
+		for _, id in ipairs(self.dir_arrows) do
+			msg.post(msg.url(nil, id, "sprite"), "disable")
+		end
+		return
+	end
+
+	msg.post(msg.url(nil, self.arrow_id, "sprite"), "enable")
+	for _, id in ipairs(self.dir_arrows) do
+		msg.post(msg.url(nil, id, "sprite"), "enable")
+	end
+
+	local clamped_dt = math.min(dt, 0.05)
+
+	-- Spring the arrow angle
+	self.arrow_angle, self.arrow_vel = spring_step(
+		self.arrow_angle, self.arrow_target, self.arrow_vel, clamped_dt,
+		TURN_STIFFNESS, TURN_DAMPING
+	)
+
+	-- Position the main arrow
+	local L = self.layout
+	local radius = math.min(L.vh * 0.28, L.vw * 0.32)
+	local ax = math.cos(self.arrow_angle) * radius
+	local ay = math.sin(self.arrow_angle) * radius
+	local sx, sy = world_to_screen(ax, ay, 0.8)
+	go.set_position(vmath.vector3(sx, sy, 0.8), self.arrow_id)
+	go.set_rotation(vmath.quat_rotation_z(self.arrow_angle), self.arrow_id)
+
+	-- Direction arrows spin
+	local spin_speed = (self.direction or 1) == 1 and -0.1 or 0.1
+	self.dir_spin = self.dir_spin + spin_speed * clamped_dt
+
+	for i = 1, 4 do
+		local a = ((i - 1) / 4) * math.pi * 2 + math.pi / 4 + self.dir_spin
+		local tangent = a + ((self.direction or 1) == 1 and -math.pi / 2 or math.pi / 2)
+		local dx = math.cos(a) * radius * 0.85
+		local dy = math.sin(a) * radius * 0.85
+		local dsx, dsy = world_to_screen(dx, dy, 0.7)
+		go.set_position(vmath.vector3(dsx, dsy, 0.7), self.dir_arrows[i])
+		go.set_rotation(vmath.quat_rotation_z(tangent), self.dir_arrows[i])
+	end
+end
+
+-- ── Active color ring update ───────────────────────────────────
+
+local function update_color_ring(self, dt)
+	if not self.ring_outer_id then return end
+
+	local visible = self.phase == "playing"
+	if not visible then
+		msg.post(msg.url(nil, self.ring_outer_id, "sprite"), "disable")
+		msg.post(msg.url(nil, self.ring_inner_id, "sprite"), "disable")
+		self.ring_visible = false
+		return
+	end
+
+	if not self.ring_visible then
+		msg.post(msg.url(nil, self.ring_outer_id, "sprite"), "enable")
+		msg.post(msg.url(nil, self.ring_inner_id, "sprite"), "enable")
+		self.ring_visible = true
+	end
+
+	local clamped_dt = math.min(dt, 0.05)
+	local L = self.layout
+
+	-- Spring ring scale
+	self.ring_scale, self.ring_vel = spring_step(self.ring_scale, 1.0, self.ring_vel, clamped_dt)
+	self.ring_inner_scale, self.ring_inner_vel = spring_step(self.ring_inner_scale, 1.0, self.ring_inner_vel, clamped_dt)
+
+	-- Position at discard pile
+	local rx, ry = world_to_screen(L.pileX, 0, 0)
+	go.set_position(vmath.vector3(rx, ry, 0.3), self.ring_outer_id)
+	go.set_position(vmath.vector3(rx, ry, 0.31), self.ring_inner_id)
+
+	-- Scale the ring circles
+	local outer_radius = 0.62 * L.discardScale
+	local inner_radius = 0.55 * L.discardScale
+	-- circle.png is 64px diameter, so scale = desired_radius_in_pixels / 32
+	local outer_scale = (outer_radius / 32) * self.ring_scale
+	local inner_scale = (inner_radius / 32) * self.ring_scale * self.ring_inner_scale
+
+	go.set_scale(vmath.vector3(outer_scale, outer_scale, 1), self.ring_outer_id)
+	go.set_scale(vmath.vector3(inner_scale, inner_scale, 1), self.ring_inner_id)
+
+	-- Set color
+	local color = COLOR_HEX[self.active_color] or COLOR_HEX["red"]
+	sprite.set_constant(msg.url(nil, self.ring_outer_id, "sprite"), "tint", color)
+end
+
+-- ── HUD updates ────────────────────────────────────────────────
+
+local function update_hud(self)
+	if not self.room_active then return end
+
+	-- Room code
+	msg.post("hud#gui", "update_room_code", { code = self.room_id or "" })
+
+	-- Player labels
+	local used_vp = {}
+	for _, p in pairs(self.players) do
+		local vp = get_visual_position(p.seatIndex, self.local_seat_index)
+		used_vp[vp] = true
+		local is_active = self.current_player == p.seatIndex and self.winner < 0
+		msg.post("hud#gui", "update_player_label", {
+			visual_pos = vp,
+			name = p.name,
+			hand_count = p.handCount,
+			is_active = is_active,
+		})
+	end
+
+	-- Clear unused label slots
+	for i = 0, 3 do
+		if not used_vp[i] then
+			msg.post("hud#gui", "clear_player_label", { visual_pos = i })
+		end
+	end
+
+	-- (timer is updated every frame at the end of update())
+end
+
+-- ── Hit testing for card clicks ────────────────────────────────
+
+local function test_card_hit(self, screen_x, screen_y)
+	-- Convert screen coords to world coords
+	local wx, wy = screen_to_world(screen_x, screen_y)
+
+	-- Only test local player's hand cards
+	if self.current_player ~= self.local_seat_index then return nil end
+	if self.winner >= 0 then return nil end
+	if self.showcase_card_id then return nil end
+
+	local L = self.layout
+
+	-- Get local hand
+	local local_hand = {}
+	for _, p in pairs(self.players) do
+		if p.seatIndex == self.local_seat_index then
+			for _, card in pairs(p.hand) do
+				table.insert(local_hand, card)
+			end
+			break
+		end
+	end
+
+	-- Test from top (last drawn) to bottom for proper overlap
+	local best_card = nil
+	local best_z = -999
+
+	for i, card in ipairs(local_hand) do
+		local center = (i - 1) - (#local_hand - 1) / 2
+		local cx = center * L.playerSpacing
+		local cy = L.bottomY - math.abs(center) * 0.03
+		-- Hit area
+		local hw = L.playerSpacing * 0.5
+		local hh = L.playerScale * 0.6
+
+		if wx >= cx - hw and wx <= cx + hw and wy >= cy - hh and wy <= cy + hh then
+			local z = (i - 1) * 0.01
+			if z > best_z then
+				best_z = z
+				best_card = card
+			end
+		end
+	end
+
+	return best_card
+end
+
+-- ── Defold lifecycle ───────────────────────────────────────────
+
+function init(self)
+	msg.post(".", "acquire_input_focus")
+
+	-- State
+	self.room_active = false
+	self.local_seat_index = -1
+	self.players = {}
+	self.discard_pile = {}
+	self.current_player = -1
+	self.prev_current_player = -1
+	self.direction = 1
+	self.active_color = "red"
+	self.pending_draw = 0
+	self.winner = -1
+	self.phase = "waiting"
+	self.turn_deadline = 0
+	self.draw_pile_count = 0
+
+	-- UI state
+	self.hovered_card = nil
+	self.showcase_card_id = nil
+	self.showcase_timer = 0
+	self.color_picker_for = nil
+	self.color_picker_hovered_color = nil
+
+	-- Auto-draw
+	self.auto_draw_timer = -1
+
+	-- Card objects
+	self.card_objects = {}
+
+	-- Layout
+	self.layout = compute_layout()
+
+	-- Animation tracking
+	self.prev_local_hand_ids = {}
+	-- (pending_play_card removed — spring physics handles hand→discard transition naturally)
+
+	-- State dirty flag
+	self.state_dirty = false
+
+	-- Mouse
+	self.mouse_x = 0
+	self.mouse_y = 0
+
+	-- Turn indicator
+	self.arrow_angle = -math.pi / 2
+	self.arrow_target = -math.pi / 2
+	self.arrow_vel = 0
+	self.dir_spin = 0
+
+	-- Create visual elements
+	create_turn_indicator(self)
+	create_color_ring(self)
+
+	-- Create felt background
+	self.bg_id = factory.create("#indicator_factory", vmath.vector3(SCREEN_W / 2, SCREEN_H / 2, -0.5))
+	sprite.play_flipbook(msg.url(nil, self.bg_id, "sprite"), hash("white"))
+	sprite.set_constant(msg.url(nil, self.bg_id, "sprite"), "tint", FELT_COLOR)
+	-- Scale to cover entire screen (white.png is 4x4 pixels)
+	go.set_scale(vmath.vector3(SCREEN_W / 4, SCREEN_H / 4, 1), self.bg_id)
+
+	-- HUD starts hidden until room is joined
+	-- (lobby handles the initial connection)
+end
+
+function update(self, dt)
+	if not self.room_active then return end
+
+	-- Auto-draw logic
+	if self.auto_draw_timer > 0 and self.room_active and self.winner < 0
+		and self.current_player == self.local_seat_index
+		and not self.showcase_card_id and not self.color_picker_for then
+
+		self.auto_draw_timer = self.auto_draw_timer - dt
+
+		if self.auto_draw_timer <= 0 then
+			-- Check if we need to auto-draw
+			if self.pending_draw > 0 then
+				msg.post("lobby#gui", "room_send", { type = "draw_card" })
+				self.auto_draw_timer = -1
+			elseif self.playable_set then
+				local has_playable = false
+				for _ in pairs(self.playable_set) do
+					has_playable = true
+					break
+				end
+				if not has_playable then
+					-- Check if local player has cards
+					local has_cards = false
+					for _, p in pairs(self.players) do
+						if p.seatIndex == self.local_seat_index and p.handCount > 0 then
+							has_cards = true
+							break
+						end
+					end
+					if has_cards then
+						msg.post("lobby#gui", "room_send", { type = "draw_card" })
+					end
+				end
+			end
+			self.auto_draw_timer = -1
+		end
+	end
+
+	-- Track local hand for draw animation state_dirty trigger
+	local current_hand_ids = {}
+	for _, p in pairs(self.players) do
+		if p.seatIndex == self.local_seat_index then
+			for _, card in pairs(p.hand) do
+				current_hand_ids[card.id] = true
+				if not self.prev_local_hand_ids[card.id] then
+					self.state_dirty = true
+				end
+			end
+			break
+		end
+	end
+	self.prev_local_hand_ids = current_hand_ids
+
+	-- Rebuild card renders if state changed
+	if self.state_dirty then
+		self.state_dirty = false
+
+		-- Debug: log state summary
+		if not self._render_logged then
+			self._render_logged = true
+			local player_count = 0
+			local local_hand_count = 0
+			for k, p in pairs(self.players) do
+				player_count = player_count + 1
+				if p.seatIndex == self.local_seat_index then
+					for _ in pairs(p.hand) do local_hand_count = local_hand_count + 1 end
+				end
+			end
+			local discard_count = 0
+			for _ in pairs(self.discard_pile) do discard_count = discard_count + 1 end
+			print("[RENDER] first render: phase=" .. tostring(self.phase)
+				.. " players=" .. player_count
+				.. " localSeat=" .. tostring(self.local_seat_index)
+				.. " localHand=" .. local_hand_count
+				.. " discard=" .. discard_count
+				.. " drawPile=" .. tostring(self.draw_pile_count))
+		end
+
+		local renders = build_card_renders(self)
+
+		if not self._renders_logged then
+			self._renders_logged = true
+			print("[RENDER] renders count=" .. #renders)
+			for i, r in ipairs(renders) do
+				if i <= 5 then
+					print("[RENDER]   " .. r.key .. " tex=" .. tostring(r.texture_id) .. " pos=" .. r.pos[1] .. "," .. r.pos[2] .. " scale=" .. tostring(r.scale))
+				end
+			end
+		end
+
+		sync_card_objects(self, renders)
+		update_hud(self)
+	end
+
+	-- Update physics
+	update_card_physics(self, dt)
+	update_turn_indicator(self, dt)
+	update_color_ring(self, dt)
+
+	-- Timer — runs every frame, uses deadline - now (same as all other frontends)
+	local HUMAN_TURN_MS = 7000
+	local BOT_TURN_MS = 800
+	if self.turn_deadline and self.turn_deadline > 0 and self.winner < 0 and self.phase == "playing" then
+		local now = os.time() * 1000
+		local remaining = math.max(0, self.turn_deadline - now)
+		local is_bot = false
+		for _, p in pairs(self.players) do
+			if p.seatIndex == self.current_player then
+				is_bot = p.isBot
+				break
+			end
+		end
+		local duration = is_bot and BOT_TURN_MS or HUMAN_TURN_MS
+		local progress = math.min(1, remaining / duration)
+		local seconds = math.ceil(remaining / 1000)
+		msg.post("hud#gui", "update_timer", { seconds = seconds, progress = progress })
+	else
+		msg.post("hud#gui", "update_timer", { seconds = 0, progress = 0 })
+	end
+end
+
+function on_input(self, action_id, action)
+	if not self.room_active then return false end
+
+	-- Track mouse position
+	if not action_id then
+		self.mouse_x = action.x
+		self.mouse_y = action.y
+
+		-- Update hovered card
+		local card = test_card_hit(self, action.x, action.y)
+		local new_hover = card and self.playable_set[card.id] and card.id or nil
+		if new_hover ~= self.hovered_card then
+			self.hovered_card = new_hover
+			self.state_dirty = true
+		end
+		return false
+	end
+
+	if action_id == hash("touch") then
+		if action.pressed then
+			-- Test card click
+			local card = test_card_hit(self, action.x, action.y)
+			if card and self.playable_set[card.id] then
+				if card.cardType == "wild" then
+					-- Open color picker
+					self.color_picker_for = card.id
+					msg.post("hud#gui", "show_color_picker", { card_id = card.id })
+					self.state_dirty = true
+				else
+					-- Play card immediately — spring physics will animate
+					-- the card from hand to discard when the state updates
+					msg.post("lobby#gui", "room_send", { type = "play_card", cardId = card.id })
+					self.hovered_card = nil
+				end
+				return true
+			end
+		end
+	end
+
+	return false
+end
+
+function on_message(self, message_id, message)
+	if message_id == hash("room_joined") then
+		self.room_active = true
+		print("[MAIN] room_joined received")
+
+	elseif message_id == hash("state_begin") then
+		-- Store previous state for animation detection
+		self._prev_players = self.players
+		self._prev_current_player = self.current_player
+
+		-- Apply scalar state
+		self.phase = message.phase
+		self.current_player = message.current_player
+		self.direction = message.direction
+		self.active_color = message.active_color
+		self.pending_draw = message.pending_draw
+		self.winner = message.winner
+		self.turn_deadline = message.turn_deadline
+		self.draw_pile_count = message.draw_pile_count
+		self.local_seat_index = message.local_seat_index
+		self.room_id = message.room_id
+		self._session_id = message.session_id
+
+		-- Reset accumulation tables for this batch
+		self._next_players = {}
+		self._next_hand = {}
+		self._next_discard = {}
+
+	elseif message_id == hash("state_player") then
+		self._next_players[message.key] = {
+			sessionId = message.sessionId,
+			seatIndex = message.seatIndex,
+			name = message.name,
+			isBot = message.isBot,
+			connected = message.connected,
+			handCount = message.handCount,
+			hand = {},
+		}
+
+	elseif message_id == hash("state_hand_card") then
+		self._next_hand[message.idx] = {
+			id = message.id,
+			cardType = message.cardType,
+			color = message.color,
+			value = message.value,
+			chosenColor = message.chosenColor,
+		}
+
+	elseif message_id == hash("state_discard_card") then
+		self._next_discard[message.idx] = {
+			id = message.id,
+			cardType = message.cardType,
+			color = message.color,
+			value = message.value,
+			chosenColor = message.chosenColor,
+		}
+
+	elseif message_id == hash("state_done") then
+		-- Assign hand to local player
+		for _, p in pairs(self._next_players) do
+			if p.sessionId == self._session_id then
+				p.hand = self._next_hand
+			end
+		end
+
+		-- Animation: turn indicator
+		local turn_changed = self.current_player ~= self._prev_current_player
+		if turn_changed then
+			self.prev_current_player = self._prev_current_player
+			if self.local_seat_index >= 0 then
+				local vp = get_visual_position(self.current_player, self.local_seat_index)
+				local target = PLAYER_ANGLE[vp]
+				local diff = target - self.arrow_angle
+				while diff > math.pi do diff = diff - math.pi * 2 end
+				while diff < -math.pi do diff = diff + math.pi * 2 end
+				if math.abs(diff) < 0.01 then
+					diff = (self.direction or 1) * math.pi * 2
+				end
+				self.arrow_target = self.arrow_angle + diff
+			end
+			self.auto_draw_timer = AUTO_DRAW_DELAY
+		end
+
+		-- (timer is computed continuously in update_hud using turnDeadline)
+
+		-- Winner overlay
+		local prev_winner = self._prev_players and self.winner or -1
+		if self.winner >= 0 then
+			local winner_name = "Player"
+			for _, p in pairs(self._next_players) do
+				if p.seatIndex == self.winner then winner_name = p.name; break end
+			end
+			msg.post("hud#gui", "show_winner", { name = winner_name })
+		end
+
+		-- Commit
+		self.players = self._next_players
+		self.discard_pile = self._next_discard
+		self.state_dirty = true
+
+		if not self._state_logged then
+			self._state_logged = true
+			local pc = 0 for _ in pairs(self.players) do pc = pc + 1 end
+			local dc = 0 for _ in pairs(self.discard_pile) do dc = dc + 1 end
+			local hc = 0 for _ in pairs(self._next_hand) do hc = hc + 1 end
+			print("[MAIN] first state: phase=" .. tostring(self.phase) .. " players=" .. pc .. " hand=" .. hc .. " discard=" .. dc)
+		end
+
+	elseif message_id == hash("color_picker_hover") then
+		local color = message.color
+		if color == "" then color = nil end
+		if color ~= self.color_picker_hovered_color then
+			self.color_picker_hovered_color = color
+			self.state_dirty = true
+		end
+
+	elseif message_id == hash("color_picked") then
+		if self.color_picker_for then
+			msg.post("lobby#gui", "room_send", { type = "play_card", cardId = self.color_picker_for, chosenColor = message.color })
+			self.color_picker_for = nil
+			self.hovered_card = nil
+			self.color_picker_hovered_color = nil
+			self.state_dirty = true
+		end
+
+	elseif message_id == hash("restart_game") then
+		msg.post("lobby#gui", "room_send", { type = "restart" })
+		msg.post("hud#gui", "hide_winner", {})
+	end
+end
+
+function final(self)
+	for key, _ in pairs(self.card_objects) do
+		destroy_card_obj(self, key)
+	end
+	destroy_turn_indicator(self)
+	destroy_color_ring(self)
+	if self.bg_id then go.delete(self.bg_id) end
+	msg.post("lobby#gui", "room_send", { type = "leave" })
+end

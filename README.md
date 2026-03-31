@@ -11,6 +11,7 @@ The `server/` directory contains the shared game server powered by Colyseus 0.17
 | React + R3F | [`web-react/`](web-react/) | 3D | Web | ![React](web-react/screenshot.webp) |
 | Haxe + Heaps | [`haxe/`](haxe/) | 2D | Web, Desktop | ![Haxe](haxe/screenshot.webp) |
 | GameMaker | [`gamemaker/`](gamemaker/) | 2D | Desktop, Web | ![GameMaker](gamemaker/screenshot.webp) |
+| Defold | [`defold/`](defold/) | 2D | Desktop, Web | ![Defold](defold/screenshot.webp) |
 
 ## Getting Started
 

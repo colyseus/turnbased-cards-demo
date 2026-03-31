@@ -1,0 +1,167 @@
+images {
+  image: "/gfx/back.png"
+}
+images {
+  image: "/gfx/red_0.png"
+}
+images {
+  image: "/gfx/red_1.png"
+}
+images {
+  image: "/gfx/red_2.png"
+}
+images {
+  image: "/gfx/red_3.png"
+}
+images {
+  image: "/gfx/red_4.png"
+}
+images {
+  image: "/gfx/red_5.png"
+}
+images {
+  image: "/gfx/red_6.png"
+}
+images {
+  image: "/gfx/red_7.png"
+}
+images {
+  image: "/gfx/red_8.png"
+}
+images {
+  image: "/gfx/red_9.png"
+}
+images {
+  image: "/gfx/red_skip.png"
+}
+images {
+  image: "/gfx/red_reverse.png"
+}
+images {
+  image: "/gfx/red_draw2.png"
+}
+images {
+  image: "/gfx/blue_0.png"
+}
+images {
+  image: "/gfx/blue_1.png"
+}
+images {
+  image: "/gfx/blue_2.png"
+}
+images {
+  image: "/gfx/blue_3.png"
+}
+images {
+  image: "/gfx/blue_4.png"
+}
+images {
+  image: "/gfx/blue_5.png"
+}
+images {
+  image: "/gfx/blue_6.png"
+}
+images {
+  image: "/gfx/blue_7.png"
+}
+images {
+  image: "/gfx/blue_8.png"
+}
+images {
+  image: "/gfx/blue_9.png"
+}
+images {
+  image: "/gfx/blue_skip.png"
+}
+images {
+  image: "/gfx/blue_reverse.png"
+}
+images {
+  image: "/gfx/blue_draw2.png"
+}
+images {
+  image: "/gfx/green_0.png"
+}
+images {
+  image: "/gfx/green_1.png"
+}
+images {
+  image: "/gfx/green_2.png"
+}
+images {
+  image: "/gfx/green_3.png"
+}
+images {
+  image: "/gfx/green_4.png"
+}
+images {
+  image: "/gfx/green_5.png"
+}
+images {
+  image: "/gfx/green_6.png"
+}
+images {
+  image: "/gfx/green_7.png"
+}
+images {
+  image: "/gfx/green_8.png"
+}
+images {
+  image: "/gfx/green_9.png"
+}
+images {
+  image: "/gfx/green_skip.png"
+}
+images {
+  image: "/gfx/green_reverse.png"
+}
+images {
+  image: "/gfx/green_draw2.png"
+}
+images {
+  image: "/gfx/yellow_0.png"
+}
+images {
+  image: "/gfx/yellow_1.png"
+}
+images {
+  image: "/gfx/yellow_2.png"
+}
+images {
+  image: "/gfx/yellow_3.png"
+}
+images {
+  image: "/gfx/yellow_4.png"
+}
+images {
+  image: "/gfx/yellow_5.png"
+}
+images {
+  image: "/gfx/yellow_6.png"
+}
+images {
+  image: "/gfx/yellow_7.png"
+}
+images {
+  image: "/gfx/yellow_8.png"
+}
+images {
+  image: "/gfx/yellow_9.png"
+}
+images {
+  image: "/gfx/yellow_skip.png"
+}
+images {
+  image: "/gfx/yellow_reverse.png"
+}
+images {
+  image: "/gfx/yellow_draw2.png"
+}
+images {
+  image: "/gfx/wild.png"
+}
+images {
+  image: "/gfx/wild_draw4.png"
+}
+margin: 1
+extrude_borders: 2

@@ -1,0 +1,231 @@
+script: "/main/lobby.gui_script"
+fonts {
+  name: "default"
+  font: "/builtins/fonts/default.font"
+}
+nodes {
+  position {
+    x: 480.0
+    y: 320.0
+  }
+  size {
+    x: 960.0
+    y: 640.0
+  }
+  color {
+    x: 0.102
+    y: 0.478
+    z: 0.235
+  }
+  type: TYPE_BOX
+  id: "bg"
+}
+nodes {
+  position {
+    y: 140.0
+  }
+  scale {
+    x: 3.0
+    y: 3.0
+  }
+  size {
+    x: 400.0
+    y: 60.0
+  }
+  color {
+    y: 0.8
+    z: 0.0
+  }
+  type: TYPE_TEXT
+  text: "CARD GAME"
+  font: "default"
+  id: "title"
+  parent: "bg"
+  shadow_alpha: 0.5
+}
+nodes {
+  position {
+    y: 90.0
+  }
+  size {
+    x: 300.0
+    y: 30.0
+  }
+  type: TYPE_TEXT
+  text: "COLYSEUS DEMO"
+  font: "default"
+  id: "subtitle"
+  parent: "bg"
+  alpha: 0.5
+  outline_alpha: 0.0
+  shadow_alpha: 0.0
+}
+nodes {
+  position {
+    y: 40.0
+  }
+  size {
+    x: 260.0
+    y: 32.0
+  }
+  color {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+  }
+  type: TYPE_BOX
+  id: "name_input_bg"
+  parent: "bg"
+  alpha: 0.3
+}
+nodes {
+  size {
+    x: 240.0
+    y: 28.0
+  }
+  type: TYPE_TEXT
+  text: "Enter your name..."
+  font: "default"
+  id: "name_input_text"
+  parent: "name_input_bg"
+  outline_alpha: 0.0
+  shadow_alpha: 0.0
+}
+nodes {
+  position {
+    y: -10.0
+  }
+  size {
+    x: 260.0
+    y: 36.0
+  }
+  color {
+    y: 0.8
+    z: 0.0
+  }
+  type: TYPE_BOX
+  id: "quick_play_btn"
+  parent: "bg"
+}
+nodes {
+  size {
+    x: 240.0
+    y: 30.0
+  }
+  color {
+    x: 0.1
+    y: 0.1
+    z: 0.1
+  }
+  type: TYPE_TEXT
+  text: "QUICK PLAY"
+  font: "default"
+  id: "quick_play_text"
+  parent: "quick_play_btn"
+  outline_alpha: 0.0
+  shadow_alpha: 0.0
+}
+nodes {
+  position {
+    y: -50.0
+  }
+  size {
+    x: 260.0
+    y: 20.0
+  }
+  type: TYPE_TEXT
+  text: "or join by code"
+  font: "default"
+  id: "divider"
+  parent: "bg"
+  alpha: 0.35
+  outline_alpha: 0.0
+  shadow_alpha: 0.0
+}
+nodes {
+  position {
+    x: -50.0
+    y: -85.0
+  }
+  size {
+    x: 160.0
+    y: 32.0
+  }
+  color {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+  }
+  type: TYPE_BOX
+  id: "code_input_bg"
+  parent: "bg"
+  alpha: 0.3
+}
+nodes {
+  size {
+    x: 140.0
+    y: 28.0
+  }
+  type: TYPE_TEXT
+  text: "Room code..."
+  font: "default"
+  id: "code_input_text"
+  parent: "code_input_bg"
+  outline_alpha: 0.0
+  shadow_alpha: 0.0
+}
+nodes {
+  position {
+    x: 85.0
+    y: -85.0
+  }
+  size {
+    x: 80.0
+    y: 32.0
+  }
+  color {
+    y: 0.8
+    z: 0.0
+  }
+  type: TYPE_BOX
+  id: "join_btn"
+  parent: "bg"
+}
+nodes {
+  size {
+    x: 70.0
+    y: 28.0
+  }
+  color {
+    x: 0.1
+    y: 0.1
+    z: 0.1
+  }
+  type: TYPE_TEXT
+  text: "JOIN"
+  font: "default"
+  id: "join_btn_text"
+  parent: "join_btn"
+  outline_alpha: 0.0
+  shadow_alpha: 0.0
+}
+nodes {
+  position {
+    y: -125.0
+  }
+  size {
+    x: 300.0
+    y: 24.0
+  }
+  color {
+    y: 0.42
+    z: 0.42
+  }
+  type: TYPE_TEXT
+  font: "default"
+  id: "error_text"
+  parent: "bg"
+  outline_alpha: 0.0
+  shadow_alpha: 0.0
+}
+material: "/builtins/materials/gui.material"

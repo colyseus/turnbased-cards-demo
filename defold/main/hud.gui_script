@@ -1,0 +1,160 @@
+-- HUD GUI script for UNO Card Game
+-- Displays player labels, room code, color picker, winner overlay, timer
+
+local HUMAN_TURN_MS = 7000
+local BOT_TURN_MS = 800
+
+function init(self)
+	msg.post(".", "acquire_input_focus")
+	self.color_picker_active = false
+	self.color_picker_card_id = nil
+	self.winner_visible = false
+
+	-- Hide overlay elements initially
+	gui.set_enabled(gui.get_node("winner_overlay"), false)
+	gui.set_enabled(gui.get_node("color_picker_overlay"), false)
+	gui.set_enabled(gui.get_node("timer_text"), false)
+end
+
+function update(self, dt)
+	-- Timer display is driven by update_timer messages from main.script
+end
+
+local function point_in_node(node, x, y)
+	local pos = gui.get_screen_position(node)
+	local size = gui.get_size(node)
+	local px = pos.x - size.x * 0.5
+	local py = pos.y - size.y * 0.5
+	return x >= px and x <= px + size.x and y >= py and y <= py + size.y
+end
+
+local PICKER_COLORS = { "red", "yellow", "green", "blue" }
+local PICKER_NODES = { "picker_red", "picker_yellow", "picker_green", "picker_blue" }
+local PICKER_DEFAULT_SCALE = vmath.vector3(1, 1, 1)
+local PICKER_HOVER_SCALE = vmath.vector3(1.25, 1.25, 1)
+
+function on_input(self, action_id, action)
+	-- Color picker hover detection (every frame, no action_id)
+	if self.color_picker_active and not action_id then
+		local hovered = nil
+		for i, node_id in ipairs(PICKER_NODES) do
+			local node = gui.get_node(node_id)
+			if point_in_node(node, action.x, action.y) then
+				hovered = PICKER_COLORS[i]
+				gui.set_scale(node, PICKER_HOVER_SCALE)
+			else
+				gui.set_scale(node, PICKER_DEFAULT_SCALE)
+			end
+		end
+		-- Notify game script of hovered color (for lifting matching cards)
+		if hovered ~= self.hovered_picker_color then
+			self.hovered_picker_color = hovered
+			msg.post("game#script", "color_picker_hover", { color = hovered or "" })
+		end
+		return false
+	end
+
+	if action_id == hash("touch") and action.pressed then
+		-- Color picker click
+		if self.color_picker_active then
+			for i, node_id in ipairs(PICKER_NODES) do
+				if point_in_node(gui.get_node(node_id), action.x, action.y) then
+					msg.post("game#script", "color_picked", { color = PICKER_COLORS[i], card_id = self.color_picker_card_id })
+					self.color_picker_active = false
+					self.color_picker_card_id = nil
+					self.hovered_picker_color = nil
+					gui.set_enabled(gui.get_node("color_picker_overlay"), false)
+					-- Reset scales
+					for _, nid in ipairs(PICKER_NODES) do
+						gui.set_scale(gui.get_node(nid), PICKER_DEFAULT_SCALE)
+					end
+					return true
+				end
+			end
+			-- Click outside picker cancels it
+			self.color_picker_active = false
+			self.color_picker_card_id = nil
+			self.hovered_picker_color = nil
+			gui.set_enabled(gui.get_node("color_picker_overlay"), false)
+			msg.post("game#script", "color_picker_hover", { color = "" })
+			for _, nid in ipairs(PICKER_NODES) do
+				gui.set_scale(gui.get_node(nid), PICKER_DEFAULT_SCALE)
+			end
+			return true
+		end
+
+		-- New Game button
+		if self.winner_visible then
+			if point_in_node(gui.get_node("new_game_btn"), action.x, action.y) then
+				msg.post("game#script", "restart_game", {})
+				return true
+			end
+		end
+	end
+
+	return false
+end
+
+function on_message(self, message_id, message)
+	if message_id == hash("update_room_code") then
+		gui.set_text(gui.get_node("room_code"), message.code)
+
+	elseif message_id == hash("update_player_label") then
+		-- message: { visual_pos=0-3, name="...", hand_count=N, is_active=bool }
+		local node_id = "player_label_" .. message.visual_pos
+		local node = gui.get_node(node_id)
+		local text = message.name .. " [" .. message.hand_count .. "]"
+		gui.set_text(node, text)
+
+		if message.is_active then
+			gui.set_color(node, vmath.vector4(1, 0.8, 0, 1))
+			gui.set_scale(node, vmath.vector3(1.1, 1.1, 1))
+		else
+			gui.set_color(node, vmath.vector4(1, 1, 1, 0.7))
+			gui.set_scale(node, vmath.vector3(1, 1, 1))
+		end
+
+	elseif message_id == hash("clear_player_label") then
+		local node_id = "player_label_" .. message.visual_pos
+		gui.set_text(gui.get_node(node_id), "")
+
+	elseif message_id == hash("show_color_picker") then
+		self.color_picker_active = true
+		self.color_picker_card_id = message.card_id
+		gui.set_enabled(gui.get_node("color_picker_overlay"), true)
+
+	elseif message_id == hash("hide_color_picker") then
+		self.color_picker_active = false
+		self.color_picker_card_id = nil
+		gui.set_enabled(gui.get_node("color_picker_overlay"), false)
+
+	elseif message_id == hash("show_winner") then
+		self.winner_visible = true
+		gui.set_enabled(gui.get_node("winner_overlay"), true)
+		gui.set_text(gui.get_node("winner_text"), message.name .. " wins!")
+
+	elseif message_id == hash("hide_winner") then
+		self.winner_visible = false
+		gui.set_enabled(gui.get_node("winner_overlay"), false)
+
+	elseif message_id == hash("update_timer") then
+		-- message: { seconds=N, progress=0..1 }
+		local timer_node = gui.get_node("timer_text")
+		local seconds = message.seconds or 0
+		local progress = message.progress or 0
+
+		if seconds > 0 then
+			gui.set_enabled(timer_node, true)
+			gui.set_text(timer_node, tostring(seconds))
+			if progress > 0.5 then
+				gui.set_color(timer_node, vmath.vector4(0.2, 0.733, 0.267, 1))
+			elseif progress > 0.2 then
+				gui.set_color(timer_node, vmath.vector4(1, 0.8, 0, 1))
+			else
+				gui.set_color(timer_node, vmath.vector4(1, 0.267, 0.267, 1))
+			end
+		else
+			gui.set_enabled(timer_node, false)
+		end
+	end
+end

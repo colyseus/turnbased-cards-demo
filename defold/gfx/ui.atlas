@@ -1,0 +1,11 @@
+images {
+  image: "/gfx/white.png"
+}
+images {
+  image: "/gfx/circle.png"
+}
+images {
+  image: "/gfx/arrow.png"
+}
+margin: 1
+extrude_borders: 2

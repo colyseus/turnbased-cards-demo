@@ -1,0 +1,295 @@
+-- Lobby GUI script for UNO Card Game
+-- Handles name input, Quick Play, Join by Code, and room state forwarding.
+-- In Defold, .gui_script and .script have fully sandboxed Lua environments,
+-- so this script owns all Colyseus communication and forwards state via msg.post.
+
+local Colyseus = require "colyseus.sdk"
+
+local MAX_NAME_LENGTH = 16
+
+-- ── Helpers ───────────────────────────────────────────────────
+
+local function read_card(card)
+	return {
+		id = card.id,
+		cardType = card.cardType,
+		color = card.color,
+		value = card.value,
+		chosenColor = card.chosenColor,
+	}
+end
+
+-- Send state to game#script in small messages (Defold msg.post has a 2KB buffer limit)
+local function send_state_to_game(self)
+	local room = self.room
+	local state = room.state
+	if not state then return end
+
+	-- Find local seat
+	local local_seat_index = -1
+	if state.players then
+		state.players:each(function(player)
+			if player.sessionId == room.session_id then
+				local_seat_index = player.seatIndex
+			end
+		end)
+	end
+
+	-- 1. Scalar state (small, always fits)
+	msg.post("game#script", "state_begin", {
+		phase = state.phase or "waiting",
+		current_player = state.currentPlayer or -1,
+		direction = state.direction or 1,
+		active_color = state.activeColor or "red",
+		pending_draw = state.pendingDraw or 0,
+		winner = state.winner or -1,
+		turn_deadline = state.turnDeadline or 0,
+		draw_pile_count = state.drawPileCount or 0,
+		local_seat_index = local_seat_index,
+		session_id = room.session_id,
+		room_id = room.room_id,
+	})
+
+	-- 2. Each player (one message each)
+	if state.players then
+		state.players:each(function(player, key)
+			msg.post("game#script", "state_player", {
+				key = key,
+				sessionId = player.sessionId,
+				seatIndex = player.seatIndex,
+				name = player.name or "Player",
+				isBot = player.isBot,
+				connected = player.connected,
+				handCount = player.handCount or 0,
+			})
+
+			-- Send hand cards for local player
+			if player.hand and player.sessionId == room.session_id then
+				player.hand:each(function(card, idx)
+					msg.post("game#script", "state_hand_card", {
+						idx = idx,
+						id = card.id,
+						cardType = card.cardType,
+						color = card.color,
+						value = card.value,
+						chosenColor = card.chosenColor,
+					})
+				end)
+			end
+		end)
+	end
+
+	-- 3. Discard pile — collect, sort by index, send only the top 12
+	-- (pairs() order is random; sending all cards overflows the message queue)
+	if state.discardPile then
+		local sorted_discard = {}
+		state.discardPile:each(function(card, idx)
+			table.insert(sorted_discard, { idx = idx, card = card })
+		end)
+		table.sort(sorted_discard, function(a, b) return a.idx < b.idx end)
+
+		local send_start = math.max(1, #sorted_discard - 11)
+		for i = send_start, #sorted_discard do
+			local entry = sorted_discard[i]
+			msg.post("game#script", "state_discard_card", {
+				idx = entry.idx,
+				id = entry.card.id,
+				cardType = entry.card.cardType,
+				color = entry.card.color,
+				value = entry.card.value,
+				chosenColor = entry.card.chosenColor,
+			})
+		end
+	end
+
+	-- 4. Signal all state sent
+	msg.post("game#script", "state_done", {})
+end
+
+-- ── Room setup ────────────────────────────────────────────────
+
+local function setup_room(self, room)
+	self.room = room
+
+	room:on("statechange", function(state)
+		send_state_to_game(self)
+	end)
+
+	-- Hide lobby GUI (can't disable component — need on_message for room commands)
+	gui.set_enabled(gui.get_node("bg"), false)
+	msg.post(".", "release_input_focus")
+
+	-- Notify game controller
+	msg.post("game#script", "room_joined", {})
+	print("[LOBBY] room joined id=" .. tostring(room.room_id))
+end
+
+-- ── UI ────────────────────────────────────────────────────────
+
+local function update_name_display(self)
+	local node = gui.get_node("name_input_text")
+	if #self.player_name == 0 then
+		gui.set_text(node, "Enter your name...")
+		gui.set_color(node, vmath.vector4(1, 1, 1, 0.5))
+	else
+		gui.set_text(node, self.player_name)
+		gui.set_color(node, vmath.vector4(1, 1, 1, 1))
+	end
+end
+
+local function update_code_display(self)
+	local node = gui.get_node("code_input_text")
+	if #self.room_code == 0 then
+		gui.set_text(node, "Room code...")
+		gui.set_color(node, vmath.vector4(1, 1, 1, 0.5))
+	else
+		gui.set_text(node, self.room_code)
+		gui.set_color(node, vmath.vector4(1, 1, 1, 1))
+	end
+end
+
+local function show_error(self, text)
+	gui.set_text(gui.get_node("error_text"), text)
+end
+
+local function do_quick_play(self)
+	if self.joining then return end
+	self.joining = true
+	show_error(self, "")
+
+	local name = self.player_name
+	if #name == 0 then name = "Player" end
+
+	self.client:join_or_create("uno", { name = name }, function(err, room)
+		if err then
+			show_error(self, tostring(err))
+			self.joining = false
+			return
+		end
+		setup_room(self, room)
+	end)
+end
+
+local function do_join_by_code(self)
+	if self.joining or #self.room_code == 0 then return end
+	self.joining = true
+	show_error(self, "")
+
+	local name = self.player_name
+	if #name == 0 then name = "Player" end
+
+	self.client:join_by_id(self.room_code, { name = name }, function(err, room)
+		if err then
+			show_error(self, tostring(err))
+			self.joining = false
+			return
+		end
+		setup_room(self, room)
+	end)
+end
+
+local function point_in_node(node, x, y)
+	local pos = gui.get_screen_position(node)
+	local size = gui.get_size(node)
+	local px = pos.x - size.x * 0.5
+	local py = pos.y - size.y * 0.5
+	return x >= px and x <= px + size.x and y >= py and y <= py + size.y
+end
+
+-- ── Lifecycle ─────────────────────────────────────────────────
+
+function init(self)
+	msg.post(".", "acquire_input_focus")
+
+	self.player_name = ""
+	self.room_code = ""
+	self.joining = false
+	self.active_field = "name"
+	self.room = nil
+
+	-- Server URL
+	self.server_url = "ws://localhost:2568"
+	if html5 then
+		local param = html5.run("new URLSearchParams(window.location.search).get('server') || ''")
+		if param ~= "" then
+			self.server_url = param
+		elseif not sys.get_engine_info().is_debug then
+			self.server_url = "wss://uno-demo.colyseus.dev"
+		end
+	end
+
+	self.client = Colyseus.Client(self.server_url)
+
+	gui.set_text(gui.get_node("name_input_text"), "Enter your name...")
+	gui.set_text(gui.get_node("code_input_text"), "Room code...")
+	gui.set_text(gui.get_node("error_text"), "")
+end
+
+function on_message(self, message_id, message)
+	-- Forward room commands from game#script
+	if message_id == hash("room_send") and self.room then
+		if message.type == "play_card" then
+			self.room:send("play_card", { cardId = message.cardId, chosenColor = message.chosenColor })
+		elseif message.type == "draw_card" then
+			self.room:send("draw_card")
+		elseif message.type == "restart" then
+			self.room:send("restart")
+		elseif message.type == "leave" then
+			self.room:leave()
+		end
+	end
+end
+
+function on_input(self, action_id, action)
+	-- Only handle input when lobby is visible (before joining)
+	if self.room then return false end
+
+	if action_id == hash("touch") and action.pressed then
+		if point_in_node(gui.get_node("quick_play_btn"), action.x, action.y) then
+			do_quick_play(self)
+			return true
+		end
+
+		if point_in_node(gui.get_node("join_btn"), action.x, action.y) then
+			do_join_by_code(self)
+			return true
+		end
+
+		if point_in_node(gui.get_node("name_input_bg"), action.x, action.y) then
+			self.active_field = "name"
+			return true
+		end
+
+		if point_in_node(gui.get_node("code_input_bg"), action.x, action.y) then
+			self.active_field = "code"
+			return true
+		end
+	end
+
+	if action_id == hash("text") then
+		local char = action.text or ""
+		if self.active_field == "name" then
+			if #self.player_name < MAX_NAME_LENGTH then
+				self.player_name = self.player_name .. char
+				update_name_display(self)
+			end
+		elseif self.active_field == "code" then
+			self.room_code = self.room_code .. char
+			update_code_display(self)
+		end
+		return true
+	end
+
+	if action_id == hash("backspace") and (action.pressed or action.repeated) then
+		if self.active_field == "name" and #self.player_name > 0 then
+			self.player_name = self.player_name:sub(1, -2)
+			update_name_display(self)
+		elseif self.active_field == "code" and #self.room_code > 0 then
+			self.room_code = self.room_code:sub(1, -2)
+			update_code_display(self)
+		end
+		return true
+	end
+
+	return false
+end
