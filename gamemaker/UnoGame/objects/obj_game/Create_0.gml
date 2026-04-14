@@ -107,14 +107,12 @@ colyseus_listen(callbacks, "pendingDraw", method({ game: id }, function(v, prev)
 }));
 
 colyseus_listen(callbacks, "winner", method({ game: id }, function(v, prev) {
-    show_debug_message("[WINNER] changed: " + string(prev) + " -> " + string(v)
-        + " | local_hand=" + string(array_length(game.local_hand))
-        + " | discard=" + string(array_length(game.discard_pile)));
-
+    // Game ended — flag collections for clearing when new cards arrive
+    if (v != -1) {
+        game.restart_hand_clear_pending = true;
+        game.restart_discard_clear_pending = true;
+    }
     // New game: clear animations and UI state only.
-    // Don't clear local_hand/discard_pile here — they are processed
-    // before this callback (schema field ordering), so clearing now
-    // would wipe cards that already arrived via on_add.
     if (v == -1 && prev != -1) {
         game.card_pool = {};
         game.showcase_card_id = "";
@@ -125,14 +123,7 @@ colyseus_listen(callbacks, "winner", method({ game: id }, function(v, prev) {
         game.prev_current_player = -1;
         game.prev_local_hand_ids = {};
         game.prev_hand_counts = {};
-    }
-    // Game ended — schedule collection clearing for when new cards arrive.
-    // on_remove may not fire for all old cards when the server splices and
-    // re-fills an ArraySchema in the same tick (REPLACE vs DELETE+ADD),
-    // so we flush stale entries on the first on_add of the next deal.
-    if (v != -1) {
-        game.restart_hand_clear_pending = true;
-        game.restart_discard_clear_pending = true;
+        game.draw_pile_count = 0;
     }
     game.winner = v;
 }));
@@ -220,14 +211,8 @@ colyseus_on_add(callbacks, "players", method(id, function(instance, key) {
 
     // --- Hand (ArraySchema, only visible for local player via StateView) ---
     colyseus_on_add(callbacks, instance, "hand", method({ game: id, seat_key: key }, function(card_instance, card_key) {
-        show_debug_message("[HAND on_add] key=" + string(card_key)
-            + " | winner=" + string(game.winner)
-            + " | pending_clear=" + string(game.restart_hand_clear_pending)
-            + " | hand_before=" + string(array_length(game.local_hand)));
-
         // Clear stale cards from previous game on first new card arrival
         if (game.restart_hand_clear_pending) {
-            show_debug_message("[HAND on_add] >>> CLEARING " + string(array_length(game.local_hand)) + " stale cards");
             game.local_hand = [];
             game.restart_hand_clear_pending = false;
         }
@@ -240,10 +225,9 @@ colyseus_on_add(callbacks, "players", method(id, function(instance, key) {
         var _chosen = colyseus_schema_get(card_instance, "chosenColor");
         if (is_undefined(_chosen)) _chosen = "";
 
-        // Replace if card with this ID already exists (handles game restart with reused IDs)
+        // Replace if card with this ID already exists
         for (var _di = array_length(game.local_hand) - 1; _di >= 0; _di--) {
             if (game.local_hand[_di].id == _id) {
-                show_debug_message("  Hand card REPLACED: " + _id);
                 array_delete(game.local_hand, _di, 1);
                 break;
             }
@@ -259,24 +243,17 @@ colyseus_on_add(callbacks, "players", method(id, function(instance, key) {
         };
 
         array_push(game.local_hand, card);
-        show_debug_message("[HAND on_add] added: " + _id + " | hand_after=" + string(array_length(game.local_hand)));
+        show_debug_message("  Hand card added: " + _id);
     }));
 
     colyseus_on_remove(callbacks, instance, "hand", method({ game: id }, function(card_instance, card_key) {
-        show_debug_message("[HAND on_remove] key=" + string(card_key)
-            + " | hand_size=" + string(array_length(game.local_hand)));
-
-        var _found = false;
+        // Remove from local hand by finding matching instance
         for (var i = array_length(game.local_hand) - 1; i >= 0; i--) {
             if (game.local_hand[i].instance == card_instance) {
-                show_debug_message("[HAND on_remove] matched: " + game.local_hand[i].id + " at index " + string(i));
+                show_debug_message("  Hand card removed: " + game.local_hand[i].id);
                 array_delete(game.local_hand, i, 1);
-                _found = true;
                 break;
             }
-        }
-        if (!_found) {
-            show_debug_message("[HAND on_remove] WARNING: no matching instance found in local_hand!");
         }
     }));
 }));
@@ -293,13 +270,8 @@ colyseus_on_remove(callbacks, "players", method(id, function(instance, key) {
 // =============================================================================
 
 colyseus_on_add(callbacks, "discardPile", method(id, function(card_instance, card_key) {
-    show_debug_message("[DISCARD on_add] key=" + string(card_key)
-        + " | pending_clear=" + string(restart_discard_clear_pending)
-        + " | pile_before=" + string(array_length(discard_pile)));
-
     // Clear stale discard cards from previous game on first new card arrival
     if (restart_discard_clear_pending) {
-        show_debug_message("[DISCARD on_add] >>> CLEARING " + string(array_length(discard_pile)) + " stale cards");
         discard_pile = [];
         restart_discard_clear_pending = false;
     }
@@ -311,7 +283,7 @@ colyseus_on_add(callbacks, "discardPile", method(id, function(card_instance, car
     var _chosen = colyseus_schema_get(card_instance, "chosenColor");
     if (is_undefined(_chosen)) _chosen = "";
 
-    // Replace if duplicate ID exists (handles game restart with reused IDs)
+    // Replace if duplicate ID exists
     for (var _di = array_length(discard_pile) - 1; _di >= 0; _di--) {
         if (discard_pile[_di].id == _id) {
             array_delete(discard_pile, _di, 1);
@@ -329,24 +301,16 @@ colyseus_on_add(callbacks, "discardPile", method(id, function(card_instance, car
     };
 
     array_push(discard_pile, card);
-    show_debug_message("[DISCARD on_add] added: " + _id + " | pile_after=" + string(array_length(discard_pile)));
+    show_debug_message("Discard card added: " + _id);
 }));
 
 colyseus_on_remove(callbacks, "discardPile", method(id, function(card_instance, card_key) {
-    show_debug_message("[DISCARD on_remove] key=" + string(card_key)
-        + " | pile_size=" + string(array_length(discard_pile)));
-
-    var _found = false;
     for (var i = array_length(discard_pile) - 1; i >= 0; i--) {
         if (discard_pile[i].instance == card_instance) {
-            show_debug_message("[DISCARD on_remove] matched: " + discard_pile[i].id + " at index " + string(i));
+            show_debug_message("Discard card removed: " + discard_pile[i].id);
             array_delete(discard_pile, i, 1);
-            _found = true;
             break;
         }
-    }
-    if (!_found) {
-        show_debug_message("[DISCARD on_remove] WARNING: no matching instance found!");
     }
 }));
 

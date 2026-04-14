@@ -23,3 +23,54 @@ hlc_out
 *.njsproj
 *.sln
 *.sw?
+
+# Unity
+unity/[Ll]ibrary/
+unity/[Tt]emp/
+unity/[Oo]bj/
+unity/[Bb]uild/
+unity/[Bb]uilds/
+unity/[Ll]ogs/
+unity/[Uu]ser[Ss]ettings/
+unity/[Mm]emoryCaptures/
+unity/Assets/AssetStoreTools*
+unity/*.csproj
+unity/*.unityproj
+unity/*.sln
+unity/*.slnx
+unity/*.suo
+unity/*.user
+unity/*.userprefs
+unity/*.pidb
+unity/*.booproj
+unity/*.svd
+unity/*.pdb
+unity/*.mdb
+unity/*.opendb
+unity/*.VC.db
+unity/sysinfo.txt
+unity/*.apk
+unity/*.aab
+unity/*.unitypackage
+unity/*.app
+unity/.vs/
+unity/.vsconfig
+
+# Godot
+godot/.godot/
+godot/.import/
+godot/export.cfg
+godot/export_presets.cfg
+godot/export_credentials.cfg
+godot/addons/colyseus/
+
+# GameMaker
+gamemaker/**/.gm/
+gamemaker/**/cache/
+
+# Construct 3
+construct3/.c3cache/
+
+# Defold
+defold/build/
+defold/.internal/

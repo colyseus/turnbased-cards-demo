@@ -185,7 +185,7 @@ function init(self)
 	self.room = nil
 
 	-- Server URL
-	self.server_url = "ws://localhost:2568"
+	self.server_url = "ws://localhost:2567"
 	if html5 then
 		local param = html5.run("new URLSearchParams(window.location.search).get('server') || ''")
 		if param ~= "" then
