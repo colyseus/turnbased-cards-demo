@@ -28,6 +28,10 @@ npm run dev
 
 See each client's README for setup instructions.
 
+## Quickstart
+
+For the fastest local setup (server + web client), see [QUICKSTART.md](QUICKSTART.md). You can also use `./scripts/run-web-demo.sh` to start both services.
+
 ## Assets
 
 Card art from [4Colour Cards](https://verzatiledev.itch.io/4colour) by VerzatileDev.
