@@ -33,14 +33,19 @@ export class UnoRoom extends Room<{ state: RoomState }> {
   private lastActionTime = new Map<string, number>();
   /** Bot difficulty: "easy" | "medium" | "hard" */
   private difficulty: "easy" | "medium" | "hard" = "medium";
+  /** Optional room password. */
+  private password?: string;
   /** Card counting: tracks how many cards of each color/value have been discarded */
   private discardedCounts: Record<string, number> = {};
 
-  onCreate(options: { private?: boolean; difficulty?: string } = {}) {
+  onCreate(options: { private?: boolean; difficulty?: string; password?: string } = {}) {
     try {
       // Spectators don't count toward maxClients — they can always join
       this.maxClients = 256;
       if (options.private) this.setPrivate();
+      if (options.password && typeof options.password === "string" && options.password.length <= 32) {
+        this.password = options.password;
+      }
       if (options.difficulty === "easy" || options.difficulty === "hard") {
         this.difficulty = options.difficulty;
       }
@@ -52,6 +57,7 @@ export class UnoRoom extends Room<{ state: RoomState }> {
       this.state.spectatorCount = 0;
       this.state.chatMessages = new ArraySchema();
       this.state.unoCaller = -1;
+      this.state.rematchVotes = new ArraySchema();
 
       // Fill all seats with bots
       for (let i = 0; i < NUM_PLAYERS; i++) {
@@ -92,14 +98,23 @@ export class UnoRoom extends Room<{ state: RoomState }> {
       this.onMessage("uno", (client: Client) => {
         this.handleUno(client);
       });
+
+      this.onMessage("vote_rematch", (client: Client) => {
+        this.handleVoteRematch(client);
+      });
     } catch (err) {
       logger.error("UnoRoom", "onCreate failed", { error: String(err) });
       throw err;
     }
   }
 
-  onJoin(client: Client, options: { name?: string; spectator?: boolean }) {
+  onJoin(client: Client, options: { name?: string; spectator?: boolean; password?: string }) {
     try {
+      // Validate password first
+      if (this.password && options?.password !== this.password) {
+        throw new Error("Invalid password");
+      }
+
       // Spectator join — watch without taking a seat
       if (options?.spectator) {
         this.spectators.add(client);
@@ -480,6 +495,7 @@ export class UnoRoom extends Room<{ state: RoomState }> {
         seatIndex: player.seatIndex,
       });
       this.state.phase = "finished";
+      this.state.rematchVotes.splice(0, this.state.rematchVotes.length);
       clearTimeout(this.turnTimeout);
       // Reset flag before the finally runs
       this.turnActionActive = false;
@@ -687,6 +703,7 @@ export class UnoRoom extends Room<{ state: RoomState }> {
     this.state.discardPile.splice(0, this.state.discardPile.length);
     this.discardedCounts = {};
     this.state.unoCaller = -1;
+    this.state.rematchVotes.splice(0, this.state.rematchVotes.length);
     // Re-deal
     this.dealGame();
     this.state.phase = "playing";
@@ -712,6 +729,35 @@ export class UnoRoom extends Room<{ state: RoomState }> {
     // Only the player who must call UNO can do so
     if (this.state.unoCaller === player.seatIndex) {
       this.state.unoCaller = -1;
+    }
+  }
+
+  private handleVoteRematch(client: Client) {
+    const player = this.findPlayerBySession(client.sessionId);
+    if (!player) return;
+    if (this.state.phase !== "finished") return;
+    if (player.isBot) return;
+
+    // Add vote if not already present
+    const alreadyVoted = this.state.rematchVotes.includes(player.seatIndex);
+    if (!alreadyVoted) {
+      this.state.rematchVotes.push(player.seatIndex);
+    }
+
+    // Check if all connected humans have voted
+    const connectedHumanSeats: number[] = [];
+    this.state.players.forEach((p: PlayerInstance) => {
+      if (!p.isBot && p.connected) {
+        connectedHumanSeats.push(p.seatIndex);
+      }
+    });
+
+    const allVoted = connectedHumanSeats.length > 0 &&
+      connectedHumanSeats.every((seat) => this.state.rematchVotes.includes(seat));
+
+    if (allVoted) {
+      this.state.rematchVotes.splice(0, this.state.rematchVotes.length);
+      this.handleRestart(client);
     }
   }
 }

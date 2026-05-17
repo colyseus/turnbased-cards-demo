@@ -38,4 +38,5 @@ export const UnoRoomState = schema({
   spectatorCount: "number",    // number of spectators watching
   chatMessages: { array: ChatMessageSchema },
   unoCaller: "number",         // seat index that just reached 1 card, must call UNO; -1 if not applicable
+  rematchVotes: { array: "number" }, // seat indices that voted to rematch
 });

@@ -708,3 +708,70 @@ body, #root {
   border-color: #33bb44;
   color: #33bb44;
 }
+
+/* Mobile responsive */
+@media (max-width: 640px) {
+  .lobby-title {
+    font-size: 40px;
+  }
+  .lobby-hero-card {
+    right: -60px;
+    bottom: -30px;
+    width: 56px;
+  }
+  .lobby-input {
+    width: 220px;
+    padding: 12px 16px;
+    font-size: 16px;
+  }
+  .lobby-btn {
+    width: 220px;
+    padding: 12px 32px;
+    font-size: 16px;
+  }
+  .lobby-code-input {
+    width: 120px !important;
+  }
+  .player-label {
+    font-size: 11px;
+  }
+  .player-label.p0 { bottom: 2%; }
+  .player-label.p2 { top: 2%; }
+  .hud-actions {
+    top: 8px;
+    right: 8px;
+    gap: 4px;
+  }
+  .hud-btn {
+    width: 26px;
+    height: 26px;
+    font-size: 12px;
+  }
+  .winner-text {
+    font-size: 32px;
+  }
+  .new-game-btn {
+    padding: 12px 32px;
+    font-size: 16px;
+  }
+  .rules-card {
+    padding: 20px 24px;
+    max-width: 340px;
+  }
+  .room-code {
+    font-size: 11px;
+  }
+}
+
+/* Touch device optimizations */
+@media (hover: none) and (pointer: coarse) {
+  .hud-btn:hover {
+    background: rgba(0,0,0,0.35);
+    border-color: rgba(255,255,255,0.25);
+    color: rgba(255,255,255,0.7);
+  }
+  .lobby-btn:hover {
+    transform: none;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  }
+}

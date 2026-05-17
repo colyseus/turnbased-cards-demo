@@ -8,6 +8,9 @@
 | `HUMAN_TURN_TIMEOUT` | `7000` | Human turn timeout in ms |
 | `BOT_TURN_DELAY` | `800` | Bot turn delay in ms |
 | `LOG_LEVEL` | `info` | Log level: `debug`, `info`, `warn`, `error` |
+| `REDIS_URL` | — | Redis connection URL (e.g. `redis://localhost:6379`) |
+| `REDIS_HOST` | — | Redis host (alternative to REDIS_URL) |
+| `REDIS_PORT` | `6379` | Redis port (used with REDIS_HOST) |
 
 ## Quick Start (Development)
 

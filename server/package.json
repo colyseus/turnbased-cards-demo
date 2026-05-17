@@ -10,6 +10,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@colyseus/redis-presence": "^0.17.0",
     "@colyseus/schema": "^4.0.7",
     "@colyseus/tools": "^0.17.0",
     "colyseus": "^0.17.0",

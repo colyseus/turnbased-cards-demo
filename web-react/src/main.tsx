@@ -3,6 +3,7 @@ import { Suspense, useState, lazy, useRef } from "react";
 import { createRoot } from "react-dom/client";
 import { client, RoomProvider, useRoom, watchRoom } from "./colyseus";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { getLeaderboard } from "./stats";
 
 // Lazy-load the 3D game canvas so three.js is not in the initial bundle
 const GameScene = lazy(() => import("./components/GameScene"));
@@ -22,7 +23,10 @@ function Lobby({ onJoined }: { onJoined: (_connect: () => Promise<any>) => void 
   const [nameError, setNameError] = useState("");
   const [mode, setMode] = useState<"play" | "watch">("play");
   const [privateRoom, setPrivateRoom] = useState(false);
+  const [password, setPassword] = useState("");
+  const [joinPassword, setJoinPassword] = useState("");
   const [difficulty, setDifficulty] = useState<"easy" | "medium" | "hard">("medium");
+  const [showStats, setShowStats] = useState(false);
 
   const validateName = (raw: string): string => {
     const trimmed = raw.trim();
@@ -39,7 +43,7 @@ function Lobby({ onJoined }: { onJoined: (_connect: () => Promise<any>) => void 
     if (error) { setNameError(error); return; }
     setNameError("");
     const trimmed = name.trim();
-    onJoined(() => client.joinOrCreate("uno", { name: trimmed, private: privateRoom, difficulty }));
+    onJoined(() => client.joinOrCreate("uno", { name: trimmed, private: privateRoom, difficulty, password: password || undefined }));
   };
 
   const handleJoinByCode = () => {
@@ -48,7 +52,7 @@ function Lobby({ onJoined }: { onJoined: (_connect: () => Promise<any>) => void 
     if (error) { setNameError(error); return; }
     setNameError("");
     const trimmed = name.trim();
-    onJoined(() => client.joinById(roomCode.trim(), { name: trimmed }));
+    onJoined(() => client.joinById(roomCode.trim(), { name: trimmed, password: joinPassword || undefined }));
   };
 
   const handleWatch = () => {
@@ -84,6 +88,17 @@ function Lobby({ onJoined }: { onJoined: (_connect: () => Promise<any>) => void 
           </button>
         </div>
 
+        <div style={{ position: "absolute", top: 16, right: 16 }}>
+          <button
+            className="hud-btn"
+            title="Leaderboard"
+            onClick={() => setShowStats(true)}
+            style={{ width: 34, height: 34, fontSize: 16 }}
+          >
+            🏆
+          </button>
+        </div>
+
         {mode === "play" ? (
           <>
             <form onSubmit={handleQuickPlay} className="lobby-form">
@@ -107,6 +122,17 @@ function Lobby({ onJoined }: { onJoined: (_connect: () => Promise<any>) => void 
                   {privateRoom ? "ON" : "OFF"}
                 </button>
               </div>
+              {privateRoom && (
+                <input
+                  className="lobby-input"
+                  type="password"
+                  placeholder="Room password (optional)..."
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  maxLength={32}
+                  style={{ width: 220, fontSize: 14, padding: "10px 16px" }}
+                />
+              )}
               <div className="option-row" style={{ width: "100%", justifyContent: "center", gap: 8 }}>
                 <span style={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }}>Bot difficulty</span>
                 {(["easy", "medium", "hard"] as const).map((d) => (
@@ -133,6 +159,14 @@ function Lobby({ onJoined }: { onJoined: (_connect: () => Promise<any>) => void 
                 placeholder="Room code..."
                 value={roomCode}
                 onChange={(e) => setRoomCode(e.target.value)}
+              />
+              <input
+                className="lobby-input lobby-code-input"
+                type="password"
+                placeholder="Password..."
+                value={joinPassword}
+                onChange={(e) => setJoinPassword(e.target.value)}
+                style={{ width: 120 }}
               />
               <button
                 className="lobby-btn lobby-join-btn"
@@ -167,6 +201,47 @@ function Lobby({ onJoined }: { onJoined: (_connect: () => Promise<any>) => void 
             </p>
           </>
         )}
+      </div>
+      {showStats && <StatsOverlay onClose={() => setShowStats(false)} />}
+    </div>
+  );
+}
+
+function StatsOverlay({ onClose }: { onClose: () => void }) {
+  const leaderboard = getLeaderboard();
+  return (
+    <div className="rules-overlay" onClick={onClose}>
+      <div className="rules-card" onClick={(e) => e.stopPropagation()}>
+        <div className="rules-header">
+          <h2>Leaderboard</h2>
+          <button className="rules-close" onClick={onClose}>✕</button>
+        </div>
+        <div className="rules-body">
+          {leaderboard.length === 0 ? (
+            <p style={{ fontSize: 14, color: "rgba(255,255,255,0.5)", textAlign: "center" }}>
+              No games played yet.
+            </p>
+          ) : (
+            <table style={{ width: "100%", fontSize: 13, color: "rgba(255,255,255,0.8)", borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={{ color: "#ffcc00", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  <th style={{ textAlign: "left", padding: "4px 8px" }}>Player</th>
+                  <th style={{ textAlign: "center", padding: "4px 8px" }}>Wins</th>
+                  <th style={{ textAlign: "center", padding: "4px 8px" }}>Played</th>
+                </tr>
+              </thead>
+              <tbody>
+                {leaderboard.map(({ name, stats }) => (
+                  <tr key={name} style={{ borderTop: "1px solid rgba(255,255,255,0.1)" }}>
+                    <td style={{ padding: "6px 8px", fontWeight: 600 }}>{name}</td>
+                    <td style={{ textAlign: "center", padding: "6px 8px", color: "#ffcc00" }}>{stats.wins}</td>
+                    <td style={{ textAlign: "center", padding: "6px 8px" }}>{stats.gamesPlayed}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
       </div>
     </div>
   );

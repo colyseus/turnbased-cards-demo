@@ -30,6 +30,7 @@ export default [
         clearInterval: "readonly",
         requestAnimationFrame: "readonly",
         cancelAnimationFrame: "readonly",
+        localStorage: "readonly",
         SVGCircleElement: "readonly",
         React: "readonly",
         process: "readonly",
