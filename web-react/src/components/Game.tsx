@@ -13,6 +13,7 @@ import {
   setSoundEnabled,
   vibrate,
 } from "../sound";
+import { recordCardPlayed, recordWin, recordUnoCall, recordGamePlayed, getStats } from "../stats";
 import { useRoom, useRoomState } from "../colyseus";
 import { Avatar } from "./Avatar";
 
@@ -566,11 +567,15 @@ export function Game(props: GameProps) {
       if (!room || !state) return;
       if (state.unoCaller === localSeatIndex) {
         room.send("uno");
+        const localPlayerEntry = playersByVisualPos.find((p) => p.visualPos === 0);
+        if (localPlayerEntry) {
+          recordUnoCall(localPlayerEntry.player.name);
+        }
       }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [room, state, localSeatIndex]);
+  }, [room, state, localSeatIndex, playersByVisualPos]);
 
   const onPlayCard = useCallback(
     (cardId: string) => {
@@ -592,13 +597,20 @@ export function Game(props: GameProps) {
       playCardSound();
       vibrate(30);
       room.send("play_card", { cardId });
+
+      // Track stat
+      const localPlayerEntry = playersByVisualPos.find((p) => p.visualPos === 0);
+      if (localPlayerEntry) {
+        recordCardPlayed(localPlayerEntry.player.name);
+      }
+
       setHoveredCard(null);
       setShowcaseCardId(cardId);
       showcaseTimer.current = setTimeout(() => {
         setShowcaseCardId(null);
       }, SHOWCASE_DURATION_MS);
     },
-    [room, state, localHand, showcaseCardId, colorPickerFor, playableSet],
+    [room, state, localHand, showcaseCardId, colorPickerFor, playableSet, playersByVisualPos],
   );
 
   const onPickColor = useCallback(
@@ -619,6 +631,13 @@ export function Game(props: GameProps) {
       vibrate(30);
       if (isDraw4) onShake();
       room.send("play_card", { cardId, chosenColor: color });
+
+      // Track stat
+      const localPlayerEntry = playersByVisualPos.find((p) => p.visualPos === 0);
+      if (localPlayerEntry) {
+        recordCardPlayed(localPlayerEntry.player.name);
+      }
+
       setColorPickerFor(null);
       setHoveredCard(null);
       setHoveredPickerColor(null);
@@ -627,7 +646,7 @@ export function Game(props: GameProps) {
         setShowcaseCardId(null);
       }, SHOWCASE_DURATION_MS);
     },
-    [room, colorPickerFor, localHand, onShake],
+    [room, colorPickerFor, localHand, onShake, playersByVisualPos],
   );
 
   // ── Layout ────────────────────────────────────────────────────
@@ -770,6 +789,36 @@ export function Game(props: GameProps) {
     }
     prevDiscardLen.current = state.discardPile.length;
   }, [state, onLastPlayed]);
+
+  // Track game played when local player joins a game in progress
+  const gameTracked = useRef(false);
+  useEffect(() => {
+    if (!state || state.phase !== "playing" || gameTracked.current) return;
+    const localPlayerEntry = playersByVisualPos.find((p) => p.visualPos === 0);
+    if (localPlayerEntry && !localPlayerEntry.player.isBot) {
+      recordGamePlayed(localPlayerEntry.player.name);
+      gameTracked.current = true;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state?.phase, playersByVisualPos]);
+
+  // Reset game tracked flag when phase changes back to playing
+  useEffect(() => {
+    if (state?.phase === "playing") {
+      gameTracked.current = false;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state?.phase]);
+
+  // Track win
+  useEffect(() => {
+    if (!state || state.winner === -1) return;
+    const localPlayerEntry = playersByVisualPos.find((p) => p.visualPos === 0);
+    if (localPlayerEntry && localPlayerEntry.player.seatIndex === state.winner) {
+      recordWin(localPlayerEntry.player.name);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state?.winner, playersByVisualPos]);
 
   // ── Build card renders ────────────────────────────────────────
 
@@ -1190,10 +1239,12 @@ interface OptionsOverlayProps {
   onSoundToggle: () => void;
   qualityLevel: string;
   onQualityToggle: () => void;
+  playerName?: string;
 }
 
-function OptionsOverlay({ onClose, soundEnabled, onSoundToggle, qualityLevel, onQualityToggle }: OptionsOverlayProps) {
+function OptionsOverlay({ onClose, soundEnabled, onSoundToggle, qualityLevel, onQualityToggle, playerName }: OptionsOverlayProps) {
   const qualityLabel = qualityLevel.toUpperCase();
+  const stats = playerName ? getStats(playerName) : null;
   return (
     <div className="rules-overlay" onClick={onClose}>
       <div className="rules-card" onClick={(e) => e.stopPropagation()}>
@@ -1230,6 +1281,17 @@ function OptionsOverlay({ onClose, soundEnabled, onSoundToggle, qualityLevel, on
               Cycles: Low → Medium → High
             </p>
           </section>
+          {stats && (
+            <section>
+              <h3>Your Stats</h3>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, fontSize: 13 }}>
+                <div style={{ color: "rgba(255,255,255,0.6)" }}>Games: <span style={{ color: "#fff" }}>{stats.gamesPlayed}</span></div>
+                <div style={{ color: "rgba(255,255,255,0.6)" }}>Wins: <span style={{ color: "#ffcc00" }}>{stats.wins}</span></div>
+                <div style={{ color: "rgba(255,255,255,0.6)" }}>UNO calls: <span style={{ color: "#fff" }}>{stats.unoCalls}</span></div>
+                <div style={{ color: "rgba(255,255,255,0.6)" }}>Cards: <span style={{ color: "#fff" }}>{stats.cardsPlayed}</span></div>
+              </div>
+            </section>
+          )}
           <section>
             <h3>About</h3>
             <p>Turn-based Card Game — Colyseus Demo</p>
@@ -1447,10 +1509,14 @@ export function GameHud({ sortByColor, onSortToggle, showRules, onShowRules, onC
 
   const players = Object.values(state.players) as PlayerSchema[];
 
-  // Find local seat
+  // Find local seat and player
   let localSeatIndex = 0;
+  let localPlayerName: string | undefined;
   for (const p of players) {
-    if (p.sessionId === room.sessionId) localSeatIndex = p.seatIndex;
+    if (p.sessionId === room.sessionId) {
+      localSeatIndex = p.seatIndex;
+      localPlayerName = p.name;
+    }
   }
 
   // Build player labels
@@ -1606,6 +1672,7 @@ export function GameHud({ sortByColor, onSortToggle, showRules, onShowRules, onC
           onSoundToggle={() => { setSoundEnabled(!soundEnabled); onSoundToggle(); }}
           qualityLevel={qualityLevel}
           onQualityToggle={onQualityToggle}
+          playerName={localPlayerName}
         />
       )}
       {showChat && <ChatOverlay onClose={onCloseChat} />}
