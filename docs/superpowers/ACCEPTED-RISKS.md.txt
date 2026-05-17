@@ -1,0 +1,27 @@
+# Accepted Risks
+
+## Date: 2026-05-17
+
+---
+
+## Server: elliptic / Colyseus Dependency Chain (6 low-severity vulnerabilities)
+
+**Vulnerabilities:**
+- `elliptic *` — Cryptographic primitive with risky implementation (GHSA-848j-6mx2-7j84)
+- Transitive path: `colyseus` → `@colyseus/playground` → `@colyseus/auth` → `grant` → `jwk-to-pem` → `elliptic`
+
+**Status:** ACCEPTED RISK — blocked upstream
+
+**Rationale:**
+- All 6 vulnerabilities are **low severity**
+- Fixing them requires `npm audit fix --force`, which would downgrade `colyseus` from `^0.17.0` to `0.15.13`
+- This is a **breaking major version change** that would break the server's room logic, schema definitions, and transport layer
+- The `elliptic` vulnerability is in a cryptographic primitive used by `jwk-to-pem` for OAuth/JWT token handling in Colyseus's auth module
+- The application does not use Colyseus's built-in auth system directly — it uses simple name-based session joining
+- Risk is minimal: the vulnerable code path (JWT key parsing via `jwk-to-pem`) is not exercised by this application's usage pattern
+
+**Remediation path:**
+- Monitor `@colyseus/auth` / `colyseus` for updates that bump their `grant` / `jwk-to-pem` dependencies
+- When Colyseus releases a patched version, run `npm audit fix` to pick it up
+
+**Last verified:** 2026-05-17
