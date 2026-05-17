@@ -43,6 +43,8 @@ export default [
         HTMLTextAreaElement: "readonly",
         HTMLImageElement: "readonly",
         HTMLDivElement: "readonly",
+        Blob: "readonly",
+        URL: "readonly",
       },
     },
     plugins: {
@@ -72,7 +74,7 @@ export default [
     },
   },
   {
-    files: ["**/Game.tsx"],
+    files: ["**/Game.tsx", "**/DevTools.tsx", "**/Preloader.tsx", "**/ColorPicker.tsx"],
     rules: {
       "no-unused-vars": "off",
       "@typescript-eslint/no-unused-vars": "off",
