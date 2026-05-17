@@ -22,6 +22,8 @@ function Lobby({ onJoined }: { onJoined: (_connect: () => Promise<any>) => void 
   const [nameError, setNameError] = useState("");
   const [mode, setMode] = useState<"play" | "watch">("play");
   const [privateRoom, setPrivateRoom] = useState(false);
+  const [password, setPassword] = useState("");
+  const [joinPassword, setJoinPassword] = useState("");
   const [difficulty, setDifficulty] = useState<"easy" | "medium" | "hard">("medium");
 
   const validateName = (raw: string): string => {
@@ -39,7 +41,7 @@ function Lobby({ onJoined }: { onJoined: (_connect: () => Promise<any>) => void 
     if (error) { setNameError(error); return; }
     setNameError("");
     const trimmed = name.trim();
-    onJoined(() => client.joinOrCreate("uno", { name: trimmed, private: privateRoom, difficulty }));
+    onJoined(() => client.joinOrCreate("uno", { name: trimmed, private: privateRoom, difficulty, password: password || undefined }));
   };
 
   const handleJoinByCode = () => {
@@ -48,7 +50,7 @@ function Lobby({ onJoined }: { onJoined: (_connect: () => Promise<any>) => void 
     if (error) { setNameError(error); return; }
     setNameError("");
     const trimmed = name.trim();
-    onJoined(() => client.joinById(roomCode.trim(), { name: trimmed }));
+    onJoined(() => client.joinById(roomCode.trim(), { name: trimmed, password: joinPassword || undefined }));
   };
 
   const handleWatch = () => {
@@ -107,6 +109,17 @@ function Lobby({ onJoined }: { onJoined: (_connect: () => Promise<any>) => void 
                   {privateRoom ? "ON" : "OFF"}
                 </button>
               </div>
+              {privateRoom && (
+                <input
+                  className="lobby-input"
+                  type="password"
+                  placeholder="Room password (optional)..."
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  maxLength={32}
+                  style={{ width: 220, fontSize: 14, padding: "10px 16px" }}
+                />
+              )}
               <div className="option-row" style={{ width: "100%", justifyContent: "center", gap: 8 }}>
                 <span style={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }}>Bot difficulty</span>
                 {(["easy", "medium", "hard"] as const).map((d) => (
@@ -133,6 +146,14 @@ function Lobby({ onJoined }: { onJoined: (_connect: () => Promise<any>) => void 
                 placeholder="Room code..."
                 value={roomCode}
                 onChange={(e) => setRoomCode(e.target.value)}
+              />
+              <input
+                className="lobby-input lobby-code-input"
+                type="password"
+                placeholder="Password..."
+                value={joinPassword}
+                onChange={(e) => setJoinPassword(e.target.value)}
+                style={{ width: 120 }}
               />
               <button
                 className="lobby-btn lobby-join-btn"

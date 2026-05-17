@@ -33,14 +33,19 @@ export class UnoRoom extends Room<{ state: RoomState }> {
   private lastActionTime = new Map<string, number>();
   /** Bot difficulty: "easy" | "medium" | "hard" */
   private difficulty: "easy" | "medium" | "hard" = "medium";
+  /** Optional room password. */
+  private password?: string;
   /** Card counting: tracks how many cards of each color/value have been discarded */
   private discardedCounts: Record<string, number> = {};
 
-  onCreate(options: { private?: boolean; difficulty?: string } = {}) {
+  onCreate(options: { private?: boolean; difficulty?: string; password?: string } = {}) {
     try {
       // Spectators don't count toward maxClients — they can always join
       this.maxClients = 256;
       if (options.private) this.setPrivate();
+      if (options.password && typeof options.password === "string" && options.password.length <= 32) {
+        this.password = options.password;
+      }
       if (options.difficulty === "easy" || options.difficulty === "hard") {
         this.difficulty = options.difficulty;
       }
@@ -98,8 +103,13 @@ export class UnoRoom extends Room<{ state: RoomState }> {
     }
   }
 
-  onJoin(client: Client, options: { name?: string; spectator?: boolean }) {
+  onJoin(client: Client, options: { name?: string; spectator?: boolean; password?: string }) {
     try {
+      // Validate password first
+      if (this.password && options?.password !== this.password) {
+        throw new Error("Invalid password");
+      }
+
       // Spectator join — watch without taking a seat
       if (options?.spectator) {
         this.spectators.add(client);
