@@ -57,6 +57,7 @@ export class UnoRoom extends Room<{ state: RoomState }> {
       this.state.spectatorCount = 0;
       this.state.chatMessages = new ArraySchema();
       this.state.unoCaller = -1;
+      this.state.rematchVotes = new ArraySchema();
 
       // Fill all seats with bots
       for (let i = 0; i < NUM_PLAYERS; i++) {
@@ -96,6 +97,10 @@ export class UnoRoom extends Room<{ state: RoomState }> {
 
       this.onMessage("uno", (client: Client) => {
         this.handleUno(client);
+      });
+
+      this.onMessage("vote_rematch", (client: Client) => {
+        this.handleVoteRematch(client);
       });
     } catch (err) {
       logger.error("UnoRoom", "onCreate failed", { error: String(err) });
@@ -490,6 +495,7 @@ export class UnoRoom extends Room<{ state: RoomState }> {
         seatIndex: player.seatIndex,
       });
       this.state.phase = "finished";
+      this.state.rematchVotes.splice(0, this.state.rematchVotes.length);
       clearTimeout(this.turnTimeout);
       // Reset flag before the finally runs
       this.turnActionActive = false;
@@ -697,6 +703,7 @@ export class UnoRoom extends Room<{ state: RoomState }> {
     this.state.discardPile.splice(0, this.state.discardPile.length);
     this.discardedCounts = {};
     this.state.unoCaller = -1;
+    this.state.rematchVotes.splice(0, this.state.rematchVotes.length);
     // Re-deal
     this.dealGame();
     this.state.phase = "playing";
@@ -722,6 +729,35 @@ export class UnoRoom extends Room<{ state: RoomState }> {
     // Only the player who must call UNO can do so
     if (this.state.unoCaller === player.seatIndex) {
       this.state.unoCaller = -1;
+    }
+  }
+
+  private handleVoteRematch(client: Client) {
+    const player = this.findPlayerBySession(client.sessionId);
+    if (!player) return;
+    if (this.state.phase !== "finished") return;
+    if (player.isBot) return;
+
+    // Add vote if not already present
+    const alreadyVoted = this.state.rematchVotes.includes(player.seatIndex);
+    if (!alreadyVoted) {
+      this.state.rematchVotes.push(player.seatIndex);
+    }
+
+    // Check if all connected humans have voted
+    const connectedHumanSeats: number[] = [];
+    this.state.players.forEach((p: PlayerInstance) => {
+      if (!p.isBot && p.connected) {
+        connectedHumanSeats.push(p.seatIndex);
+      }
+    });
+
+    const allVoted = connectedHumanSeats.length > 0 &&
+      connectedHumanSeats.every((seat) => this.state.rematchVotes.includes(seat));
+
+    if (allVoted) {
+      this.state.rematchVotes.splice(0, this.state.rematchVotes.length);
+      this.handleRestart(client);
     }
   }
 }

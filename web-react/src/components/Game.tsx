@@ -1595,12 +1595,7 @@ export function GameHud({ sortByColor, onSortToggle, showRules, onShowRules, onC
             />
           ))}
           <div className="winner-text">{winnerName} wins!</div>
-          <button
-            className="new-game-btn"
-            onClick={() => room.send("restart")}
-          >
-            New Game
-          </button>
+          <RematchOverlay />
         </div>
       )}
       {showRules && <RulesOverlay onClose={onCloseRules} />}
@@ -1614,6 +1609,58 @@ export function GameHud({ sortByColor, onSortToggle, showRules, onShowRules, onC
         />
       )}
       {showChat && <ChatOverlay onClose={onCloseChat} />}
+    </div>
+  );
+}
+
+function RematchOverlay() {
+  const { room } = useRoom();
+  const state = useRoomState();
+
+  if (!room || !state || state.phase !== "finished") return null;
+
+  const rematchVotes = (state as unknown as { rematchVotes?: number[] }).rematchVotes ?? [];
+
+  // Count connected human players
+  let connectedHumans = 0;
+  for (const p of Object.values(state.players) as PlayerSchema[]) {
+    if (!p.isBot && p.connected) connectedHumans++;
+  }
+
+  const voteCount = rematchVotes.length;
+  const localPlayer = Object.values(state.players as PlayerSchema[]).find(
+    (p) => p.sessionId === room.sessionId
+  );
+  const canVote = localPlayer && !localPlayer.isBot;
+  const localVoted = localPlayer ? rematchVotes.includes(localPlayer.seatIndex) : false;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, pointerEvents: "auto" }}>
+      <div style={{ fontSize: 14, color: "rgba(255,255,255,0.6)" }}>
+        {voteCount}/{connectedHumans} voted for rematch
+      </div>
+      {canVote && !localVoted && (
+        <button
+          className="new-game-btn"
+          onClick={() => {
+            room.send("vote_rematch");
+          }}
+        >
+          Vote Rematch
+        </button>
+      )}
+      {canVote && localVoted && (
+        <button className="new-game-btn" disabled style={{ opacity: 0.5, cursor: "default" }}>
+          Voted ✓
+        </button>
+      )}
+      <button
+        className="new-game-btn"
+        style={{ fontSize: 14, padding: "10px 28px" }}
+        onClick={() => room.send("restart")}
+      >
+        New Game
+      </button>
     </div>
   );
 }
