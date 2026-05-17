@@ -1,0 +1,133 @@
+# Security Audit Fix Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Resolve all `npm audit` security vulnerabilities in both client and server by running `npm audit fix` and verifying builds/tests still pass.
+
+**Architecture:** Two independent tasks (client and server) with no dependencies. Each runs `npm audit fix`, then verifies the project still builds and tests pass.
+
+**Tech Stack:** Node.js, npm, Vite, Express, Vitest
+
+---
+
+## File Structure
+
+| File | Responsibility |
+|------|---------------|
+| `web-react/package-lock.json` | Client dependency lockfile — updated by npm audit fix |
+| `server/package-lock.json` | Server dependency lockfile — updated by npm audit fix |
+
+---
+
+## Task 1: Fix Client Vulnerabilities
+
+**Files:**
+- Modify: `web-react/package-lock.json`
+
+- [ ] **Step 1: Run npm audit fix in web-react**
+
+```bash
+cd /home/gfunk/github/turnbased-cards-demo/web-react
+npm audit fix
+```
+
+- [ ] **Step 2: Verify no high-severity vulnerabilities remain**
+
+Run: `npm audit --audit-level=high`
+Expected: `found 0 vulnerabilities` or only vulnerabilities without available fixes.
+
+- [ ] **Step 3: Verify client build still succeeds**
+
+Run: `npm run build`
+Expected: Build completes with no errors.
+
+- [ ] **Step 4: Verify client lint still passes**
+
+Run: `npm run lint`
+Expected: No errors, no warnings.
+
+- [ ] **Step 5: Verify client type check still passes**
+
+Run: `npx tsc --noEmit`
+Expected: No TypeScript errors.
+
+- [ ] **Step 6: Commit**
+
+```bash
+cd /home/gfunk/github/turnbased-cards-demo
+git add web-react/package-lock.json
+git commit -m "chore: fix npm audit vulnerabilities in client"
+```
+
+---
+
+## Task 2: Fix Server Vulnerabilities
+
+**Files:**
+- Modify: `server/package-lock.json`
+
+- [ ] **Step 1: Run npm audit fix in server**
+
+```bash
+cd /home/gfunk/github/turnbased-cards-demo/server
+npm audit fix
+```
+
+- [ ] **Step 2: Verify no high-severity vulnerabilities remain**
+
+Run: `npm audit --audit-level=high`
+Expected: `found 0 vulnerabilities` or only vulnerabilities without available fixes.
+
+- [ ] **Step 3: Verify server tests still pass**
+
+Run: `npm test`
+Expected: All 56 tests pass.
+
+- [ ] **Step 4: Commit**
+
+```bash
+cd /home/gfunk/github/turnbased-cards-demo
+git add server/package-lock.json
+git commit -m "chore: fix npm audit vulnerabilities in server"
+```
+
+---
+
+## Final Verification
+
+- [ ] **Step 1: Run full client verification**
+
+```bash
+cd /home/gfunk/github/turnbased-cards-demo/web-react
+npm run build && npm run lint && npx tsc --noEmit
+```
+
+- [ ] **Step 2: Run full server verification**
+
+```bash
+cd /home/gfunk/github/turnbased-cards-demo/server
+npm test
+```
+
+- [ ] **Step 3: Push commits**
+
+```bash
+cd /home/gfunk/github/turnbased-cards-demo
+git push origin main
+```
+
+---
+
+## Spec Coverage Checklist
+
+| Spec Section | Task | Status |
+|-------------|------|--------|
+| Fix client vulnerabilities | Task 1 | ✓ |
+| Fix server vulnerabilities | Task 2 | ✓ |
+| Verify builds/tests pass | Final Verification | ✓ |
+
+## Placeholder Scan
+
+- No TBD/TODO/"implement later" found.
+- All file paths are exact.
+- All commands have expected outputs.
