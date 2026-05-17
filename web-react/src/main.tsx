@@ -7,6 +7,7 @@ import { getLeaderboard } from "./stats";
 
 // Lazy-load the 3D game canvas so three.js is not in the initial bundle
 const GameScene = lazy(() => import("./components/GameScene"));
+const StressTestScene = lazy(() => import("./components/StressTestScene"));
 
 function Preloader() {
   return (
@@ -65,10 +66,9 @@ function Lobby({ onJoined }: { onJoined: (_connect: () => Promise<any>) => void 
       <div className="lobby-card">
         <div className="lobby-header">
           <h1 className="lobby-title">Card Game</h1>
-          <img
-            src={`${import.meta.env.BASE_URL}cards/wild_draw4.png`}
-            alt=""
-            className="lobby-hero-card"
+          <div 
+            className="lobby-hero-card" 
+            style={{ backgroundImage: `url('${import.meta.env.BASE_URL}cards/atlas.webp?v=${Date.now()}')` }}
           />
         </div>
         <p className="lobby-subtitle">Colyseus Demo</p>
@@ -288,9 +288,29 @@ function GameContent({ onDisconnect }: { onDisconnect: () => void }) {
 
 function App() {
   const [connectFn, setConnectFn] = useState<(() => Promise<any>) | null>(null); // eslint-disable-line @typescript-eslint/no-explicit-any
+  const [showStressTest, setShowStressTest] = useState(false);
+
+  if (showStressTest) {
+    return (
+      <Suspense fallback={<Preloader />}>
+        <StressTestScene onBack={() => setShowStressTest(false)} />
+      </Suspense>
+    );
+  }
 
   if (!connectFn) {
-    return <Lobby onJoined={(fn) => setConnectFn(() => fn)} />;
+    return (
+      <>
+        <Lobby onJoined={(fn) => setConnectFn(() => fn)} />
+        <button 
+          className="devtools-trigger" 
+          style={{ bottom: 12, left: 12, right: 'auto' }}
+          onClick={() => setShowStressTest(true)}
+        >
+          STRESS TEST
+        </button>
+      </>
+    );
   }
 
   return (

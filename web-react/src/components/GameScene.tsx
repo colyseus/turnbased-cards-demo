@@ -1,9 +1,10 @@
 import { Canvas, useThree, useFrame } from "@react-three/fiber";
 import { useState, useRef, useCallback, useEffect } from "react";
 import * as THREE from "three";
-import { Game, GameHud } from "./Game";
+import { Game } from "./Game";
+import { GameHud } from "./game/GameHud";
 import { TextureProvider } from "./Preloader";
-import { FpsCounter } from "./FpsCounter";
+import { DevToolsProvider, DevToolsLogic, DevToolsUI } from "./DevTools";
 import { LongPressCard } from "./LongPressCard";
 
 export interface LastPlayedInfo {
@@ -129,7 +130,7 @@ export default function GameScene() {
   }, []);
 
   return (
-    <>
+    <DevToolsProvider>
       <Canvas
         camera={{ position: [0, -0.5, 10], fov: 50 }}
         dpr={QUALITY_PRESETS[qualityLevel].dpr}
@@ -138,6 +139,7 @@ export default function GameScene() {
         <ambientLight intensity={2.5} />
         <directionalLight position={[0, 2, 10]} intensity={1.5} />
         <CameraShake shakeStart={shakeStart} />
+        <DevToolsLogic />
         <TextureProvider>
           <Game
             sortByColor={sortByColor}
@@ -150,7 +152,7 @@ export default function GameScene() {
           />
         </TextureProvider>
       </Canvas>
-      <FpsCounter />
+      <DevToolsUI />
       {longPressCard && (
         <LongPressCard
           textureId={longPressCard.textureId}
@@ -174,7 +176,7 @@ export default function GameScene() {
         showChat={showChat}
         onShowChat={() => setShowChat(true)}
         onCloseChat={() => setShowChat(false)}
-      />
-    </>
-  );
-}
+        />
+        </DevToolsProvider>
+        );
+        }

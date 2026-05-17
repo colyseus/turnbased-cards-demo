@@ -1,7 +1,7 @@
-import { useRef } from 'react';
+import { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { useCardTexture } from './Preloader';
+import { useCardAtlas } from './Preloader';
 
 const CARD_ASPECT = 240 / 375; // width / height
 
@@ -56,9 +56,27 @@ export function Card({
   const shakeTime = useRef(0);
   const tiltRef = useRef({ x: 0, y: 0 });
 
-  // Textures come from context — no useLoader, no Suspense triggers
-  const backTex = useCardTexture('back');
-  const frontTex = useCardTexture(textureId);
+  const { atlas, getUVs } = useCardAtlas();
+
+  const frontUVs = useMemo(() => {
+    const uvs = getUVs(textureId);
+    return new Float32Array([
+      uvs.u, uvs.v + uvs.h,
+      uvs.u + uvs.w, uvs.v + uvs.h,
+      uvs.u, uvs.v,
+      uvs.u + uvs.w, uvs.v
+    ]);
+  }, [textureId, getUVs]);
+
+  const backUVs = useMemo(() => {
+    const uvs = getUVs('back');
+    return new Float32Array([
+      uvs.u, uvs.v + uvs.h,
+      uvs.u + uvs.w, uvs.v + uvs.h,
+      uvs.u, uvs.v,
+      uvs.u + uvs.w, uvs.v
+    ]);
+  }, [getUVs]);
 
   useFrame((_, delta) => {
     const dt = Math.min(delta, 0.05);
@@ -152,12 +170,28 @@ export function Card({
       )}
       <group ref={flipRef}>
         <mesh position={[0, 0, 0.005]}>
-          <planeGeometry args={[CARD_ASPECT, 1]} />
-          <meshBasicMaterial map={frontTex} alphaTest={0.5} />
+          <planeGeometry args={[CARD_ASPECT, 1]}>
+            <bufferAttribute
+              args={[frontUVs, 2]}
+              attach="attributes-uv"
+              count={frontUVs.length / 2}
+              array={frontUVs}
+              itemSize={2}
+            />
+          </planeGeometry>
+          <meshBasicMaterial map={atlas} alphaTest={0.5} />
         </mesh>
         <mesh position={[0, 0, -0.005]} rotation={[0, Math.PI, 0]}>
-          <planeGeometry args={[CARD_ASPECT, 1]} />
-          <meshBasicMaterial map={backTex} alphaTest={0.5} />
+          <planeGeometry args={[CARD_ASPECT, 1]}>
+            <bufferAttribute
+              args={[backUVs, 2]}
+              attach="attributes-uv"
+              count={backUVs.length / 2}
+              array={backUVs}
+              itemSize={2}
+            />
+          </planeGeometry>
+          <meshBasicMaterial map={atlas} alphaTest={0.5} />
         </mesh>
       </group>
     </group>

@@ -278,14 +278,20 @@ body, #root {
   right: -90px;
   bottom: -40px;
   width: 80px;
+  height: 125px;
   filter: drop-shadow(0 6px 20px rgba(0,0,0,0.5));
   animation: cardFloat 3s ease-in-out infinite;
-  transform: rotate(12deg);
+  background-image: url('/cards/atlas.webp');
+  background-size: 800px 750px; /* 10 cols * 80px, 6 rows * 125px */
+  background-position: -240px -625px; /* wild_draw4: col 3 (3*80=240), row 5 (5*125=625) */
+  border-radius: 4px;
+  background-color: #333;
+  border: 1px solid rgba(255,255,255,0.1);
 }
 
 @keyframes cardFloat {
-  0%, 100% { translate: 0 0; rotate: 12deg; }
-  50% { translate: 0 -10px; rotate: 16deg; }
+  0%, 100% { transform: translate(0, 0) rotate(12deg); }
+  50% { transform: translate(0, -10px) rotate(16deg); }
 }
 
 .lobby-subtitle {
@@ -709,7 +715,182 @@ body, #root {
   color: #33bb44;
 }
 
-/* Mobile responsive */
+/* DevTools Dashboard */
+.devtools-trigger {
+  position: fixed;
+  bottom: 12px;
+  right: 12px;
+  z-index: 999;
+  background: rgba(0,0,0,0.8);
+  color: #ffcc00;
+  border: 1px solid #ffcc00;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 10px;
+  font-weight: bold;
+  cursor: pointer;
+  letter-spacing: 1px;
+}
+
+.devtools-panel {
+  position: fixed;
+  bottom: 12px;
+  right: 12px;
+  width: 280px;
+  background: rgba(15, 15, 20, 0.95);
+  border: 1px solid #333;
+  border-radius: 8px;
+  color: #eee;
+  font-family: 'Inter', system-ui, sans-serif;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.8);
+  overflow: hidden;
+}
+
+.devtools-header {
+  padding: 10px 14px;
+  background: #222;
+  border-bottom: 1px solid #333;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #ffcc00;
+}
+
+.devtools-header .close-btn {
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.devtools-section {
+  padding: 14px;
+  border-bottom: 1px solid #222;
+}
+
+.section-title {
+  font-size: 11px;
+  color: #888;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+  letter-spacing: 0.5px;
+}
+
+.devtools-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+}
+
+.stat-row .val {
+  font-family: monospace;
+  color: #00e5ff;
+}
+
+.stat-row .val.low {
+  color: #ff4444;
+}
+
+.benchmark-controls {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.bench-btn {
+  flex: 1;
+  padding: 8px;
+  border: none;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.bench-btn.start { background: #33bb44; color: #fff; }
+.bench-btn.stop { background: #ff4444; color: #fff; }
+.bench-btn.export { background: #444; color: #fff; }
+.bench-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+.stress-test {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.label-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+}
+
+.stress-test input[type=range] {
+  width: 100%;
+  accent-color: #ffcc00;
+}
+
+.toggle-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+}
+
+.devtools-footer {
+  padding: 8px 14px;
+  font-size: 10px;
+  color: #555;
+  background: #111;
+}
+
+kbd {
+  background: #333;
+  padding: 1px 4px;
+  border-radius: 3px;
+  color: #888;
+}
+/* Stress Test Scene */
+.stress-test-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  padding: 20px;
+  z-index: 100;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  pointer-events: none;
+}
+
+.stress-test-overlay button {
+  pointer-events: auto;
+}
+
+.stress-test-title {
+  color: #ffcc00;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  font-size: 14px;
+  background: rgba(0,0,0,0.5);
+  padding: 8px 16px;
+  border-radius: 20px;
+}
+
 @media (max-width: 640px) {
   .lobby-title {
     font-size: 40px;

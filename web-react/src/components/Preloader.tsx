@@ -17,43 +17,62 @@ ALL_IDS.push('wild');
 ALL_IDS.push('wild_draw4');
 ALL_IDS.push('back');
 
-const ALL_URLS = ALL_IDS.map(id => `${CARDS_PATH}${id}.png`);
+const ATLAS_URL = `${CARDS_PATH}atlas.webp?v=${Date.now()}`;
+const COLS = 10;
+const ROWS = 6;
 
-// Context holds a map from textureId → THREE.Texture
-const TextureContext = createContext<Map<string, THREE.Texture>>(new Map());
-
-export function useCardTexture(textureId: string): THREE.Texture {
-  const map = useContext(TextureContext);
-  return map.get(textureId)!;
+export interface CardUVs {
+  u: number;
+  v: number;
+  w: number;
+  h: number;
 }
 
-/** Loads all card textures during Suspense, then provides them via context. */
+interface TextureContextValue {
+  atlas: THREE.Texture;
+  getUVs: (_: string) => CardUVs;
+}
+
+const TextureContext = createContext<TextureContextValue | null>(null);
+
+export function useCardAtlas() {
+  const ctx = useContext(TextureContext);
+  if (!ctx) throw new Error('useCardAtlas must be used within TextureProvider');
+  return ctx;
+}
+
+/** Loads the card texture atlas and provides UV mapping. */
 export function TextureProvider({ children }: { children: React.ReactNode }) {
-  const textures = useLoader(THREE.TextureLoader, ALL_URLS);
+  const atlas = useLoader(THREE.TextureLoader, ATLAS_URL);
 
-  // Build lookup map once — stable reference, no re-renders for consumers
-  const map = useMemo(() => {
-    const m = new Map<string, THREE.Texture>();
+  const contextValue = useMemo(() => {
+    atlas.minFilter = THREE.LinearFilter;
+    atlas.magFilter = THREE.LinearFilter;
+
+    const uvMap = new Map<string, CardUVs>();
     ALL_IDS.forEach((id, i) => {
-      const tex = textures[i];
-      tex.minFilter = THREE.LinearFilter;
-      tex.magFilter = THREE.LinearFilter;
-      m.set(id, tex);
+      const row = Math.floor(i / COLS);
+      const col = i % COLS;
+      uvMap.set(id, {
+        u: col / COLS,
+        v: 1 - (row + 1) / ROWS,
+        w: 1 / COLS,
+        h: 1 / ROWS,
+      });
     });
-    return m;
-  }, [textures]);
 
-  // Dispose textures when component unmounts to prevent memory leaks
-  useEffect(() => {
-    return () => {
-      for (const tex of map.values()) {
-        tex.dispose();
-      }
+    return {
+      atlas,
+      getUVs: (id: string) => uvMap.get(id) || uvMap.get('back')!,
     };
-  }, [map]);
+  }, [atlas]);
+
+  useEffect(() => {
+    return () => atlas.dispose();
+  }, [atlas]);
 
   return (
-    <TextureContext.Provider value={map}>
+    <TextureContext.Provider value={contextValue}>
       {children}
     </TextureContext.Provider>
   );
