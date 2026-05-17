@@ -63,6 +63,9 @@ export default function GameScene() {
   const [showChat, setShowChat] = useState(false);
   const [selectedCardIndex, setSelectedCardIndex] = useState(-1);
   const shakeStart = useRef(0);
+  const touchStartX = useRef(0);
+  const touchStartY = useRef(0);
+  const SWIPE_THRESHOLD = 50;
 
   const triggerShake = useCallback(() => {
     shakeStart.current = Date.now();
@@ -97,6 +100,32 @@ export default function GameScene() {
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  // Swipe gestures for mobile card navigation
+  useEffect(() => {
+    function onTouchStart(e: globalThis.TouchEvent) {
+      touchStartX.current = e.touches[0].clientX;
+      touchStartY.current = e.touches[0].clientY;
+    }
+    function onTouchEnd(e: globalThis.TouchEvent) {
+      const dx = e.changedTouches[0].clientX - touchStartX.current;
+      const dy = e.changedTouches[0].clientY - touchStartY.current;
+      if (Math.abs(dx) < SWIPE_THRESHOLD || Math.abs(dy) > Math.abs(dx)) return;
+
+      // Dispatch arrow key events for swipe
+      const event = new KeyboardEvent("keydown", {
+        key: dx > 0 ? "ArrowRight" : "ArrowLeft",
+        bubbles: true,
+      });
+      window.dispatchEvent(event);
+    }
+    window.addEventListener("touchstart", onTouchStart, { passive: true });
+    window.addEventListener("touchend", onTouchEnd, { passive: true });
+    return () => {
+      window.removeEventListener("touchstart", onTouchStart);
+      window.removeEventListener("touchend", onTouchEnd);
+    };
   }, []);
 
   return (
