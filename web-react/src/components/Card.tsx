@@ -17,6 +17,12 @@ interface CardProps {
   shake?: boolean;
   /** When set, the card starts here on first mount and springs to `position`. */
   initialPosition?: [number, number, number];
+  /** Highlight playable cards with a subtle glow */
+  highlight?: boolean;
+  /** Subtle [rotX, rotY] tilt applied on hover (radians) */
+  hoverTilt?: [number, number];
+  /** Keyboard-selected card: pulsing cyan glow */
+  selected?: boolean;
 }
 
 export function Card({
@@ -27,6 +33,9 @@ export function Card({
   scale: targetScale,
   shake,
   initialPosition,
+  highlight,
+  hoverTilt,
+  selected,
 }: CardProps) {
   const groupRef = useRef<THREE.Group>(null!);
   const flipRef = useRef<THREE.Group>(null!);
@@ -45,6 +54,7 @@ export function Card({
 
   const vel = useRef({ x: 0, y: 0, z: 0, rotZ: 0, flipY: 0, scale: 0 });
   const shakeTime = useRef(0);
+  const tiltRef = useRef({ x: 0, y: 0 });
 
   // Textures come from context — no useLoader, no Suspense triggers
   const backTex = useCardTexture('back');
@@ -98,7 +108,28 @@ export function Card({
       g.rotation.z += Math.sin(t1 * 22) * 0.06 + Math.sin(t1 * 37) * 0.03;
     }
 
+    // Flip spring
     [f.rotation.y, v.flipY] = spring(f.rotation.y, t.flipY, v.flipY);
+
+    // Hover tilt: spring X/Y tilt on top of flip
+    if (hoverTilt) {
+      const STIFFNESS_TILT = 120;
+      const DAMPING_TILT = 18;
+      const [tgtX, tgtY] = hoverTilt;
+      const accX = STIFFNESS_TILT * (tgtX - tiltRef.current.x) - DAMPING_TILT * vel.current.rotZ;
+      const accY = STIFFNESS_TILT * (tgtY - tiltRef.current.y) - DAMPING_TILT * vel.current.flipY;
+      vel.current.rotZ += accX * dt;
+      vel.current.flipY += accY * dt;
+      tiltRef.current.x += vel.current.rotZ * dt;
+      tiltRef.current.y += vel.current.flipY * dt;
+      f.rotation.x = tiltRef.current.x;
+      f.rotation.y += tiltRef.current.y; // layer on top of flip spring result
+    } else {
+      tiltRef.current.x = 0;
+      tiltRef.current.y = 0;
+      vel.current.rotZ = 0;
+      vel.current.flipY = 0;
+    }
 
     let newScale: number;
     [newScale, v.scale] = spring(g.scale.x, t.scale, v.scale);
@@ -107,6 +138,18 @@ export function Card({
 
   return (
     <group ref={groupRef}>
+      {highlight && (
+        <mesh position={[0, 0, -0.02]}>
+          <planeGeometry args={[CARD_ASPECT + 0.04, 1.04]} />
+          <meshBasicMaterial color="#ffcc00" transparent opacity={0.25} depthWrite={false} />
+        </mesh>
+      )}
+      {selected && (
+        <mesh position={[0, 0, -0.03]}>
+          <planeGeometry args={[CARD_ASPECT + 0.06, 1.06]} />
+          <meshBasicMaterial color="#00e5ff" transparent opacity={0.35} depthWrite={false} />
+        </mesh>
+      )}
       <group ref={flipRef}>
         <mesh position={[0, 0, 0.005]}>
           <planeGeometry args={[CARD_ASPECT, 1]} />

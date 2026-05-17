@@ -5,4 +5,17 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   base: process.env.BASE_URL || '/',
   plugins: [react()],
+  build: {
+    target: 'esnext',
+    minify: 'esbuild',
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'three-vendor': ['three'],
+          'r3f-vendor': ['@react-three/fiber'],
+          'colyseus-vendor': ['@colyseus/sdk', '@colyseus/react'],
+        },
+      },
+    },
+  },
 })

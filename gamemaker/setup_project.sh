@@ -149,26 +149,11 @@ done
 # =============================================================================
 
 echo ""
-echo "=== Copying Colyseus SDK Extension ==="
-
-TANKS_EXT_DIR="$(cd "$(dirname "$0")/../../realtime-tanks-demo/gamemaker/TankBattle/extensions/Colyseus_SDK" && pwd 2>/dev/null || echo "")"
-
-if [ -d "$TANKS_EXT_DIR" ]; then
-    # Copy extension files (but update parent path)
-    cp -r "$TANKS_EXT_DIR"/* "$PROJECT_DIR/extensions/Colyseus_SDK/" 2>/dev/null || true
-
-    # Update the .yy parent path
-    if [ -f "$PROJECT_DIR/extensions/Colyseus_SDK/Colyseus_SDK.yy" ]; then
-        # Replace parent reference to point to UnoGame
-        sed -i.bak 's|"name":"TankBattle"|"name":"UnoGame"|g' "$PROJECT_DIR/extensions/Colyseus_SDK/Colyseus_SDK.yy"
-        sed -i.bak 's|TankBattle\.yyp|UnoGame.yyp|g' "$PROJECT_DIR/extensions/Colyseus_SDK/Colyseus_SDK.yy"
-        rm -f "$PROJECT_DIR/extensions/Colyseus_SDK/Colyseus_SDK.yy.bak"
-    fi
-    echo "  Copied Colyseus SDK extension"
-else
-    echo "  WARNING: Could not find tanks demo extension at: $TANKS_EXT_DIR"
-    echo "  You will need to add the Colyseus_SDK extension manually."
-fi
+echo "=== Colyseus SDK Extension ==="
+echo "  The Colyseus_SDK extension must be imported manually."
+echo "  Download from: https://docs.colyseus.io/getting-started/gamemaker"
+echo "  Extract into: UnoGame/extensions/Colyseus_SDK/"
+echo "  Then add 'Colyseus_SDK' to the resources in UnoGame.yyp"
 
 # =============================================================================
 # Generate .yyp Project File

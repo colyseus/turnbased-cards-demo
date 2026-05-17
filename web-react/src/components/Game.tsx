@@ -3,7 +3,44 @@ import { useThree, useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { Card } from "./Card";
 import { UnoColor, cardTextureFromSchema, canPlaySchema } from "../../../server/shared/uno";
+import {
+  playCardSound,
+  drawCardSound,
+  selectColorSound,
+  wildCardSound,
+  winSound,
+  unoSound,
+  setSoundEnabled,
+  vibrate,
+} from "../sound";
 import { useRoom, useRoomState } from "../colyseus";
+import { Avatar } from "./Avatar";
+
+// ── Shared types (mirrored from server schema) ─────────────────────
+
+interface CardSchema {
+  id: string;
+  cardType: "color" | "wild";
+  color: string;
+  value: string;
+  chosenColor: string;
+}
+
+interface PlayerSchema {
+  sessionId: string;
+  seatIndex: number;
+  name: string;
+  isBot: boolean;
+  connected: boolean;
+  hand: CardSchema[];
+  handCount: number;
+}
+
+interface ChatMessageSchema {
+  sender: string;
+  text: string;
+  timestamp: number;
+}
 
 // ── Helpers ─────────────────────────────────────────────────────
 
@@ -29,6 +66,9 @@ interface CardRender {
   faceUp: boolean;
   scale: number;
   shake?: boolean;
+  highlight?: boolean;
+  hoverTilt?: [number, number];
+  selected?: boolean;
   initialPosition?: [number, number, number];
 }
 
@@ -222,8 +262,8 @@ function ColorPicker({
   onHoverColor,
 }: {
   hoveredPickerColor: UnoColor | null;
-  onPickColor: (color: UnoColor) => void;
-  onHoverColor: (color: UnoColor | null) => void;
+  onPickColor: (color: UnoColor) => void; // eslint-disable-line no-unused-vars
+  onHoverColor: (color: UnoColor | null) => void; // eslint-disable-line no-unused-vars
 }) {
   const overlayRef = useRef<THREE.MeshBasicMaterial>(null!);
   const circleRefs = useRef<(THREE.Mesh | null)[]>([null, null, null, null]);
@@ -344,7 +384,18 @@ function createFeltTexture(): THREE.CanvasTexture {
 
 // ── Main Game component ─────────────────────────────────────────
 
-export function Game() {
+interface GameProps {
+  sortByColor: boolean;
+  qualityLevel: string;
+  onLastPlayed: (info: { cardId: string; playerName: string; textureId: string } | null) => void;
+  onShake: () => void;
+  onLongPress: (textureId: string) => void;
+  selectedCardIndex: number;
+  onSelectCard: (index: number) => void;
+}
+
+export function Game(props: GameProps) {
+  const { sortByColor, onLastPlayed, onShake, onLongPress, selectedCardIndex, onSelectCard } = props;
   const { room } = useRoom();
   const state = useRoomState();
   const { viewport } = useThree();
@@ -359,13 +410,17 @@ export function Game() {
   const [hoveredPickerColor, setHoveredPickerColor] = useState<UnoColor | null>(
     null,
   );
+  const [invalidMoveCard, setInvalidMoveCard] = useState<string | null>(null);
+  const invalidMoveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const actionCooldown = useRef<boolean>(false);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Local seat detection ──────────────────────────────────────
 
   const localSeatIndex = useMemo(() => {
     if (!state?.players || !room) return 0;
     let seat = 0;
-    for (const p of Object.values(state.players) as any[]) {
+    for (const p of Object.values(state.players) as PlayerSchema[]) {
       if (p.sessionId === room.sessionId) seat = p.seatIndex;
     }
     return seat;
@@ -378,9 +433,9 @@ export function Game() {
     const result: {
       seatIndex: number;
       visualPos: number;
-      player: any;
+      player: PlayerSchema;
     }[] = [];
-    for (const player of Object.values(state.players) as any[]) {
+    for (const player of Object.values(state.players) as PlayerSchema[]) {
       result.push({
         seatIndex: player.seatIndex,
         visualPos: getVisualPosition(player.seatIndex, localSeatIndex),
@@ -392,11 +447,23 @@ export function Game() {
 
   // ── Local player's hand ───────────────────────────────────────
 
-  const localHand: any[] = useMemo(() => {
+  const localHand: CardSchema[] = useMemo(() => {
     const entry = playersByVisualPos.find((p) => p.visualPos === 0);
     if (!entry?.player?.hand) return [];
     return [...entry.player.hand];
   }, [playersByVisualPos]);
+
+  // Play UNO sound when local player goes to 1 card
+  const prevLocalHandCount = useRef<number>(0);
+  useEffect(() => {
+    const count = localHand.length;
+    if (prevLocalHandCount.current === 1 && count === 1) {
+      // Already at 1, don't re-trigger
+    } else if (count === 1 && prevLocalHandCount.current >= 2) {
+      unoSound();
+    }
+    prevLocalHandCount.current = count;
+  }, [localHand.length]);
 
   // ── Playable cards set ────────────────────────────────────────
 
@@ -406,8 +473,7 @@ export function Game() {
       showcaseCardId ||
       colorPickerFor ||
       state.currentPlayer !== localSeatIndex ||
-      state.winner !== -1 ||
-      state.pendingDraw > 0
+      state.winner !== -1
     ) {
       return new Set<string>();
     }
@@ -416,32 +482,115 @@ export function Game() {
     const topCard = state.discardPile[state.discardPile.length - 1];
     const set = new Set<string>();
     for (const card of localHand) {
-      if (canPlaySchema(card, topCard, state.activeColor)) {
+      if (canPlaySchema(card, topCard, state.activeColor, state.pendingDraw)) {
         set.add(card.id);
       }
     }
     return set;
   }, [state, localHand, localSeatIndex, showcaseCardId, colorPickerFor]);
 
+  // Keyboard navigation for accessible card selection
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (showcaseCardId || colorPickerFor) return;
+      if (state?.currentPlayer !== localSeatIndex || state?.winner !== -1) return;
+      const playableIndices: number[] = [];
+      for (let i = 0; i < localHand.length; i++) {
+        if (playableSet.has(localHand[i].id)) playableIndices.push(i);
+      }
+      if (playableIndices.length === 0) return;
+      switch (e.key) {
+        case "ArrowLeft":
+          e.preventDefault();
+          {
+            const cur = selectedCardIndex;
+            const idx = playableIndices.findIndex((i) => i === cur);
+            if (idx <= 0) onSelectCard(playableIndices[playableIndices.length - 1]);
+            else onSelectCard(playableIndices[idx - 1]);
+          }
+          break;
+        case "ArrowRight":
+          e.preventDefault();
+          {
+            const cur = selectedCardIndex;
+            const idx = playableIndices.findIndex((i) => i === cur);
+            if (idx < 0 || idx >= playableIndices.length - 1) onSelectCard(playableIndices[0]);
+            else onSelectCard(playableIndices[idx + 1]);
+          }
+          break;
+        case "Enter":
+        case " ":
+          if (selectedCardIndex >= 0 && selectedCardIndex < localHand.length) {
+            const card = localHand[selectedCardIndex];
+            if (card && playableSet.has(card.id)) {
+              e.preventDefault();
+              const cardId = card.id;
+              if (card.cardType === "wild") {
+                setColorPickerFor(cardId);
+              } else {
+                room?.send("play_card", { cardId });
+                playCardSound();
+                vibrate(30);
+                onLastPlayed({
+                  cardId,
+                  playerName: "You",
+                  textureId: cardTextureFromSchema(card),
+                });
+              }
+              onSelectCard(-1);
+            }
+          }
+          break;
+        case "Escape":
+          onSelectCard(-1);
+          break;
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [selectedCardIndex, localHand, playableSet, localSeatIndex, state, showcaseCardId, colorPickerFor, room, onLastPlayed, onSelectCard]);
+
   // ── Showcase / play card ──────────────────────────────────────
 
   const showcaseTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   // Clean up showcase timer on unmount
-  useEffect(() => () => { clearTimeout(showcaseTimer.current); }, []);
+  useEffect(() => () => { clearTimeout(showcaseTimer.current); clearTimeout(invalidMoveTimer.current); }, []);
+
+  // UNO call keyboard shortcut (U key)
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.key.toLowerCase() !== "u") return;
+      if (!room || !state) return;
+      if (state.unoCaller === localSeatIndex) {
+        room.send("uno");
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [room, state, localSeatIndex]);
 
   const onPlayCard = useCallback(
     (cardId: string) => {
       if (!room || !state || showcaseCardId || colorPickerFor) return;
-      const card = localHand.find((c: any) => c.id === cardId);
+      if (actionCooldown.current) return;
+
+      const card = localHand.find((c: CardSchema) => c.id === cardId);
       if (!card || !playableSet.has(cardId)) return;
 
       if (card.cardType === "wild") {
+        wildCardSound();
         setColorPickerFor(cardId);
         return;
       }
 
-      // Send immediately, show showcase as visual-only overlay
+      actionCooldown.current = true;
+      setTimeout(() => { actionCooldown.current = false; }, 300);
+
+      playCardSound();
+      vibrate(30);
       room.send("play_card", { cardId });
       setHoveredCard(null);
       setShowcaseCardId(cardId);
@@ -455,9 +604,20 @@ export function Game() {
   const onPickColor = useCallback(
     (color: UnoColor) => {
       if (!room || !colorPickerFor) return;
+      if (actionCooldown.current) return;
+
+      actionCooldown.current = true;
+      setTimeout(() => { actionCooldown.current = false; }, 300);
+
       const cardId = colorPickerFor;
 
-      // Send immediately, show showcase as visual-only overlay
+      // Check if it's wild_draw4 for shake effect
+      const card = localHand.find((c: CardSchema) => c.id === cardId);
+      const isDraw4 = card?.value === "wild_draw4";
+
+      selectColorSound();
+      vibrate(30);
+      if (isDraw4) onShake();
       room.send("play_card", { cardId, chosenColor: color });
       setColorPickerFor(null);
       setHoveredCard(null);
@@ -467,7 +627,7 @@ export function Game() {
         setShowcaseCardId(null);
       }, SHOWCASE_DURATION_MS);
     },
-    [room, colorPickerFor],
+    [room, colorPickerFor, localHand, onShake],
   );
 
   // ── Layout ────────────────────────────────────────────────────
@@ -588,6 +748,29 @@ export function Game() {
     prev.localHandIds = ids;
   }, [state, playersByVisualPos, localHand]);
 
+  // Track last played card
+  const prevDiscardLen = useRef(0);
+  useEffect(() => {
+    if (!state) return;
+    if (state.discardPile.length > prevDiscardLen.current) {
+      const topCard = state.discardPile[state.discardPile.length - 1];
+      // prev.currentPlayer is who just played (before turn advanced)
+      const prevPlayer = prevStateRef.current.currentPlayer;
+      let playerName = "Player";
+      if (state.players) {
+        for (const p of Object.values(state.players) as PlayerSchema[]) {
+          if (p.seatIndex === prevPlayer) { playerName = p.name; break; }
+        }
+      }
+      onLastPlayed({
+        cardId: topCard.id,
+        playerName,
+        textureId: cardTextureFromSchema(topCard),
+      });
+    }
+    prevDiscardLen.current = state.discardPile.length;
+  }, [state, onLastPlayed]);
+
   // ── Build card renders ────────────────────────────────────────
 
   const cards = useMemo(() => {
@@ -603,7 +786,7 @@ export function Game() {
     // --- Showcase card ---
     if (showcaseCardId) {
       // Find card in local hand or discard pile
-      let card: any = localHand.find((c: any) => c.id === showcaseCardId);
+      let card: CardSchema | undefined = localHand.find((c: CardSchema) => c.id === showcaseCardId);
       if (!card) {
         for (let i = 0; i < discardLen; i++) {
           if (state.discardPile[i].id === showcaseCardId) {
@@ -646,8 +829,19 @@ export function Game() {
     }
 
     // --- Local player hand (visual position 0 = bottom) ---
-    const hand0 = localHand.filter((c: any) => !placed.has(c.id));
-    hand0.forEach((card: any, i: number) => {
+    const sortedHand = sortByColor
+      ? [...localHand].sort((a, b) => {
+          if (a.cardType === "wild" && b.cardType !== "wild") return 1;
+          if (a.cardType !== "wild" && b.cardType === "wild") return -1;
+          if (a.cardType === "color" && b.cardType === "color") {
+            if (a.color !== b.color) return a.color.localeCompare(b.color);
+            return a.value.localeCompare(b.value);
+          }
+          return 0;
+        })
+      : localHand;
+    const hand0 = sortedHand.filter((c: CardSchema) => !placed.has(c.id));
+    hand0.forEach((card: CardSchema, i: number) => {
       placed.add(card.id);
       const center = i - (hand0.length - 1) / 2;
       const playable = playableSet.has(card.id);
@@ -675,7 +869,10 @@ export function Game() {
         rotationZ: -fanAngle,
         faceUp: true,
         scale: hovered ? L.playerHoverScale : L.playerScale,
-        shake: hand0.length === 1 && state.winner === -1,
+        shake: (hand0.length === 1 && state.winner === -1) || card.id === invalidMoveCard,
+        highlight: playable,
+        selected: i === selectedCardIndex && playable,
+        hoverTilt: hovered ? [0.08, center * 0.06] : undefined,
         initialPosition: newCardAnimations.get(card.id),
       });
     });
@@ -746,8 +943,11 @@ export function Game() {
     playableSet,
     hoveredPickerColor,
     localHand,
+    sortByColor,
     playersByVisualPos,
     newCardAnimations,
+    invalidMoveCard,
+    selectedCardIndex,
     L,
   ]);
 
@@ -768,6 +968,7 @@ export function Game() {
         <planeGeometry args={[25, 16]} />
         <meshStandardMaterial map={feltTexture} color="#ffffff" />
       </mesh>
+
 
       {/* Active color indicator ring */}
       {state.phase === "playing" && (
@@ -798,6 +999,9 @@ export function Game() {
           faceUp={c.faceUp}
           scale={c.scale}
           shake={c.shake}
+          highlight={c.highlight}
+          hoverTilt={c.hoverTilt}
+          selected={c.selected}
           initialPosition={c.initialPosition}
         />
       ))}
@@ -807,7 +1011,7 @@ export function Game() {
         state.currentPlayer === localSeatIndex &&
         state.winner === -1 &&
         (() => {
-          return localHand.map((card: any, i: number) => {
+          return localHand.map((card: CardSchema, i: number) => {
             const total = localHand.length;
             const center = i - (total - 1) / 2;
             const playable = playableSet.has(card.id);
@@ -822,7 +1026,31 @@ export function Game() {
                 rotation={[0, 0, -center * 0.03]}
                 onClick={(e) => {
                   e.stopPropagation();
+                  // Cancel any pending long-press
+                  if (longPressTimer.current) {
+                    clearTimeout(longPressTimer.current);
+                    longPressTimer.current = null;
+                  }
                   if (playable) onPlayCard(card.id);
+                  else {
+                    setInvalidMoveCard(card.id);
+                    clearTimeout(invalidMoveTimer.current);
+                    invalidMoveTimer.current = setTimeout(() => setInvalidMoveCard(null), 400);
+                  }
+                }}
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                  longPressTimer.current = setTimeout(() => {
+                    onLongPress(cardTextureFromSchema(card));
+                    longPressTimer.current = null;
+                  }, 500);
+                }}
+                onPointerUp={(e) => {
+                  e.stopPropagation();
+                  if (longPressTimer.current) {
+                    clearTimeout(longPressTimer.current);
+                    longPressTimer.current = null;
+                  }
                 }}
                 onPointerEnter={(e) => {
                   e.stopPropagation();
@@ -834,6 +1062,10 @@ export function Game() {
                 onPointerLeave={() => {
                   document.body.style.cursor = "auto";
                   setHoveredCard(null);
+                  if (longPressTimer.current) {
+                    clearTimeout(longPressTimer.current);
+                    longPressTimer.current = null;
+                  }
                 }}
               >
                 <planeGeometry
@@ -848,6 +1080,34 @@ export function Game() {
             );
           });
         })()}
+
+      {/* Draw pile hit area — click to draw */}
+      {!showcaseCardId &&
+        !colorPickerFor &&
+        state.currentPlayer === localSeatIndex &&
+        state.winner === -1 && (
+          <mesh
+            position={[-L.pileX, 0, 0.05]}
+            rotation={[0, 0, 0]}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (actionCooldown.current) return;
+              actionCooldown.current = true;
+              setTimeout(() => { actionCooldown.current = false; }, 300);
+              drawCardSound();
+              room.send("draw_card");
+            }}
+            onPointerEnter={() => {
+              document.body.style.cursor = "pointer";
+            }}
+            onPointerLeave={() => {
+              document.body.style.cursor = "auto";
+            }}
+          >
+            <planeGeometry args={[L.pileScale * 1.5, L.pileScale * 2.2]} />
+            <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+          </mesh>
+        )}
 
       {/* Color picker for wild cards */}
       {colorPickerFor && (
@@ -866,6 +1126,196 @@ export function Game() {
         </mesh>
       )}
     </group>
+  );
+}
+
+// ── RulesOverlay ────────────────────────────────────────────────
+
+function RulesOverlay({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="rules-overlay">
+      <div className="rules-card">
+        <div className="rules-header">
+          <h2>UNO Rules</h2>
+          <button className="rules-close" onClick={onClose}>✕</button>
+        </div>
+        <div className="rules-body">
+          <section>
+            <h3>Objective</h3>
+            <p>Be the first to play all your cards. When you have one card left, you must call &ldquo;UNO&rdquo;.</p>
+          </section>
+          <section>
+            <h3>Playing Cards</h3>
+            <p>Play a card that matches the top card on the discard pile by color or value. Wild cards can be played on any card.</p>
+          </section>
+          <section>
+            <h3>Action Cards</h3>
+            <ul>
+              <li><strong>Skip</strong> — Next player loses their turn</li>
+              <li><strong>Reverse</strong> — Direction of play reverses</li>
+              <li><strong>Draw 2</strong> — Next player draws 2 cards and loses turn</li>
+            </ul>
+          </section>
+          <section>
+            <h3>Wild Cards</h3>
+            <ul>
+              <li><strong>Wild</strong> — Choose any color to play next</li>
+              <li><strong>Wild Draw 4</strong> — Choose color + opponent draws 4</li>
+            </ul>
+          </section>
+          <section>
+            <h3>Drawing</h3>
+            <p>If you cannot play, click the draw pile to draw a card. Your turn passes to the next player.</p>
+          </section>
+          <section>
+            <h3>Keyboard Shortcuts</h3>
+            <ul>
+              <li><strong>M</strong> — Toggle sound</li>
+              <li><strong>S</strong> — Toggle sort by color</li>
+              <li><strong>F</strong> — Toggle fullscreen</li>
+              <li><strong>?</strong> — Show this help</li>
+            </ul>
+          </section>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── OptionsOverlay ──────────────────────────────────────────────
+
+interface OptionsOverlayProps {
+  onClose: () => void;
+  soundEnabled: boolean;
+  onSoundToggle: () => void;
+  qualityLevel: string;
+  onQualityToggle: () => void;
+}
+
+function OptionsOverlay({ onClose, soundEnabled, onSoundToggle, qualityLevel, onQualityToggle }: OptionsOverlayProps) {
+  const qualityLabel = qualityLevel.toUpperCase();
+  return (
+    <div className="rules-overlay" onClick={onClose}>
+      <div className="rules-card" onClick={(e) => e.stopPropagation()}>
+        <div className="rules-header">
+          <h2>Options</h2>
+          <button className="rules-close" onClick={onClose}>✕</button>
+        </div>
+        <div className="rules-body">
+          <section>
+            <h3>Sound</h3>
+            <div className="option-row">
+              <span>Sound effects</span>
+              <button
+                className={`toggle-btn${soundEnabled ? " on" : ""}`}
+                onClick={onSoundToggle}
+              >
+                {soundEnabled ? "ON" : "OFF"}
+              </button>
+            </div>
+          </section>
+          <section>
+            <h3>Display</h3>
+            <div className="option-row">
+              <span>Card sorting</span>
+              <button className="toggle-btn on">AUTO</button>
+            </div>
+            <div className="option-row" style={{ marginTop: 8 }}>
+              <span>Quality (Q)</span>
+              <button className="toggle-btn on" onClick={onQualityToggle}>
+                {qualityLabel}
+              </button>
+            </div>
+            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", marginTop: 4 }}>
+              Cycles: Low → Medium → High
+            </p>
+          </section>
+          <section>
+            <h3>About</h3>
+            <p>Turn-based Card Game — Colyseus Demo</p>
+            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", marginTop: 4 }}>
+              Built with React Three Fiber, TypeScript, and Colyseus
+            </p>
+          </section>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── ChatOverlay ──────────────────────────────────────────────────
+
+interface ChatOverlayProps {
+  onClose: () => void;
+}
+
+function ChatOverlay({ onClose }: ChatOverlayProps) {
+  const { room } = useRoom();
+  const state = useRoomState();
+  const [input, setInput] = useState("");
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const messages = (state as unknown as { chatMessages?: ChatMessageSchema[] }).chatMessages ?? [];
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages.length]);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  const handleSend = () => {
+    const text = input.trim();
+    if (!text || !room) return;
+    room.send("chat", { text });
+    setInput("");
+  };
+
+  return (
+    <div className="rules-overlay" onClick={onClose}>
+      <div className="rules-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 360 }}>
+        <div className="rules-header">
+          <h2>Chat</h2>
+          <button className="rules-close" onClick={onClose}>✕</button>
+        </div>
+        <div className="rules-body" style={{ maxHeight: 240, overflowY: "auto", gap: 8 }}>
+          {messages.length === 0 && (
+            <p style={{ fontSize: 13, color: "rgba(255,255,255,0.4)", textAlign: "center" }}>
+              No messages yet
+            </p>
+          )}
+          {messages.map((msg, i) => (
+            <div key={i} style={{ fontSize: 13 }}>
+              <strong style={{ color: "#ffcc00" }}>{msg.sender}:</strong>{" "}
+              <span style={{ color: "rgba(255,255,255,0.85)" }}>{msg.text}</span>
+            </div>
+          ))}
+          <div ref={messagesEndRef} />
+        </div>
+        <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+          <input
+            ref={inputRef}
+            className="lobby-input"
+            style={{ flex: 1, fontSize: 14, padding: "8px 12px" }}
+            placeholder="Type a message..."
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") handleSend(); }}
+            maxLength={200}
+          />
+          <button
+            className="lobby-btn"
+            style={{ width: "auto", padding: "8px 16px", fontSize: 14 }}
+            onClick={handleSend}
+            disabled={!input.trim()}
+          >
+            Send
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -934,14 +1384,68 @@ function TurnTimer({ deadline, isBot }: { deadline: number; isBot: boolean }) {
 
 // ── HUD overlay ─────────────────────────────────────────────────
 
-export function GameHud() {
+interface GameHudProps {
+  sortByColor: boolean;
+  onSortToggle: () => void;
+  showRules: boolean;
+  onShowRules: () => void;
+  onCloseRules: () => void;
+  showOptions: boolean;
+  onShowOptions: () => void;
+  onCloseOptions: () => void;
+  soundEnabled: boolean;
+  onSoundToggle: () => void;
+  qualityLevel: string;
+  onQualityToggle: () => void;
+  lastPlayed: { cardId: string; playerName: string; textureId: string } | null;
+  showChat: boolean;
+  onShowChat: () => void;
+  onCloseChat: () => void;
+}
+
+export function GameHud({ sortByColor, onSortToggle, showRules, onShowRules, onCloseRules, showOptions, onShowOptions, onCloseOptions, soundEnabled, onSoundToggle, qualityLevel, onQualityToggle, lastPlayed, showChat, onShowChat, onCloseChat }: GameHudProps) {
   const { room } = useRoom();
   const state = useRoomState();
   const [copied, setCopied] = useState(false);
+  const [latency, setLatency] = useState<number | null>(null);
+  const prevWinner = useRef(-1);
+
+  // Play win sound when winner is declared
+  useEffect(() => {
+    if (state.winner !== -1 && state.winner !== prevWinner.current) {
+      prevWinner.current = state.winner;
+      winSound();
+    }
+  }, [state.winner]);
+
+  // Measure connection latency every 5 seconds
+  useEffect(() => {
+    if (!room) return;
+    let mounted = true;
+    const id = setInterval(() => {
+      if (!mounted || !room) return;
+      room.ping((ms: number) => {
+        if (mounted) setLatency(ms);
+      });
+    }, 5000);
+    return () => { mounted = false; clearInterval(id); };
+  }, [room]);
 
   if (!state?.players || !room) return null;
 
-  const players = Object.values(state.players) as any[];
+  // Waiting for more players
+  if (state.phase === "waiting") {
+    const connectedCount = Object.values(state.players as PlayerSchema[]).filter((p) => p.connected).length;
+    return (
+      <div className="hud">
+        <div className="waiting-overlay">
+          <div className="waiting-text">Waiting for players… ({connectedCount}/4)</div>
+        </div>
+      </div>
+    );
+  }
+
+  const players = Object.values(state.players) as PlayerSchema[];
 
   // Find local seat
   let localSeatIndex = 0;
@@ -960,10 +1464,11 @@ export function GameHud() {
         key={`label-${player.seatIndex}`}
         className={`player-label p${visualPos}${isActive ? " active" : ""}`}
       >
+        <Avatar name={player.name} size={22} />
         {isActive && state.turnDeadline > 0 && (
           <TurnTimer deadline={state.turnDeadline} isBot={player.isBot} />
         )}
-        {player.name}
+        <span className="player-name">{player.name}</span>
         <span className="card-count">{player.handCount}</span>
       </div>,
     );
@@ -979,26 +1484,116 @@ export function GameHud() {
 
   return (
     <div className="hud">
-      <div
-        className={`room-code${copied ? " copied" : ""}`}
-        title="Click to copy"
-        onClick={() => {
-          navigator.clipboard.writeText(room.roomId);
-          setCopied(true);
-          setTimeout(() => setCopied(false), 1500);
-        }}
-      >
-        {copied ? "Copied!" : room.roomId}
-        {!copied && (
-          <svg className="copy-icon" viewBox="0 0 16 16" width="12" height="12" fill="currentColor">
-            <path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z" />
-            <path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z" />
-          </svg>
+      <div className="hud-top">
+        <div
+          className={`room-code${copied ? " copied" : ""}`}
+          title="Click to copy"
+          onClick={() => {
+            try {
+              navigator.clipboard.writeText(room.roomId);
+              setCopied(true);
+              setTimeout(() => setCopied(false), 1500);
+            } catch {
+              // Clipboard API unavailable (e.g., insecure context) — silently fail
+            }
+          }}
+        >
+          {copied ? "Copied!" : room.roomId}
+          {!copied && (
+            <svg className="copy-icon" viewBox="0 0 16 16" width="12" height="12" fill="currentColor">
+              <path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z" />
+              <path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z" />
+            </svg>
+          )}
+        </div>
+        {state.spectatorCount > 0 && (
+          <div className="spectator-badge" title="Spectators watching">
+            👁 {state.spectatorCount}
+          </div>
         )}
+        {latency !== null && (
+          <div
+            className="spectator-badge"
+            title={`Latency: ${latency}ms`}
+            style={{ color: latency < 80 ? "#33bb44" : latency < 200 ? "#ffcc00" : "#ff6b6b" }}
+          >
+            {latency < 80 ? "●●●" : latency < 200 ? "●●○" : "●○○"} {latency}ms
+          </div>
+        )}
+        <div className="hud-actions">
+          <button
+            className="hud-btn"
+            title={sortByColor ? "Sort by hand order" : "Sort by color"}
+            onClick={onSortToggle}
+          >
+            {sortByColor ? "📋" : "🎨"}
+          </button>
+          <button
+            className="hud-btn"
+            title={soundEnabled ? "Mute sounds" : "Enable sounds"}
+            onClick={() => { setSoundEnabled(!soundEnabled); onSoundToggle(); }}
+          >
+            {soundEnabled ? "🔊" : "🔇"}
+          </button>
+          <button
+            className="hud-btn"
+            title="Game rules"
+            onClick={onShowRules}
+          >
+            ?
+          </button>
+          <button
+            className="hud-btn"
+            title="Options"
+            onClick={onShowOptions}
+          >
+            ⚙
+          </button>
+          <button
+            className="hud-btn"
+            title="Toggle fullscreen"
+            onClick={() => {
+              if (document.fullscreenElement) {
+                document.exitFullscreen();
+              } else {
+                document.documentElement.requestFullscreen();
+              }
+            }}
+          >
+            ⛶
+          </button>
+          <button
+            className="hud-btn"
+            title="Chat (C)"
+            onClick={onShowChat}
+          >
+            💬
+          </button>
+        </div>
       </div>
       {labels}
+      {lastPlayed && state.winner === -1 && (
+        <div className="last-played">
+          <span className="last-played-player">{lastPlayed.playerName}</span>
+          <span className="last-played-card" data-texture={lastPlayed.textureId} />
+        </div>
+      )}
       {state.winner !== -1 && (
         <div className="winner-overlay">
+          {/* Confetti pieces */}
+          {["#ffcc00","#ff3333","#3377ff","#33bb44","#ff69b4","#ff9900"].map((color, i) => (
+            <div
+              key={`confetti-${i}`}
+              className="confetti-piece"
+              style={{
+                left: `${15 + i * 14}%`,
+                background: color,
+                animationDelay: `${i * 0.08}s`,
+                width: i % 3 === 0 ? 10 : 6,
+                height: i % 3 === 0 ? 14 : 8,
+              }}
+            />
+          ))}
           <div className="winner-text">{winnerName} wins!</div>
           <button
             className="new-game-btn"
@@ -1008,6 +1603,17 @@ export function GameHud() {
           </button>
         </div>
       )}
+      {showRules && <RulesOverlay onClose={onCloseRules} />}
+      {showOptions && (
+        <OptionsOverlay
+          onClose={onCloseOptions}
+          soundEnabled={soundEnabled}
+          onSoundToggle={() => { setSoundEnabled(!soundEnabled); onSoundToggle(); }}
+          qualityLevel={qualityLevel}
+          onQualityToggle={onQualityToggle}
+        />
+      )}
+      {showChat && <ChatOverlay onClose={onCloseChat} />}
     </div>
   );
 }

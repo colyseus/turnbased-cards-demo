@@ -1,0 +1,16 @@
+{
+  "name": "Turn-based Card Game",
+  "short_name": "Card Game",
+  "description": "Real-time multiplayer UNO-style card game",
+  "start_url": "/",
+  "display": "fullscreen",
+  "background_color": "#145a30",
+  "theme_color": "#145a30",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

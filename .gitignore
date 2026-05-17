@@ -74,3 +74,6 @@ construct3/.c3cache/
 # Defold
 defold/build/
 defold/.internal/
+
+# Agent browser temp files
+.tmp-agent-browser/

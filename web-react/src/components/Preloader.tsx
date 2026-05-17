@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo } from 'react';
+import { createContext, useContext, useMemo, useEffect } from 'react';
 import { useLoader } from '@react-three/fiber';
 import * as THREE from 'three';
 
@@ -42,6 +42,15 @@ export function TextureProvider({ children }: { children: React.ReactNode }) {
     });
     return m;
   }, [textures]);
+
+  // Dispose textures when component unmounts to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      for (const tex of map.values()) {
+        tex.dispose();
+      }
+    };
+  }, [map]);
 
   return (
     <TextureContext.Provider value={map}>

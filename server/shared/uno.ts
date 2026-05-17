@@ -69,16 +69,30 @@ export function shuffleDeck(deck: UnoCard[]): UnoCard[] {
 }
 
 /** Can this card be played on top of the discard pile? */
-export function canPlay(card: UnoCard, topCard: UnoCard, activeColor: UnoColor): boolean {
-  // Wild cards can always be played
-  if (card.type === 'wild') return true;
-
-  // Match by color
-  if (card.color === activeColor) return true;
-
-  // Match by value/symbol
-  if (topCard.type === 'color' && card.value === topCard.value) return true;
-
+/* Accepts both UnoCard (type field) and Colyseus schema cards (cardType field) */
+export function canPlay(
+  card: UnoCard | { cardType: string; color: string; value: string },
+  topCard: UnoCard | { cardType: string; value: string },
+  activeColor: UnoColor,
+  pendingDraw?: number,
+): boolean {
+  if (!card || !topCard) return false;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const c = card as any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const t = topCard as any;
+  const cardType = c.type ?? c.cardType;
+  const topCardType = t.type ?? t.cardType;
+  // Draw-2 stacking: if pendingDraw > 0, only draw2 cards can stack
+  if (pendingDraw && pendingDraw > 0) {
+    if (cardType === 'color' && c.value === 'draw2') return true;
+    // Wild draw4 can also stack on pending draw4 (pendingDraw >= 4)
+    if (cardType === 'wild' && (c.wildType ?? c.value) === 'wild_draw4' && pendingDraw >= 4) return true;
+    return false;
+  }
+  if (cardType === 'wild') return true;
+  if (c.color === activeColor) return true;
+  if (topCardType === 'color' && c.value === t.value) return true;
   return false;
 }
 
@@ -88,7 +102,9 @@ export function getActiveColor(topCard: UnoCard): UnoColor {
   return topCard.color;
 }
 
-// ── Game State ──────────────────────────────────────────────────────
+import { HAND_SIZE, NUM_PLAYERS } from "./constants.ts";
+
+export { HAND_SIZE, NUM_PLAYERS };
 
 export interface UnoState {
   drawPile: UnoCard[];
@@ -100,9 +116,6 @@ export interface UnoState {
   pendingDraw: number; // stacked +2/+4 draws
   winner: number | null;
 }
-
-const HAND_SIZE = 7;
-const NUM_PLAYERS = 4;
 
 export function createGame(): UnoState {
   const deck = shuffleDeck(createUnoDeck());
@@ -170,7 +183,8 @@ function recycleDiscard(state: UnoState) {
 
 /** Draw N cards for a player */
 export function drawCards(state: UnoState, player: number, count: number): UnoState {
-  const s = { ...state, hands: state.hands.map(h => [...h]), drawPile: [...state.drawPile], discardPile: [...state.discardPile] };
+  const newHands = state.hands.map((h, i) => i === player ? [...h] : [...h]);
+  const s = { ...state, hands: newHands, drawPile: [...state.drawPile], discardPile: [...state.discardPile] };
   for (let i = 0; i < count; i++) {
     recycleDiscard(s);
     if (s.drawPile.length === 0) break;
@@ -186,13 +200,14 @@ export function playCard(
   cardId: string,
   chosenColor?: UnoColor,
 ): UnoState {
-  const s = { ...state, hands: state.hands.map(h => [...h]), drawPile: [...state.drawPile], discardPile: [...state.discardPile] };
+  const newHands = state.hands.map((h, i) => i === player ? [...h] : [...h]);
+  const s = { ...state, hands: newHands, drawPile: [...state.drawPile], discardPile: [...state.discardPile] };
 
   const handIdx = s.hands[player].findIndex(c => c.id === cardId);
   if (handIdx === -1) return state;
 
   const card = { ...s.hands[player][handIdx] };
-  s.hands[player].splice(handIdx, 1);
+  s.hands[player] = [...s.hands[player].slice(0, handIdx), ...s.hands[player].slice(handIdx + 1)];
 
   // Set chosen color for wild cards
   if (card.type === 'wild') {
@@ -204,13 +219,7 @@ export function playCard(
 
   s.discardPile.push(card);
 
-  // Check win
-  if (s.hands[player].length === 0) {
-    s.winner = player;
-    return s;
-  }
-
-  // Apply effects
+  // Apply effects BEFORE win check — pendingDraw affects next player even if this player wins
   if (card.type === 'color') {
     switch (card.value) {
       case 'reverse':
@@ -234,6 +243,11 @@ export function playCard(
       s.pendingDraw += 4;
     }
     s.currentPlayer = nextPlayer(s);
+  }
+
+  // Check win (must be last so all effects apply before winner is declared)
+  if (s.hands[player].length === 0) {
+    s.winner = player;
   }
 
   return s;
@@ -267,7 +281,60 @@ export function handleDraw(state: UnoState): UnoState {
   return s;
 }
 
-/** Simple AI: pick a random playable card, or draw */
+/** Score a color for AI selection — lower is better */
+function scoreColor(
+  color: UnoColor,
+  hand: UnoCard[],
+  topCardValue: string | undefined,
+): number {
+  const colorCards = hand.filter((c): c is ColorCard => c.type === 'color' && c.color === color);
+  const count = colorCards.length;
+  // Prefer colors with fewer cards (fewer stuck cards)
+  let score = 100 - count * 10;
+  // But prioritize the color matching the top card's value (keeps options open)
+  const hasMatchingValue = colorCards.some((c) => c.value === topCardValue);
+  if (hasMatchingValue) score += 15;
+  // Value action cards in the same color (keep skip/reverse/draw2 for defense)
+  const actionCount = colorCards.filter((c) => ['skip', 'reverse', 'draw2'].includes(c.value)).length;
+  score += actionCount * 5;
+  return score;
+}
+
+/** Pick the best playable card using basic strategy */
+function pickBestCard(playable: UnoCard[], _hand: UnoCard[], activeColor: UnoColor): UnoCard {
+  // Prefer action cards when safe (they disrupt opponents)
+  const actionCards = playable.filter((c): c is ColorCard => c.type === 'color' && ['skip', 'reverse', 'draw2'].includes(c.value));
+  const numberCards = playable.filter((c): c is ColorCard => c.type === 'color' && !['skip', 'reverse', 'draw2'].includes(c.value));
+  const wildCards = playable.filter((c) => c.type === 'wild');
+
+  // Play a non-wild action card if available (wilds are better saved)
+  if (actionCards.length > 0) {
+    // Prefer reverse > skip > draw2 (reverse changes direction, most disruptive)
+    const reverse = actionCards.filter((c) => c.value === 'reverse');
+    if (reverse.length > 0) return reverse[Math.floor(Math.random() * reverse.length)];
+    const skip = actionCards.filter((c) => c.value === 'skip');
+    if (skip.length > 0) return skip[Math.floor(Math.random() * skip.length)];
+    // Draw2 only if no other choice (it stacks pendingDraw)
+    if (numberCards.length === 0 && wildCards.length === 0) {
+      return actionCards[0];
+    }
+  }
+
+  // Play a number card
+  if (numberCards.length > 0) {
+    // Prefer cards matching active color (safe plays)
+    const matchingColor = numberCards.filter((c) => c.color === activeColor);
+    if (matchingColor.length > 0) {
+      return matchingColor[Math.floor(Math.random() * matchingColor.length)];
+    }
+    return numberCards[Math.floor(Math.random() * numberCards.length)];
+  }
+
+  // Fall back to wild
+  return wildCards[0] ?? playable[0];
+}
+
+/** Smart AI: pick the best playable card using basic strategy, or draw */
 export function aiTurn(state: UnoState): UnoState {
   const player = state.currentPlayer;
 
@@ -281,21 +348,91 @@ export function aiTurn(state: UnoState): UnoState {
     return handleDraw(state);
   }
 
-  // Pick a random playable card (prefer action cards and wilds to be slightly strategic)
-  const card = playable[Math.floor(Math.random() * playable.length)];
+  const hand = state.hands[player];
+  const topCard = state.discardPile[state.discardPile.length - 1];
+  const topCardValue = topCard.type === 'color' ? topCard.value : undefined;
 
-  // For wild cards, choose the color we have the most of
+  // Pick the best card using strategy
+  const card = pickBestCard(playable, hand, state.activeColor);
+
+  // For wild cards, choose the color with best strategic value
   let chosenColor: UnoColor | undefined;
   if (card.type === 'wild') {
-    const colorCounts = { red: 0, blue: 0, green: 0, yellow: 0 };
-    for (const c of state.hands[player]) {
-      if (c.type === 'color') colorCounts[c.color]++;
-    }
-    chosenColor = (Object.entries(colorCounts) as [UnoColor, number][])
-      .sort((a, b) => b[1] - a[1])[0][0];
+    const colors: UnoColor[] = ['red', 'blue', 'green', 'yellow'];
+    chosenColor = colors.reduce((best, color) => {
+      const score = scoreColor(color, hand, topCardValue);
+      const bestScore = scoreColor(best, hand, topCardValue);
+      return score > bestScore ? color : best;
+    }, colors[0]);
   }
 
   return playCard(state, player, card.id, chosenColor);
+}
+
+/** Score a color for AI selection using schema card format */
+export function scoreColorSchema(
+  color: UnoColor,
+  hand: { cardType: string; color: string; value: string }[],
+  topCardValue: string | undefined,
+  discardedCounts?: Record<string, number>,
+): number {
+  const colorCards = hand.filter((c) => c.cardType === 'color' && c.color === color);
+  const count = colorCards.length;
+  // Depletion bonus: prefer colors with many cards already discarded (safer to play)
+  const discarded = discardedCounts?.[color] ?? 0;
+  let score = 100 - count * 10 + discarded * 2;
+  const hasMatchingValue = colorCards.some((c) => c.value === topCardValue);
+  if (hasMatchingValue) score += 15;
+  const actionCount = colorCards.filter((c) => ['skip', 'reverse', 'draw2'].includes(c.value)).length;
+  score += actionCount * 5;
+  return score;
+}
+
+/** Pick the best playable card index using schema card format (for Colyseus bot) */
+export function pickBestCardSchema(
+  playableIndices: number[],
+  hand: { cardType: string; color: string; value: string; id: string }[],
+  activeColor: UnoColor,
+): number {
+  const playable = playableIndices.map((i) => hand[i]);
+
+  const actionCards = playable.filter((c) => c.cardType === 'color' && ['skip', 'reverse', 'draw2'].includes(c.value));
+  const numberCards = playable.filter((c) => c.cardType === 'color' && !['skip', 'reverse', 'draw2'].includes(c.value));
+  const wildCards = playable.filter((c) => c.cardType === 'wild');
+
+  if (actionCards.length > 0) {
+    const reverse = actionCards.filter((c) => c.value === 'reverse');
+    if (reverse.length > 0) return playableIndices[playable.indexOf(reverse[0])];
+    const skip = actionCards.filter((c) => c.value === 'skip');
+    if (skip.length > 0) return playableIndices[playable.indexOf(skip[0])];
+    if (numberCards.length === 0 && wildCards.length === 0) {
+      return playableIndices[playable.indexOf(actionCards[0])];
+    }
+  }
+
+  if (numberCards.length > 0) {
+    const matchingColor = numberCards.filter((c) => c.color === activeColor);
+    if (matchingColor.length > 0) {
+      return playableIndices[playable.indexOf(matchingColor[0])];
+    }
+    return playableIndices[playable.indexOf(numberCards[0])];
+  }
+
+  return playableIndices[0];
+}
+
+/** Choose the best color for a wild card using schema card format */
+export function pickBestColorSchema(
+  hand: { cardType: string; color: string; value: string }[],
+  topCardValue: string | undefined,
+  discardedCounts?: Record<string, number>,
+): UnoColor {
+  const colors: UnoColor[] = ['red', 'blue', 'green', 'yellow'];
+  return colors.reduce((best, color) => {
+    const score = scoreColorSchema(color, hand, topCardValue, discardedCounts);
+    const bestScore = scoreColorSchema(best, hand, topCardValue, discardedCounts);
+    return score > bestScore ? color : best;
+  }, colors[0]);
 }
 
 // ── Schema-compatible helpers (for multiplayer) ─────────────────
@@ -311,7 +448,13 @@ export function canPlaySchema(
   card: { cardType: string; color: string; value: string },
   topCard: { cardType: string; value: string },
   activeColor: string,
+  pendingDraw?: number,
 ): boolean {
+  if (pendingDraw && pendingDraw > 0) {
+    if (card.cardType === 'color' && card.value === 'draw2') return true;
+    if (card.cardType === 'wild' && card.value === 'wild_draw4' && pendingDraw >= 4) return true;
+    return false;
+  }
   if (card.cardType === 'wild') return true;
   if (card.color === activeColor) return true;
   if (topCard.cardType === 'color' && card.value === topCard.value) return true;

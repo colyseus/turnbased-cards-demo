@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect width="32" height="32" rx="5" fill="#145a30"/>
+  <rect x="6" y="4" width="14" height="20" rx="2" fill="#ffcc00" transform="rotate(-8 13 14)"/>
+  <rect x="12" y="8" width="14" height="20" rx="2" fill="#ff3333" transform="rotate(5 19 18)"/>
+  <text x="16" y="20" font-family="Arial" font-size="11" font-weight="bold" fill="white" text-anchor="middle" transform="rotate(3 16 18)">UNO</text>
+</svg>

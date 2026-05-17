@@ -1,25 +1,59 @@
 import "./index.css";
-import { Suspense, useState } from "react";
+import { Suspense, useState, lazy, useRef } from "react";
 import { createRoot } from "react-dom/client";
-import { Canvas } from "@react-three/fiber";
-import { Game, GameHud } from "./components/Game";
-import { TextureProvider } from "./components/Preloader";
-import { client, RoomProvider, useRoom } from "./colyseus";
+import { client, RoomProvider, useRoom, watchRoom } from "./colyseus";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
-function Lobby({ onJoined }: { onJoined: (connect: () => Promise<any>) => void }) {
+// Lazy-load the 3D game canvas so three.js is not in the initial bundle
+const GameScene = lazy(() => import("./components/GameScene"));
+
+function Preloader() {
+  return (
+    <div className="preloader">
+      <div className="preloader-spinner" />
+      <span className="preloader-text">Loading…</span>
+    </div>
+  );
+}
+
+function Lobby({ onJoined }: { onJoined: (_connect: () => Promise<any>) => void }) { // eslint-disable-line no-unused-vars, @typescript-eslint/no-explicit-any
   const [name, setName] = useState("");
   const [roomCode, setRoomCode] = useState("");
+  const [nameError, setNameError] = useState("");
+  const [mode, setMode] = useState<"play" | "watch">("play");
+  const [privateRoom, setPrivateRoom] = useState(false);
+  const [difficulty, setDifficulty] = useState<"easy" | "medium" | "hard">("medium");
+
+  const validateName = (raw: string): string => {
+    const trimmed = raw.trim();
+    if (!trimmed) return "Name cannot be empty.";
+    if (trimmed.length < 2) return "Name must be at least 2 characters.";
+    if (trimmed.length > 16) return "Name must be 16 characters or fewer.";
+    if (!/^[a-zA-Z0-9_\-\s]+$/.test(trimmed)) return "Name can only contain letters, numbers, spaces, hyphens, and underscores.";
+    return "";
+  };
 
   const handleQuickPlay = (e: React.FormEvent) => {
     e.preventDefault();
-    const trimmed = name.trim() || "Player";
-    onJoined(() => client.joinOrCreate("uno", { name: trimmed }));
+    const error = validateName(name);
+    if (error) { setNameError(error); return; }
+    setNameError("");
+    const trimmed = name.trim();
+    onJoined(() => client.joinOrCreate("uno", { name: trimmed, private: privateRoom, difficulty }));
   };
 
   const handleJoinByCode = () => {
     if (!roomCode.trim()) return;
-    const trimmed = name.trim() || "Player";
+    const error = validateName(name);
+    if (error) { setNameError(error); return; }
+    setNameError("");
+    const trimmed = name.trim();
     onJoined(() => client.joinById(roomCode.trim(), { name: trimmed }));
+  };
+
+  const handleWatch = () => {
+    if (!roomCode.trim()) return;
+    onJoined(() => watchRoom(roomCode.trim()));
   };
 
   return (
@@ -34,37 +68,105 @@ function Lobby({ onJoined }: { onJoined: (connect: () => Promise<any>) => void }
           />
         </div>
         <p className="lobby-subtitle">Colyseus Demo</p>
-        <form onSubmit={handleQuickPlay} className="lobby-form">
-          <input
-            className="lobby-input"
-            type="text"
-            placeholder="Enter your name..."
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            maxLength={16}
-            autoFocus
-          />
-          <button className="lobby-btn" type="submit">
-            Quick Play
-          </button>
-        </form>
-        <div className="lobby-divider">or join by code</div>
-        <div className="lobby-join-code">
-          <input
-            className="lobby-input lobby-code-input"
-            type="text"
-            placeholder="Room code..."
-            value={roomCode}
-            onChange={(e) => setRoomCode(e.target.value)}
-          />
+
+        <div className="lobby-tabs">
           <button
-            className="lobby-btn lobby-join-btn"
-            onClick={handleJoinByCode}
-            disabled={!roomCode.trim()}
+            className={`lobby-tab ${mode === "play" ? "lobby-tab-active" : ""}`}
+            onClick={() => setMode("play")}
           >
-            Join
+            Play
+          </button>
+          <button
+            className={`lobby-tab ${mode === "watch" ? "lobby-tab-active" : ""}`}
+            onClick={() => setMode("watch")}
+          >
+            Watch
           </button>
         </div>
+
+        {mode === "play" ? (
+          <>
+            <form onSubmit={handleQuickPlay} className="lobby-form">
+              <input
+                className="lobby-input"
+                type="text"
+                placeholder="Enter your name..."
+                value={name}
+                onChange={(e) => { setName(e.target.value); setNameError(""); }}
+                maxLength={16}
+                autoFocus
+              />
+              {nameError && <p className="lobby-error">{nameError}</p>}
+              <div className="option-row" style={{ width: "100%", justifyContent: "center", gap: 12 }}>
+                <span style={{ fontSize: 13, color: "rgba(255,255,255,0.6)" }}>Private room</span>
+                <button
+                  className={`toggle-btn${privateRoom ? " on" : ""}`}
+                  onClick={() => setPrivateRoom((v) => !v)}
+                  type="button"
+                >
+                  {privateRoom ? "ON" : "OFF"}
+                </button>
+              </div>
+              <div className="option-row" style={{ width: "100%", justifyContent: "center", gap: 8 }}>
+                <span style={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }}>Bot difficulty</span>
+                {(["easy", "medium", "hard"] as const).map((d) => (
+                  <button
+                    key={d}
+                    className={`toggle-btn${difficulty === d ? " on" : ""}`}
+                    onClick={() => setDifficulty(d)}
+                    type="button"
+                    style={{ fontSize: 11, padding: "3px 10px" }}
+                  >
+                    {d.charAt(0).toUpperCase() + d.slice(1)}
+                  </button>
+                ))}
+              </div>
+              <button className="lobby-btn" type="submit">
+                Quick Play
+              </button>
+            </form>
+            <div className="lobby-divider">or join by code</div>
+            <div className="lobby-join-code">
+              <input
+                className="lobby-input lobby-code-input"
+                type="text"
+                placeholder="Room code..."
+                value={roomCode}
+                onChange={(e) => setRoomCode(e.target.value)}
+              />
+              <button
+                className="lobby-btn lobby-join-btn"
+                onClick={handleJoinByCode}
+                disabled={!roomCode.trim()}
+              >
+                Join
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="lobby-join-code">
+              <input
+                className="lobby-input lobby-code-input"
+                type="text"
+                placeholder="Room code..."
+                value={roomCode}
+                onChange={(e) => setRoomCode(e.target.value)}
+                autoFocus
+              />
+              <button
+                className="lobby-btn lobby-join-btn"
+                onClick={handleWatch}
+                disabled={!roomCode.trim()}
+              >
+                Watch
+              </button>
+            </div>
+            <p className="lobby-subtitle" style={{ fontSize: 12, marginTop: 8 }}>
+              Watch a game in progress without joining a seat.
+            </p>
+          </>
+        )}
       </div>
     </div>
   );
@@ -72,6 +174,8 @@ function Lobby({ onJoined }: { onJoined: (connect: () => Promise<any>) => void }
 
 function GameContent({ onDisconnect }: { onDisconnect: () => void }) {
   const { room, error, isConnecting } = useRoom();
+  const wasConnected = useRef(false);
+  if (room && !isConnecting) wasConnected.current = true;
 
   if (error) {
     return (
@@ -90,30 +194,25 @@ function GameContent({ onDisconnect }: { onDisconnect: () => void }) {
     return (
       <div className="lobby">
         <div className="lobby-card">
-          <p className="lobby-subtitle">Connecting...</p>
+          {wasConnected.current ? (
+            <p className="lobby-subtitle">Reconnecting…</p>
+          ) : (
+            <p className="lobby-subtitle">Connecting…</p>
+          )}
         </div>
       </div>
     );
   }
 
   return (
-    <>
-      <Canvas camera={{ position: [0, -0.5, 10], fov: 50 }}>
-        <ambientLight intensity={2.5} />
-        <directionalLight position={[0, 2, 10]} intensity={1.5} />
-        <Suspense fallback={null}>
-          <TextureProvider>
-            <Game />
-          </TextureProvider>
-        </Suspense>
-      </Canvas>
-      <GameHud />
-    </>
+    <Suspense fallback={<Preloader />}>
+      <GameScene />
+    </Suspense>
   );
 }
 
 function App() {
-  const [connectFn, setConnectFn] = useState<(() => Promise<any>) | null>(null);
+  const [connectFn, setConnectFn] = useState<(() => Promise<any>) | null>(null); // eslint-disable-line @typescript-eslint/no-explicit-any
 
   if (!connectFn) {
     return <Lobby onJoined={(fn) => setConnectFn(() => fn)} />;
@@ -121,9 +220,20 @@ function App() {
 
   return (
     <RoomProvider connect={connectFn}>
-      <GameContent onDisconnect={() => setConnectFn(null)} />
+      <ErrorBoundary onReset={() => setConnectFn(null)}>
+        <GameContent onDisconnect={() => setConnectFn(null)} />
+      </ErrorBoundary>
     </RoomProvider>
   );
 }
 
 createRoot(document.getElementById("root")!).render(<App />);
+
+// Register service worker for offline caching
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {
+      // SW registration failed — silently ignore (e.g., in dev mode)
+    });
+  });
+}

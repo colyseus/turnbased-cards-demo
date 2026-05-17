@@ -18,6 +18,12 @@ export const PlayerSchema = schema({
   handCount: "number",                          // always visible to all
 });
 
+export const ChatMessageSchema = schema({
+  sender: "string",
+  text: "string",
+  timestamp: "number",
+});
+
 export const UnoRoomState = schema({
   players: { map: PlayerSchema },
   discardPile: { array: UnoCardSchema },
@@ -29,4 +35,7 @@ export const UnoRoomState = schema({
   winner: "number",            // -1 = none, 0-3 = winner seat
   phase: "string",             // "waiting" | "playing" | "finished"
   turnDeadline: "number",      // timestamp for turn timeout
+  spectatorCount: "number",    // number of spectators watching
+  chatMessages: { array: ChatMessageSchema },
+  unoCaller: "number",         // seat index that just reached 1 card, must call UNO; -1 if not applicable
 });
