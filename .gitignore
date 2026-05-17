@@ -77,3 +77,7 @@ defold/.internal/
 
 # Agent browser temp files
 .tmp-agent-browser/
+
+# Test artifacts
+test-results/
+playwright-report/
