@@ -1,19 +1,11 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-const ReactCompilerConfig = { /* ... */ };
-
 // https://vitejs.dev/config/
 export default defineConfig({
   base: process.env.BASE_URL || '/',
   plugins: [
-    react({
-      babel: {
-        plugins: [
-          ["babel-plugin-react-compiler", ReactCompilerConfig],
-        ],
-      },
-    }),
+    react(),
   ],
   build: {
     target: 'esnext',
