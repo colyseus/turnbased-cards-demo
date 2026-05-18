@@ -2,6 +2,9 @@ import { useRef, useMemo, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
+const STIFFNESS = 200;
+const DAMPING = 25;
+
 export function AnimatedRing({
   color,
   innerRadius,
@@ -14,33 +17,36 @@ export function AnimatedRing({
   position: [number, number, number];
 }) {
   const groupRef = useRef<THREE.Group>(null!);
-  const innerRef = useRef<THREE.Mesh>(null!);
-  const vel = useRef({ scale: 0, inner: 0 });
+  const vel = useRef({ scale: 0 });
   const prevColor = useRef(color);
-  const target = useRef({ scale: 1, innerRatio: 1 });
+  const target = useRef({ scale: 1 });
+  const currentScale = useRef(1);
 
-  // Memoize geometries to avoid recreation on re-render
-  const outerGeo = useMemo(() => new THREE.CircleGeometry(outerRadius, 32), [outerRadius]);
-  const innerGeo = useMemo(() => new THREE.CircleGeometry(innerRadius, 32), [innerRadius]);
+  const outerRingGeo = useMemo(
+    () => new THREE.RingGeometry(innerRadius, outerRadius, 48),
+    [innerRadius, outerRadius]
+  );
+  const innerFillGeo = useMemo(
+    () => new THREE.CircleGeometry(innerRadius * 0.97, 48),
+    [innerRadius]
+  );
+  const inlayGeo = useMemo(
+    () => new THREE.RingGeometry(innerRadius + 0.01, innerRadius + 0.03, 48),
+    [innerRadius]
+  );
 
-  // Cleanup
   useEffect(() => {
     return () => {
-      outerGeo.dispose();
-      innerGeo.dispose();
+      outerRingGeo.dispose();
+      innerFillGeo.dispose();
+      inlayGeo.dispose();
     };
-  }, [outerGeo, innerGeo]);
+  }, [outerRingGeo, innerFillGeo, inlayGeo]);
 
   if (color !== prevColor.current) {
     prevColor.current = color;
-    if (groupRef.current) groupRef.current.scale.setScalar(1.8);
+    target.current.scale = 1.8;
     vel.current.scale = 0;
-    vel.current.inner = 0;
-    target.current.scale = 1;
-    target.current.innerRatio = 1;
-    if (innerRef.current) {
-      innerRef.current.scale.setScalar(0.4);
-    }
   }
 
   useFrame((_, delta) => {
@@ -48,28 +54,42 @@ export function AnimatedRing({
     const g = groupRef.current;
     if (!g) return;
 
-    const curScale = g.scale.x;
-    const accScale =
-      200 * (target.current.scale - curScale) - 30 * vel.current.scale;
-    vel.current.scale += accScale * dt;
-    g.scale.setScalar(curScale + vel.current.scale * dt);
+    const cur = currentScale.current;
+    const acc = STIFFNESS * (target.current.scale - cur) - DAMPING * vel.current.scale;
+    vel.current.scale += acc * dt;
+    currentScale.current = cur + vel.current.scale * dt;
+    g.scale.setScalar(currentScale.current);
 
-    if (innerRef.current) {
-        const curInner = innerRef.current.scale.x;
-        const accInner =
-          200 * (target.current.innerRatio - curInner) - 30 * vel.current.inner;
-        vel.current.inner += accInner * dt;
-        innerRef.current.scale.setScalar(curInner + vel.current.inner * dt);
+    if (
+      Math.abs(currentScale.current - target.current.scale) < 0.01 &&
+      vel.current.scale < 0.5 &&
+      target.current.scale !== 1
+    ) {
+      target.current.scale = 1;
+      vel.current.scale = 0;
     }
   });
 
   return (
     <group ref={groupRef} position={position}>
-      <mesh geometry={outerGeo}>
-        <meshBasicMaterial color={color} />
+      <mesh geometry={outerRingGeo}>
+        <meshStandardMaterial
+          color="#3d2010"
+          roughness={0.75}
+          metalness={0.05}
+        />
       </mesh>
-      <mesh ref={innerRef} position={[0, 0, 0.001]} geometry={innerGeo}>
-        <meshBasicMaterial color="#1a7a3c" />
+
+      <mesh geometry={inlayGeo}>
+        <meshStandardMaterial
+          color="#8b5e34"
+          roughness={0.7}
+          metalness={0.05}
+        />
+      </mesh>
+
+      <mesh position={[0, 0, 0.001]} geometry={innerFillGeo}>
+        <meshBasicMaterial color={color} />
       </mesh>
     </group>
   );
