@@ -157,6 +157,14 @@ export function Game(props: GameProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [localHand, playableSet, selectedCardIndex, state, localSeatIndex, showcaseCardId, colorPickerFor, onSelectCard]);
 
+  // Cleanup pending timers on unmount
+  useEffect(() => {
+    return () => {
+      if (invalidMoveTimer.current) clearTimeout(invalidMoveTimer.current);
+      if (longPressTimer.current) clearTimeout(longPressTimer.current);
+    };
+  }, []);
+
   // ── Callbacks ────────────────────────────────────────────────
 
   const onPlayCard = useCallback(
