@@ -24,6 +24,9 @@ export const ChatMessageSchema = schema({
   timestamp: "number",
 });
 
+// Note: @colyseus/schema v1 API — "view: true" on hand marks it as private (not synced to clients).
+// When upgrading @colyseus/schema to v2+, verify this syntax is still valid; v2 uses different
+// annotations for private fields. See: https://docs.colyseus.io/schema/
 export const UnoRoomState = schema({
   players: { map: PlayerSchema },
   discardPile: { array: UnoCardSchema },
