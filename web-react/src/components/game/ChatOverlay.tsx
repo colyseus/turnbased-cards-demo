@@ -39,14 +39,14 @@ export default function ChatOverlay({ onClose }: ChatOverlayProps) {
         </div>
         <div className="rules-body" style={{ maxHeight: 240, overflowY: "auto", gap: 8 }}>
           {messages.length === 0 && (
-            <p style={{ fontSize: 13, color: "rgba(255,255,255,0.4)", textAlign: "center" }}>
+            <p style={{ fontSize: 13, color: "rgba(61,32,16,0.4)", textAlign: "center" }}>
               No messages yet
             </p>
           )}
           {messages.map((msg, i) => (
             <div key={i} style={{ fontSize: 13 }}>
-              <strong style={{ color: "#ffcc00" }}>{msg.sender}:</strong>{" "}
-              <span style={{ color: "rgba(255,255,255,0.85)" }}>{msg.text}</span>
+              <strong style={{ color: "#c9a84c" }}>{msg.sender}:</strong>{" "}
+              <span style={{ color: "#2d1810" }}>{msg.text}</span>
             </div>
           ))}
           <div ref={messagesEndRef} />

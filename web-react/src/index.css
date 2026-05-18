@@ -1057,6 +1057,61 @@ kbd {
   color: #6b3d1f;
 }
 
+/* Wood button for overlays */
+.wood-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 24px;
+  border-radius: 8px;
+  border: 1.5px solid rgba(201, 168, 76, 0.5);
+  background: linear-gradient(145deg, #3d2010 0%, #2d1810 100%);
+  color: #f5e6c8;
+  font-family: Inter, system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.wood-btn:hover {
+  border-color: #c9a84c;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.4), 0 0 12px rgba(201, 168, 76, 0.2);
+}
+.wood-btn:active {
+  transform: translateY(0);
+}
+
+/* Options overlay text on cream */
+.option-row span {
+  color: #3d2010;
+}
+.toggle-btn {
+  border-radius: 20px;
+  border: 1.5px solid rgba(61, 32, 16, 0.25);
+  background: rgba(61, 32, 16, 0.08);
+  color: #6b3d1f;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: Inter, system-ui, sans-serif;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  letter-spacing: 0.05em;
+}
+.toggle-btn.on {
+  background: rgba(51, 187, 68, 0.2);
+  border-color: #33bb44;
+  color: #33bb44;
+}
+.toggle-btn:focus-visible {
+  outline: 2px solid #c9a84c;
+  outline-offset: 1px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

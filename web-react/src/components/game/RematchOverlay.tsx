@@ -29,7 +29,7 @@ export default function RematchOverlay() {
       </div>
       {canVote && !localVoted && (
         <button
-          className="new-game-btn"
+          className="wood-btn"
           onClick={() => {
             room.send("vote_rematch");
           }}
@@ -38,12 +38,12 @@ export default function RematchOverlay() {
         </button>
       )}
       {canVote && localVoted && (
-        <button className="new-game-btn" disabled style={{ opacity: 0.5, cursor: "default" }}>
+        <button className="wood-btn" disabled style={{ opacity: 0.5, cursor: "default" }}>
           Voted ✓
         </button>
       )}
       <button
-        className="new-game-btn"
+        className="wood-btn"
         style={{ fontSize: 14, padding: "10px 28px" }}
         onClick={() => room.send("restart")}
       >

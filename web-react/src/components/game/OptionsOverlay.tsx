@@ -10,9 +10,11 @@ interface OptionsOverlayProps {
 }
 
 export default function OptionsOverlay({
- onClose, soundEnabled, onSoundToggle, qualityLevel, onQualityToggle, playerName }: OptionsOverlayProps) {
+  onClose, soundEnabled, onSoundToggle, qualityLevel, onQualityToggle, playerName
+}: OptionsOverlayProps) {
   const qualityLabel = qualityLevel.toUpperCase();
   const stats = playerName ? getStats(playerName) : null;
+
   return (
     <div className="rules-overlay" role="dialog" aria-modal="true" aria-label="Game Settings" onClick={onClose}>
       <div className="rules-card" onClick={(e) => e.stopPropagation()}>
@@ -45,7 +47,7 @@ export default function OptionsOverlay({
                 {qualityLabel}
               </button>
             </div>
-            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", marginTop: 4 }}>
+            <p style={{ fontSize: 12, color: "rgba(61,32,16,0.5)", marginTop: 4 }}>
               Cycles: Low → Medium → High
             </p>
           </section>
@@ -53,17 +55,17 @@ export default function OptionsOverlay({
             <section>
               <h3>Your Stats</h3>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, fontSize: 13 }}>
-                <div style={{ color: "rgba(255,255,255,0.6)" }}>Games: <span style={{ color: "#fff" }}>{stats.gamesPlayed}</span></div>
-                <div style={{ color: "rgba(255,255,255,0.6)" }}>Wins: <span style={{ color: "#ffcc00" }}>{stats.wins}</span></div>
-                <div style={{ color: "rgba(255,255,255,0.6)" }}>UNO calls: <span style={{ color: "#fff" }}>{stats.unoCalls}</span></div>
-                <div style={{ color: "rgba(255,255,255,0.6)" }}>Cards: <span style={{ color: "#fff" }}>{stats.cardsPlayed}</span></div>
+                <div style={{ color: "rgba(61,32,16,0.6)" }}>Games: <span style={{ color: "#3d2010" }}>{stats.gamesPlayed}</span></div>
+                <div style={{ color: "rgba(61,32,16,0.6)" }}>Wins: <span style={{ color: "#c9a84c" }}>{stats.wins}</span></div>
+                <div style={{ color: "rgba(61,32,16,0.6)" }}>UNO calls: <span style={{ color: "#3d2010" }}>{stats.unoCalls}</span></div>
+                <div style={{ color: "rgba(61,32,16,0.6)" }}>Cards: <span style={{ color: "#3d2010" }}>{stats.cardsPlayed}</span></div>
               </div>
             </section>
           )}
           <section>
             <h3>About</h3>
             <p>Turn-based Card Game — Colyseus Demo</p>
-            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", marginTop: 4 }}>
+            <p style={{ fontSize: 12, color: "rgba(61,32,16,0.5)", marginTop: 4 }}>
               Built with React Three Fiber, TypeScript, and Colyseus
             </p>
           </section>
