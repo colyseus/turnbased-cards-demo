@@ -20,11 +20,13 @@ export function Table() {
     ctx.fillStyle = grd;
     ctx.fillRect(0, 0, 1024, 1024);
 
-    // Subtle noise
+    // Subtle noise - deterministic (avoids 50k * 3 Math.random() calls blocking main thread)
     for (let i = 0; i < 50000; i++) {
-      const x = Math.random() * 1024;
-      const y = Math.random() * 1024;
-      const alpha = Math.random() * 0.05;
+      // Seed-based hash for each component to avoid visible patterns
+      const hash = (seed: number) => (Math.sin(seed * 12.9898 + 78.233) * 43758.5453) % 1;
+      const x = hash(i * 3) * 1024;
+      const y = hash(i * 3 + 1) * 1024;
+      const alpha = hash(i * 3 + 2) * 0.05;
       ctx.fillStyle = `rgba(255,255,255,${alpha})`;
       ctx.fillRect(x, y, 1, 1);
     }
