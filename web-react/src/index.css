@@ -14,6 +14,12 @@
 
 * { margin: 0; padding: 0; }
 
+/* Keyboard focus indicator — only on keyboard navigation, not clicks */
+:focus-visible {
+  outline: 2px solid #ffcc00;
+  outline-offset: 2px;
+}
+
 body, #root {
   height: 100vh;
   width: 100vw;
@@ -353,6 +359,13 @@ body, #root {
   box-shadow: 0 6px 24px rgba(0,0,0,0.4);
 }
 
+.lobby-btn:focus-visible {
+  outline: 2px solid #ffcc00;
+  outline-offset: 3px;
+  transform: scale(1.05);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.4);
+}
+
 .lobby-btn:active {
   transform: scale(0.97);
 }
@@ -387,6 +400,11 @@ body, #root {
 
 .lobby-tab:hover {
   background: rgba(255,255,255,0.12);
+}
+
+.lobby-tab:focus-visible {
+  outline: 2px solid #ffcc00;
+  outline-offset: 2px;
 }
 
 .lobby-tab-active {
@@ -543,6 +561,14 @@ body, #root {
   background: rgba(255,204,0,0.2);
   border-color: #ffcc00;
   color: #ffcc00;
+}
+
+.hud-btn:focus-visible {
+  background: rgba(255,204,0,0.2);
+  border-color: #ffcc00;
+  color: #ffcc00;
+  outline: 2px solid #ffcc00;
+  outline-offset: 1px;
 }
 
 /* Rules overlay */
@@ -713,6 +739,11 @@ body, #root {
   background: rgba(51,187,68,0.25);
   border-color: #33bb44;
   color: #33bb44;
+}
+
+.toggle-btn:focus-visible {
+  outline: 2px solid #ffcc00;
+  outline-offset: 2px;
 }
 
 /* DevTools Dashboard */
