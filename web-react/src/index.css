@@ -96,17 +96,22 @@ body, #root {
 
 .player-label {
   position: absolute;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 13px;
-  font-weight: 600;
+  color: #3d2010;
+  font-size: 12px;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   white-space: nowrap;
-  text-shadow: 0 1px 4px rgba(0,0,0,0.6);
-  transition: color 0.3s, transform 0.3s;
+  text-shadow: 0 1px 3px rgba(245, 230, 200, 0.8);
+  transition: color 0.3s, transform 0.3s, text-shadow 0.3s;
   display: flex;
   align-items: center;
   gap: 5px;
+  font-family: Inter, system-ui, sans-serif;
+  background: rgba(245, 230, 200, 0.88);
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(201, 168, 76, 0.4);
 }
 
 .player-label.active {
