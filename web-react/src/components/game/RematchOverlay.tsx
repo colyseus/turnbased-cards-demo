@@ -23,7 +23,7 @@ export default function RematchOverlay() {
   const localVoted = localPlayer ? rematchVotes.includes(localPlayer.seatIndex) : false;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, pointerEvents: "auto" }}>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, pointerEvents: "auto" }} role="dialog" aria-modal="true" aria-label="Rematch">
       <div style={{ fontSize: 14, color: "rgba(255,255,255,0.6)" }}>
         {voteCount}/{connectedHumans} voted for rematch
       </div>

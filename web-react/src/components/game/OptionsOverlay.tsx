@@ -14,7 +14,7 @@ export default function OptionsOverlay({
   const qualityLabel = qualityLevel.toUpperCase();
   const stats = playerName ? getStats(playerName) : null;
   return (
-    <div className="rules-overlay" onClick={onClose}>
+    <div className="rules-overlay" role="dialog" aria-modal="true" aria-label="Game Settings" onClick={onClose}>
       <div className="rules-card" onClick={(e) => e.stopPropagation()}>
         <div className="rules-header">
           <h2>Options</h2>

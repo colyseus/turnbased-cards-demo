@@ -31,7 +31,7 @@ export default function ChatOverlay({ onClose }: ChatOverlayProps) {
   };
 
   return (
-    <div className="rules-overlay" onClick={onClose}>
+    <div className="rules-overlay" role="dialog" aria-modal="true" aria-label="Game Chat" onClick={onClose}>
       <div className="rules-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 360 }}>
         <div className="rules-header">
           <h2>Chat</h2>

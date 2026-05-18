@@ -62,7 +62,7 @@ function Lobby({ onJoined }: { onJoined: (_connect: () => Promise<any>) => void 
   };
 
   return (
-    <div className="lobby">
+    <div className="lobby" role="main" aria-label="Game lobby">
       <div className="lobby-card">
         <div className="lobby-header">
           <h1 className="lobby-title">Card Game</h1>
@@ -102,7 +102,8 @@ function Lobby({ onJoined }: { onJoined: (_connect: () => Promise<any>) => void 
 
         {mode === "play" ? (
           <>
-            <form onSubmit={handleQuickPlay} className="lobby-form">
+            <nav aria-label="Game menu">
+          <form onSubmit={handleQuickPlay} className="lobby-form">
               <input
                 className="lobby-input"
                 type="text"
@@ -152,6 +153,7 @@ function Lobby({ onJoined }: { onJoined: (_connect: () => Promise<any>) => void 
                 Quick Play
               </button>
             </form>
+            </nav>
             <div className="lobby-divider">or join by code</div>
             <div className="lobby-join-code">
               <input

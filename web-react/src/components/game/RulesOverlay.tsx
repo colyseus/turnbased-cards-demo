@@ -1,6 +1,6 @@
 export default function RulesOverlay({ onClose }: { onClose: () => void }) {
   return (
-    <div className="rules-overlay">
+    <div className="rules-overlay" role="dialog" aria-modal="true" aria-label="Game Rules">
       <div className="rules-card">
         <div className="rules-header">
           <h2>UNO Rules</h2>
