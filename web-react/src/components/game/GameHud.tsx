@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "react";
 import { useRoom, useRoomState } from "../../colyseus";
 import { LastPlayedInfo } from "../GameScene";
+import { PlayerSchema } from "../../types";
 
 // Lazy-load heavy overlays from current flat directory
 const RulesOverlay = lazy(() => import("./RulesOverlay"));
@@ -51,7 +52,9 @@ export function GameHud({
 
   if (!state) return null;
 
-  const me = room ? state.players.get(room.sessionId) : null;
+  const me = room
+    ? (Object.values(state.players) as PlayerSchema[]).find((p) => p.sessionId === room.sessionId) ?? null
+    : null;
 
   return (
     <div className="game-hud" style={{ pointerEvents: "none" }}>
@@ -59,28 +62,28 @@ export function GameHud({
       <div className="hud-top-left" style={{ pointerEvents: "auto" }}>
         <div className="room-code">ROOM: {room?.roomId || "..." }</div>
         <div className="spectator-count">
-          {state.spectators} {state.spectators === 1 ? "spectator" : "spectators"}
+          {state.spectatorCount} {state.spectatorCount === 1 ? "spectator" : "spectators"}
         </div>
       </div>
 
       {/* Top Right: Actions */}
       <div className="hud-actions" style={{ pointerEvents: "auto" }}>
-        <button className="hud-btn" onClick={onSortToggle} title="Sort hand">
+        <button className="hud-btn" aria-label={sortByColor ? "Sort by color" : "Sort by number"} title="Sort hand" onClick={onSortToggle}>
           {sortByColor ? "🎨" : "🔢"}
         </button>
-        <button className="hud-btn" onClick={onQualityToggle} title="Quality">
+        <button className="hud-btn" aria-label={`Quality: ${qualityLevel}`} title="Quality" onClick={onQualityToggle}>
           {qualityLevel === "low" ? "🌑" : qualityLevel === "medium" ? "🌓" : "🌕"}
         </button>
-        <button className="hud-btn" onClick={onSoundToggle} title="Sound">
+        <button className="hud-btn" aria-label={soundEnabled ? "Mute sound" : "Enable sound"} title="Sound" onClick={onSoundToggle}>
           {soundEnabled ? "🔊" : "🔇"}
         </button>
-        <button className="hud-btn" onClick={onShowRules} title="Rules">
+        <button className="hud-btn" aria-label="Show rules" title="Rules" onClick={onShowRules}>
           ❓
         </button>
-        <button className="hud-btn" onClick={onShowOptions} title="Settings">
+        <button className="hud-btn" aria-label="Settings" title="Settings" onClick={onShowOptions}>
           ⚙️
         </button>
-        <button className="hud-btn" onClick={onShowChat} title="Chat">
+        <button className="hud-btn" aria-label="Show chat" title="Chat" onClick={onShowChat}>
           💬
         </button>
       </div>

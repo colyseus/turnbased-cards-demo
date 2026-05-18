@@ -92,6 +92,7 @@ function Lobby({ onJoined }: { onJoined: (_connect: () => Promise<any>) => void 
           <button
             className="hud-btn"
             title="Leaderboard"
+            aria-label="Leaderboard"
             onClick={() => setShowStats(true)}
             style={{ width: 34, height: 34, fontSize: 16 }}
           >
