@@ -11,14 +11,15 @@ function StressTestCards() {
   const cards = useMemo(() => {
     const list: CardData[] = [];
     const count = Math.max(stressTestCount, 500); // minimum 500 for the "stress" feel
-    
+    const textureIds = ["red_0", "red_1", "red_2", "blue_0", "blue_1", "blue_2", "green_0", "green_1", "green_2", "yellow_0", "yellow_1", "yellow_2", "back"];
+
     for (let i = 0; i < count; i++) {
       list.push({
         id: `stress-${i}`,
-        textureId: (i % 2 === 0) ? "back" : "red_0",
+        textureId: textureIds[i % textureIds.length],
         position: [0, 0, 0], // will be updated in frame
         rotationZ: 0,
-        faceUp: i % 2 !== 0,
+        faceUp: true,
         scale: 0.5,
       });
     }
