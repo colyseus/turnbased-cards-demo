@@ -72,6 +72,13 @@ const _pos = new THREE.Vector3();
 const _scale = new THREE.Vector3();
 const _euler = new THREE.Euler();
 
+// Spring physics helper — no component dependencies, safe at module scope
+const spring = (cur: number, tgt: number, velocity: number, dt: number) => {
+  const acc = STIFFNESS * (tgt - cur) - DAMPING * velocity;
+  const newVel = velocity + acc * dt;
+  return [cur + newVel * dt, newVel];
+};
+
 export function InstancedCards({ cards }: InstancedCardsProps) {
   const { atlas, getUVs } = useCardAtlas();
   const { wireframe } = useDevTools();
@@ -148,26 +155,19 @@ export function InstancedCards({ cards }: InstancedCardsProps) {
         states.current.set(card.id, s);
       }
 
-      // Spring helper (inline for speed, avoiding closure allocation)
-      const spring = (cur: number, tgt: number, velocity: number) => {
-        const acc = STIFFNESS * (tgt - cur) - DAMPING * velocity;
-        const newVel = velocity + acc * dt;
-        return [cur + newVel * dt, newVel];
-      };
-
-      [s.pos.x, s.vel.x] = spring(s.pos.x, card.position[0], s.vel.x);
-      [s.pos.y, s.vel.y] = spring(s.pos.y, card.position[1], s.vel.y);
+      [s.pos.x, s.vel.x] = spring(s.pos.x, card.position[0], s.vel.x, dt);
+      [s.pos.y, s.vel.y] = spring(s.pos.y, card.position[1], s.vel.y, dt);
 
       if (card.position[2] > s.pos.z) {
         s.pos.z = card.position[2];
         s.vel.z = 0;
       } else {
-        [s.pos.z, s.vel.z] = spring(s.pos.z, card.position[2], s.vel.z);
+        [s.pos.z, s.vel.z] = spring(s.pos.z, card.position[2], s.vel.z, dt);
       }
 
-      [s.rotZ, s.vel.rotZ] = spring(s.rotZ, card.rotationZ, s.vel.rotZ);
-      [s.flipY, s.vel.flipY] = spring(s.flipY, card.faceUp ? 0 : Math.PI, s.vel.flipY);
-      [s.scale, s.vel.scale] = spring(s.scale, card.scale, s.vel.scale);
+      [s.rotZ, s.vel.rotZ] = spring(s.rotZ, card.rotationZ, s.vel.rotZ, dt);
+      [s.flipY, s.vel.flipY] = spring(s.flipY, card.faceUp ? 0 : Math.PI, s.vel.flipY, dt);
+      [s.scale, s.vel.scale] = spring(s.scale, card.scale, s.vel.scale, dt);
 
       let finalRotZ = s.rotZ;
       if (card.shake) {
