@@ -17,7 +17,9 @@ ALL_IDS.push('wild');
 ALL_IDS.push('wild_draw4');
 ALL_IDS.push('back');
 
-const ATLAS_URL = `${CARDS_PATH}atlas.webp?v=${Date.now()}`;
+const ATLAS_URL = import.meta.env.DEV
+  ? `${CARDS_PATH}atlas.webp?v=${Date.now()}`
+  : `${CARDS_PATH}atlas.webp`;
 const COLS = 10;
 const ROWS = 6;
 
