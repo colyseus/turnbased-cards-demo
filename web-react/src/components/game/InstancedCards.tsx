@@ -90,6 +90,10 @@ export function InstancedCards({ cards }: InstancedCardsProps) {
     vel: { x: number; y: number; z: number; rotZ: number; flipY: number; scale: number };
   }>>(new Map());
 
+  // Contiguous index counters for highlight/selected instance meshes
+  const highlightIdx = useRef(0);
+  const selectedIdx = useRef(0);
+
   // Memory Management: Cleanup removed cards from states Map
   useEffect(() => {
     const cardIds = new Set(cards.map(c => c.id));
@@ -120,6 +124,10 @@ export function InstancedCards({ cards }: InstancedCardsProps) {
   useFrame((_, delta) => {
     const dt = Math.min(delta, 0.05);
     const count = cards.length;
+
+    // Reset contiguous index counters for highlight/selected
+    highlightIdx.current = 0;
+    selectedIdx.current = 0;
 
     // NO MORE GLOBAL MATRIX RESET LOOP. 
     // We only update the instances that are actually in use.
@@ -190,7 +198,8 @@ export function InstancedCards({ cards }: InstancedCardsProps) {
           _quat.setFromEuler(_euler);
           _scale.set(s.scale * 1.05, s.scale * 1.05, 1);
           _matrix.compose(_pos, _quat, _scale);
-          meshHighlightRef.current.setMatrixAt(i, _matrix);
+          meshHighlightRef.current.setMatrixAt(highlightIdx.current, _matrix);
+          highlightIdx.current++;
       }
 
       // Selected Matrix
@@ -201,7 +210,8 @@ export function InstancedCards({ cards }: InstancedCardsProps) {
           _quat.setFromEuler(_euler);
           _scale.set(s.scale * 1.1, s.scale * 1.1, 1);
           _matrix.compose(_pos, _quat, _scale);
-          meshSelectedRef.current.setMatrixAt(i, _matrix);
+          meshSelectedRef.current.setMatrixAt(selectedIdx.current, _matrix);
+          selectedIdx.current++;
       }
 
       // Update Front UVs
@@ -213,8 +223,8 @@ export function InstancedCards({ cards }: InstancedCardsProps) {
 
     meshFrontRef.current.count = count;
     meshBackRef.current.count = count;
-    meshHighlightRef.current.count = count;
-    meshSelectedRef.current.count = count;
+    meshHighlightRef.current.count = highlightIdx.current;
+    meshSelectedRef.current.count = selectedIdx.current;
 
     meshFrontRef.current.instanceMatrix.needsUpdate = true;
     meshBackRef.current.instanceMatrix.needsUpdate = true;
