@@ -1,4 +1,4 @@
-import { useRef, useMemo, useEffect } from 'react';
+import { useRef, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { UnoColor } from '../../../../server/shared/uno';
@@ -27,9 +27,9 @@ export function ColorPicker({
   const elapsed = useRef(0);
   const overlayVel = useRef(0);
 
-  // Memoize geometries
-  const planeGeo = useMemo(() => new THREE.PlaneGeometry(25, 16), []);
-  const circleGeo = useMemo(() => new THREE.CircleGeometry(0.35, 32), []);
+  // Stable geometries - created once
+  const planeGeo = new THREE.PlaneGeometry(25, 16);
+  const circleGeo = new THREE.CircleGeometry(0.35, 32);
 
   // Cleanup
   useEffect(() => {
@@ -37,7 +37,7 @@ export function ColorPicker({
       planeGeo.dispose();
       circleGeo.dispose();
     };
-  }, [planeGeo, circleGeo]);
+  }, []);
 
   useFrame((_, delta) => {
     const dt = Math.min(delta, 0.05);

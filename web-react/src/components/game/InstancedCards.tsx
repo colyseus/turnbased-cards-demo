@@ -1,4 +1,4 @@
-import { useRef, useMemo, useEffect } from 'react';
+import { useRef, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useCardAtlas } from '../Preloader';
@@ -112,21 +112,19 @@ export function InstancedCards({ cards }: InstancedCardsProps) {
   }, [cards]);
 
   // UV Offset & Scale Attributes (vec4: u, v, w, h)
-  const uvFrontAttr = useMemo(() => new Float32Array(MAX_CARDS * 4), []);
-  const uvBackAttr = useMemo(() => {
-    const arr = new Float32Array(MAX_CARDS * 4);
+  const uvFrontAttr = new Float32Array(MAX_CARDS * 4);
+  const uvBackAttr = new Float32Array(MAX_CARDS * 4);
+  // Back UV is always the same, fill once on mount
+  (() => {
     const uvs = getUVs('back');
     for (let i = 0; i < MAX_CARDS; i++) {
         const idx = i * 4;
-        arr[idx] = uvs.u; arr[idx+1] = uvs.v;
-        arr[idx+2] = uvs.w; arr[idx+3] = uvs.h;
+        uvBackAttr[idx] = uvs.u; uvBackAttr[idx+1] = uvs.v;
+        uvBackAttr[idx+2] = uvs.w; uvBackAttr[idx+3] = uvs.h;
     }
-    return arr;
-  }, [getUVs]);
+  })();
 
-  const uniforms = useMemo(() => ({
-    map: { value: atlas }
-  }), [atlas]);
+  const uniforms = { map: { value: atlas } };
 
   useFrame((_, delta) => {
     const dt = Math.min(delta, 0.05);
