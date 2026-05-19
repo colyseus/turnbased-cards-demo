@@ -591,69 +591,59 @@ body, #root {
 
 /* Rules overlay */
 .rules-overlay {
-  position: absolute;
+  position: fixed;
   inset: 0;
-  background: rgba(10, 20, 10, 0.75);
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
+  z-index: 100;
   pointer-events: auto;
-  animation: fadeIn 0.25s ease-out;
-  z-index: 10;
-  backdrop-filter: blur(8px);
 }
 
 .rules-card,
 .options-card,
 .chat-card,
 .rematch-card {
-  background: #f5e6c8;
+  background: var(--bg-surface);
+  border: 1px solid var(--accent-dim);
   border-radius: 12px;
-  border-top: 4px solid #c9a84c;
-  padding: 28px 32px;
-  max-width: 460px;
+  padding: 32px;
+  max-width: 480px;
   width: 90%;
   max-height: 80vh;
   overflow-y: auto;
-  box-shadow: 0 12px 60px rgba(0,0,0,0.7), 0 0 0 1px rgba(0,0,0,0.08);
-  color: #2d1810;
+  box-shadow: 0 16px 64px rgba(0, 0, 0, 0.5);
 }
 
 .rules-header {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  margin-bottom: 20px;
+  align-items: center;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--accent-dim);
 }
-
 .rules-header h2 {
-  font-family: Georgia, 'Times New Roman', serif;
-  color: #3d2010;
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  text-shadow: 0 1px 4px rgba(0,0,0,0.1);
+  color: var(--text-primary);
+  margin: 0;
 }
 
 .rules-close {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  border: 1px solid rgba(60, 30, 10, 0.2);
-  background: rgba(60, 30, 10, 0.08);
-  color: #3d2010;
-  font-size: 14px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 24px;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.15s, color 0.15s;
+  padding: 0 4px;
+  line-height: 1;
+  transition: color 0.15s;
 }
-
 .rules-close:hover {
-  background: rgba(201, 168, 76, 0.35);
-  color: #3d2010;
+  color: var(--accent);
 }
 
 .rules-body {
@@ -1097,21 +1087,19 @@ kbd {
   color: #3d2010;
 }
 .toggle-btn {
-  border-radius: 20px;
-  border: 1.5px solid rgba(61, 32, 16, 0.25);
-  background: rgba(61, 32, 16, 0.08);
-  color: #6b3d1f;
+  border-radius: 16px;
+  border: 1px solid var(--accent-dim);
+  background: var(--bg-surface);
+  color: var(--text-muted);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
-  font-family: Inter, system-ui, sans-serif;
   transition: background 0.15s, border-color 0.15s, color 0.15s;
-  letter-spacing: 0.05em;
 }
 .toggle-btn.on {
-  background: rgba(51, 187, 68, 0.2);
-  border-color: #33bb44;
-  color: #33bb44;
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 .toggle-btn:focus-visible {
   outline: 2px solid #c9a84c;
