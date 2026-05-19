@@ -114,19 +114,20 @@ export function InstancedCards({ cards }: InstancedCardsProps) {
   // UV Offset & Scale Attributes (vec4: u, v, w, h)
   const uvFrontAttr = new Float32Array(MAX_CARDS * 4);
   const uvBackAttr = new Float32Array(MAX_CARDS * 4);
-  // Back UV is always the same, fill once on mount
-  (() => {
-    const uvs = getUVs('back');
-    for (let i = 0; i < MAX_CARDS; i++) {
-        const idx = i * 4;
-        uvBackAttr[idx] = uvs.u; uvBackAttr[idx+1] = uvs.v;
-        uvBackAttr[idx+2] = uvs.w; uvBackAttr[idx+3] = uvs.h;
-    }
-  })();
+  // Back UV is always the same, fill once - use safe fallback until context is ready
+  const backUVs = getUVs('back') ?? { u: 0.5, v: 0.1667, w: 0.1, h: 0.1667 };
+  for (let i = 0; i < MAX_CARDS; i++) {
+    const idx = i * 4;
+    uvBackAttr[idx] = backUVs.u; uvBackAttr[idx+1] = backUVs.v;
+    uvBackAttr[idx+2] = backUVs.w; uvBackAttr[idx+3] = backUVs.h;
+  }
 
   const uniforms = { map: { value: atlas } };
 
   useFrame((_, delta) => {
+    // Guard: skip if instanced meshes aren't mounted yet
+    if (!meshFrontRef.current || !meshBackRef.current) return;
+
     const dt = Math.min(delta, 0.05);
     const count = cards.length;
 
@@ -280,7 +281,7 @@ export function InstancedCards({ cards }: InstancedCardsProps) {
       <instancedMesh ref={meshHighlightRef} args={[null!, null!, MAX_CARDS]}>
         <planeGeometry args={[CARD_ASPECT, 1]} />
         <rawShaderMaterial 
-          uniforms={{ color: { value: new THREE.Color("#ffcc00") }, opacity: { value: 0.25 } }}
+          uniforms={{ color: { value: new THREE.Color("#00e5ff") }, opacity: { value: 0.25 } }}
           vertexShader={vertexShader.replace('vUv = uv * uvOffsetScale.zw + uvOffsetScale.xy;', 'vUv = uv;')}
           fragmentShader={highlightFragmentShader}
           transparent
