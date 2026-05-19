@@ -67,7 +67,7 @@ export function TurnIndicator({
           <meshBasicMaterial color="#000000" transparent opacity={0.2} />
         </mesh>
         <mesh geometry={POINTER_GEO}>
-          <meshStandardMaterial color="#5c3317" roughness={0.85} metalness={0.05} />
+          <meshStandardMaterial color="#252540" roughness={0.85} metalness={0.05} />
         </mesh>
         <mesh position={[0, 0, 0.002]} geometry={POINTER_GEO}>
           <meshStandardMaterial color="#8b5e34" roughness={0.8} metalness={0.05} side={THREE.BackSide} />
@@ -82,7 +82,7 @@ export function TurnIndicator({
           <mesh key={i} position={[x, y, 0.02]}>
             <circleGeometry args={[0.18, 24]} />
             <meshStandardMaterial
-              color={i === activePlayerIndex ? '#c9a84c' : '#f5e6c8'}
+              color={i === activePlayerIndex ? '#00e5ff' : '#252540'}
               roughness={0.7}
               metalness={0.05}
             />
@@ -99,7 +99,7 @@ export function TurnIndicator({
           >
             <shapeGeometry args={[DIR_ARC_SHAPE]} />
             <meshStandardMaterial
-              color="#c9a84c"
+              color="#00e5ff"
               transparent
               opacity={0.55}
               roughness={0.7}
