@@ -2,20 +2,12 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { analyzer } from 'vite-bundle-analyzer'
 
-const ReactCompilerConfig = {
-  target: "19",
-};
-
 // https://vitejs.dev/config/
 export default defineConfig({
   base: process.env.BASE_URL || '/',
   plugins: [
     react({
-      babel: {
-        plugins: [
-          ["babel-plugin-react-compiler", ReactCompilerConfig],
-        ],
-      },
+      // React compiler disabled for debugging
     }),
     analyzer({
       analyzerMode: 'server',

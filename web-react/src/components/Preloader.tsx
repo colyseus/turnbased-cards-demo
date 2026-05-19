@@ -50,6 +50,7 @@ export function TextureProvider({ children }: { children: React.ReactNode }) {
   const contextValue = useMemo(() => {
     atlas.minFilter = THREE.LinearFilter;
     atlas.magFilter = THREE.LinearFilter;
+    atlas.flipY = false;
 
     const uvMap = new Map<string, CardUVs>();
     ALL_IDS.forEach((id, i) => {
