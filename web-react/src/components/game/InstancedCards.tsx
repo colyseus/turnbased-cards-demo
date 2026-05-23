@@ -7,7 +7,7 @@ import { CARD_ASPECT } from '../../cards/cardAtlas';
 
 const STIFFNESS = 200;
 const DAMPING = 30;
-const MAX_CARDS = 5000;
+const MAX_CARDS = 2000;
 
 export interface CardData {
   id: string;
@@ -54,20 +54,13 @@ const vertexShader = /* glsl */ `
     // GPU-driven orbital animation: deterministic from instanceIndex + uTime
     // No spring physics — runs entirely in vertex shader
     float angle = 0.0;
-    float r = 0.0;
-    float zOff = 0.0;
     if (uUseGpuAnimation) {
       float fi = instanceIndex;
       float total = max(uCardCount, 1.0);
       angle = (fi / total) * 6.28318530718 + uTime * 0.2;
-      r = 3.0 + sin(uTime * 0.5 + fi * 0.1) * 2.0;
-      zOff = sin(uTime + fi * 0.05) * 0.5;
-
-      finalPos = vec3(
-        cos(angle) * r,
-        sin(angle) * r,
-        zOff
-      );
+      // Simple circular orbit: 1 cos + 1 sin per instance (reduced from 4)
+      float r = 3.0 + sin(angle) * 1.5;
+      finalPos = vec3(cos(angle) * r, sin(angle) * r, sin(angle * 2.0) * 0.5);
     }
 
     // Compose: T(finalPos) * Rz(angle+PI/2) * S(0.5)
@@ -210,7 +203,8 @@ export function InstancedCards({ cards }: InstancedCardsProps) {
     if (!meshCardRef.current) return;
 
     // Always update time — cheap single float assignment
-    uniforms.uTime.value += Math.min(delta, 0.05);
+    // Cap at 1000 to prevent unbounded growth that could cause GPU precision/timeout issues
+    uniforms.uTime.value = Math.min(uniforms.uTime.value + Math.min(delta, 0.05), 1000);
 
     // FAST PATH: pure animated cards — GPU handles all position animation.
     // CPU only sets count once; matrices already set by useEffect init.
