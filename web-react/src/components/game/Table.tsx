@@ -229,12 +229,7 @@ export function Table() {
         <meshBasicMaterial color="#00e5ff" transparent opacity={0.28} />
       </mesh>
 
-      <mesh position={[0, 0, 0.014]} scale={[1.08, 0.68, 1]}>
-        <ringGeometry args={[3.55, 3.6, 128]} />
-        <meshBasicMaterial color="#ffffff" transparent opacity={0.06} />
-      </mesh>
-
-      <DirectionLane />
+      {/* DirectionLane and inner ring removed — non-functional decorative elements */}
 
       <TableTray position={[-1.5, 0, 0.03]} accent="#00e5ff" />
       <TableTray position={[1.5, 0, 0.03]} accent="#9d4edd" />
