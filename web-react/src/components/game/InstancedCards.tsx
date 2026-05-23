@@ -25,23 +25,17 @@ interface InstancedCardsProps {
   cards: CardData[];
 }
 
+// Use rawShaderMaterial with glslVersion THREE.GLSL3.
+// Three.js prepends #version 300 es, we provide GLSL 3.00 syntax (in/out).
+// DO NOT redeclare position, uv, instanceMatrix - Three.js injects these.
 const vertexShader = /* glsl */ `
-  precision highp float;
+  in vec4 uvOffsetScale;
 
-  attribute vec3 position;
-  attribute vec2 uv;
-  attribute mat4 instanceMatrix;
-  attribute vec4 uvOffsetScale;
-  attribute float instanceIndex;
-
-  uniform mat4 modelMatrix;
-  uniform mat4 viewMatrix;
-  uniform mat4 projectionMatrix;
   uniform float uTime;
   uniform float uCardCount;
   uniform bool uUseGpuAnimation;
 
-  varying vec2 vUv;
+  out vec2 vUv;
 
   void main() {
     vUv = vec2(uv.x, 1.0 - uv.y) * uvOffsetScale.zw + uvOffsetScale.xy;
@@ -52,13 +46,13 @@ const vertexShader = /* glsl */ `
     vec3 finalPos = basePos;
 
     // GPU-driven orbital animation: deterministic from instanceIndex + uTime
-    // No spring physics — runs entirely in vertex shader
     float angle = 0.0;
     if (uUseGpuAnimation) {
-      float fi = instanceIndex;
+      // gl_InstanceID is available in GLSL ES 3.00
+      float fi = float(gl_InstanceID);
       float total = max(uCardCount, 1.0);
       angle = (fi / total) * 6.28318530718 + uTime * 0.2;
-      // Simple circular orbit: 1 cos + 1 sin per instance (reduced from 4)
+      // Simple circular orbit
       float r = 3.0 + sin(angle) * 1.5;
       finalPos = vec3(cos(angle) * r, sin(angle) * r, sin(angle * 2.0) * 0.5);
     }
@@ -75,23 +69,82 @@ const vertexShader = /* glsl */ `
   }
 `;
 
-const fragmentShader = `
+const fragmentShader = /* glsl */ `
   precision highp float;
   uniform sampler2D map;
-  varying vec2 vUv;
+  in vec2 vUv;
+  out vec4 fragColor;
+
   void main() {
-    vec4 texelColor = texture2D(map, vUv);
+    vec4 texelColor = texture(map, vUv);
     if (texelColor.a < 0.5) discard;
-    gl_FragColor = texelColor;
+    fragColor = texelColor;
   }
 `;
 
-const highlightFragmentShader = `
+// Radial glow fragment shader for highlight mesh — soft falloff from card center
+const highlightFragmentShader = /* glsl */ `
   precision highp float;
   uniform vec3 color;
   uniform float opacity;
+  in vec2 vUv;
+  out vec4 fragColor;
+
   void main() {
-    gl_FragColor = vec4(color, opacity);
+    // Compute radial distance from card center using UV coordinates
+    vec2 center = vec2(0.5, 0.5);
+    float dist = distance(vUv, center);
+    // Soft radial falloff: 1.0 at center, 0.0 at edges
+    float glow = 1.0 - smoothstep(0.0, 0.7, dist);
+    glow = pow(glow, 1.5);
+    fragColor = vec4(color, opacity * glow);
+  }
+`;
+
+// Pulsing fragment shader for selected mesh — opacity oscillates 0.25-0.45 over 0.8s
+const selectedFragmentShader = /* glsl */ `
+  precision highp float;
+  uniform vec3 color;
+  uniform float uTime;
+  uniform float baseOpacity;
+  in vec2 vUv;
+  out vec4 fragColor;
+
+  void main() {
+    // Radial glow for selected too
+    vec2 center = vec2(0.5, 0.5);
+    float dist = distance(vUv, center);
+    float glow = 1.0 - smoothstep(0.0, 0.7, dist);
+    glow = pow(glow, 1.5);
+    // Pulse: 0.25 to 0.45 (range 0.1, center 0.35) over 0.8s period
+    float pulse = 0.35 + sin(uTime * 7.85398163397) * 0.1;
+    fragColor = vec4(color, baseOpacity * glow * pulse);
+  }
+`;
+
+// Ghost fragment shader — very faint (0.08 opacity) with subtle glow
+const ghostFragmentShader = /* glsl */ `
+  precision highp float;
+  uniform vec3 color;
+  in vec2 vUv;
+  out vec4 fragColor;
+
+  void main() {
+    vec2 center = vec2(0.5, 0.5);
+    float dist = distance(vUv, center);
+    float glow = 1.0 - smoothstep(0.0, 0.7, dist);
+    glow = pow(glow, 2.0);
+    fragColor = vec4(color, 0.08 * glow);
+  }
+`;
+
+// Simple vertex shader for highlight/selected meshes — passes UV for radial glow
+const simpleVertexShader = /* glsl */ `
+  out vec2 vUv;
+  void main() {
+    vUv = uv;
+    vec4 worldPos = modelMatrix * instanceMatrix * vec4(position, 1.0);
+    gl_Position = projectionMatrix * viewMatrix * worldPos;
   }
 `;
 
@@ -116,6 +169,7 @@ export function InstancedCards({ cards }: InstancedCardsProps) {
   const meshCardRef = useRef<THREE.InstancedMesh>(null!);
   const meshHighlightRef = useRef<THREE.InstancedMesh>(null!);
   const meshSelectedRef = useRef<THREE.InstancedMesh>(null!);
+  const meshGhostRef = useRef<THREE.InstancedMesh>(null!);
 
   // Animation state
   const states = useRef<
@@ -130,9 +184,10 @@ export function InstancedCards({ cards }: InstancedCardsProps) {
     >
   >(new Map());
 
-  // Contiguous index counters for highlight/selected instance meshes
+  // Contiguous index counters for highlight/selected/ghost instance meshes
   const highlightIdx = useRef(0);
   const selectedIdx = useRef(0);
+  const ghostIdx = useRef(0);
   const needsSpring = useRef(false);
 
   // Memory Management: Cleanup removed cards from states Map
@@ -148,7 +203,8 @@ export function InstancedCards({ cards }: InstancedCardsProps) {
     if (!meshCardRef.current) return;
 
     // Detect whether any card needs spring physics
-    needsSpring.current = cards.some((c) => c.shake || c.highlight || c.selected);
+    // TEMP: force CPU path for debugging
+    needsSpring.current = true; // cards.some((c) => c.shake || c.highlight || c.selected);
 
     // Update GPU uniforms
     uniforms.uCardCount.value = cards.length;
@@ -176,6 +232,7 @@ export function InstancedCards({ cards }: InstancedCardsProps) {
     meshCardRef.current.count = count;
     meshHighlightRef.current.count = 0;
     meshSelectedRef.current.count = 0;
+    meshGhostRef.current.count = 0;
     meshCardRef.current.instanceMatrix.needsUpdate = true;
     if (meshCardRef.current.geometry.attributes.uvOffsetScale) {
       (meshCardRef.current.geometry.attributes.uvOffsetScale as THREE.InstancedBufferAttribute).needsUpdate = true;
@@ -184,13 +241,6 @@ export function InstancedCards({ cards }: InstancedCardsProps) {
 
   // UV Offset & Scale Attributes (vec4: u, v, w, h)
   const uvCardAttr = useMemo(() => new Float32Array(MAX_CARDS * 4), []);
-
-  // Instance index — used by GPU shader to compute orbital animation deterministically
-  const instanceIndexAttr = useMemo(() => {
-    const arr = new Float32Array(MAX_CARDS);
-    for (let i = 0; i < MAX_CARDS; i++) arr[i] = i;
-    return arr;
-  }, []);
 
   const uniforms = useMemo(() => ({
   map: { value: atlas },
@@ -204,7 +254,14 @@ export function InstancedCards({ cards }: InstancedCardsProps) {
 
     // Always update time — cheap single float assignment
     // Cap at 1000 to prevent unbounded growth that could cause GPU precision/timeout issues
-    uniforms.uTime.value = Math.min(uniforms.uTime.value + Math.min(delta, 0.05), 1000);
+    const elapsed = Math.min(uniforms.uTime.value + Math.min(delta, 0.05), 1000);
+    uniforms.uTime.value = elapsed;
+
+    // Update selected mesh pulsing via its material uniforms
+    const selectedMat = meshSelectedRef.current?.material as THREE.ShaderMaterial | undefined;
+    if (selectedMat?.uniforms?.uTime) {
+      selectedMat.uniforms.uTime.value = elapsed;
+    }
 
     // FAST PATH: pure animated cards — GPU handles all position animation.
     // CPU only sets count once; matrices already set by useEffect init.
@@ -219,6 +276,7 @@ export function InstancedCards({ cards }: InstancedCardsProps) {
 
     highlightIdx.current = 0;
     selectedIdx.current = 0;
+    ghostIdx.current = 0;
 
     for (let i = 0; i < count; i++) {
       if (i >= MAX_CARDS) break;
@@ -249,9 +307,13 @@ export function InstancedCards({ cards }: InstancedCardsProps) {
       [s.scale, s.vel.scale] = spring(s.scale, card.scale, s.vel.scale, dt);
 
       let finalRotZ = s.rotZ;
+      let shakeZ = 0;
       if (card.shake) {
         const t = performance.now() / 1000;
+        // Primary shake: two-frequency rotation
         finalRotZ += Math.sin(t * 22) * 0.06 + Math.sin(t * 37) * 0.03;
+        // Secondary damped Z oscillation — starts at 0.1 amplitude, decays exponentially
+        shakeZ = Math.sin(t * 18) * 0.1 * Math.exp(-t * 0.5);
       }
 
       _pos.copy(s.pos);
@@ -263,13 +325,23 @@ export function InstancedCards({ cards }: InstancedCardsProps) {
 
       if (card.highlight) {
         _pos.copy(s.pos);
-        _pos.z -= 0.01;
+        _pos.z -= 0.01 + shakeZ;
         _euler.set(0, 0, finalRotZ);
         _quat.setFromEuler(_euler);
         _scale.set(s.scale * 1.05, s.scale * 1.05, 1);
         _matrix.compose(_pos, _quat, _scale);
         meshHighlightRef.current.setMatrixAt(highlightIdx.current, _matrix);
         highlightIdx.current++;
+
+        // Ghost: larger, very faint, behind highlight
+        _pos.copy(s.pos);
+        _pos.z -= 0.008 + shakeZ * 0.5;
+        _euler.set(0, 0, finalRotZ);
+        _quat.setFromEuler(_euler);
+        _scale.set(s.scale * 1.15, s.scale * 1.15, 1);
+        _matrix.compose(_pos, _quat, _scale);
+        meshGhostRef.current.setMatrixAt(ghostIdx.current, _matrix);
+        ghostIdx.current++;
       }
 
       if (card.selected) {
@@ -294,9 +366,11 @@ export function InstancedCards({ cards }: InstancedCardsProps) {
     meshCardRef.current.count = count;
     meshHighlightRef.current.count = highlightIdx.current;
     meshSelectedRef.current.count = selectedIdx.current;
+    meshGhostRef.current.count = ghostIdx.current;
     meshCardRef.current.instanceMatrix.needsUpdate = true;
     meshHighlightRef.current.instanceMatrix.needsUpdate = true;
     meshSelectedRef.current.instanceMatrix.needsUpdate = true;
+    meshGhostRef.current.instanceMatrix.needsUpdate = true;
 
     if (meshCardRef.current.geometry.attributes.uvOffsetScale) {
       (meshCardRef.current.geometry.attributes.uvOffsetScale as THREE.InstancedBufferAttribute).needsUpdate = true;
@@ -315,16 +389,9 @@ export function InstancedCards({ cards }: InstancedCardsProps) {
             array={uvCardAttr}
             itemSize={4}
           />
-          <instancedBufferAttribute
-            args={[instanceIndexAttr, 1]}
-            name="instanceIndex"
-            attach="attributes-instanceIndex"
-            count={MAX_CARDS}
-            array={instanceIndexAttr}
-            itemSize={1}
-          />
         </planeGeometry>
-        <rawShaderMaterial
+        <shaderMaterial
+          glslVersion={THREE.GLSL3}
           uniforms={uniforms}
           vertexShader={vertexShader}
           fragmentShader={fragmentShader}
@@ -335,12 +402,10 @@ export function InstancedCards({ cards }: InstancedCardsProps) {
 
       <instancedMesh ref={meshHighlightRef} args={[null!, null!, MAX_CARDS]}>
         <planeGeometry args={[CARD_ASPECT, 1]} />
-        <rawShaderMaterial
+        <shaderMaterial
+          glslVersion={THREE.GLSL3}
           uniforms={{ color: { value: new THREE.Color('#ffcc00') }, opacity: { value: 0.25 } }}
-          vertexShader={vertexShader.replace(
-            'vUv = vec2(uv.x, 1.0 - uv.y) * uvOffsetScale.zw + uvOffsetScale.xy;',
-            'vUv = uv;'
-          )}
+          vertexShader={simpleVertexShader}
           fragmentShader={highlightFragmentShader}
           transparent
           depthWrite={false}
@@ -350,13 +415,24 @@ export function InstancedCards({ cards }: InstancedCardsProps) {
 
       <instancedMesh ref={meshSelectedRef} args={[null!, null!, MAX_CARDS]}>
         <planeGeometry args={[CARD_ASPECT, 1]} />
-        <rawShaderMaterial
-          uniforms={{ color: { value: new THREE.Color('#00e5ff') }, opacity: { value: 0.35 } }}
-          vertexShader={vertexShader.replace(
-            'vUv = vec2(uv.x, 1.0 - uv.y) * uvOffsetScale.zw + uvOffsetScale.xy;',
-            'vUv = uv;'
-          )}
-          fragmentShader={highlightFragmentShader}
+        <shaderMaterial
+          glslVersion={THREE.GLSL3}
+          uniforms={{ color: { value: new THREE.Color('#00e5ff') }, uTime: { value: 0 }, baseOpacity: { value: 1.0 } }}
+          vertexShader={simpleVertexShader}
+          fragmentShader={selectedFragmentShader}
+          transparent
+          depthWrite={false}
+          wireframe={wireframe}
+        />
+      </instancedMesh>
+
+      <instancedMesh ref={meshGhostRef} args={[null!, null!, MAX_CARDS]}>
+        <planeGeometry args={[CARD_ASPECT, 1]} />
+        <shaderMaterial
+          glslVersion={THREE.GLSL3}
+          uniforms={{ color: { value: new THREE.Color('#ffffff') } }}
+          vertexShader={simpleVertexShader}
+          fragmentShader={ghostFragmentShader}
           transparent
           depthWrite={false}
           wireframe={wireframe}
