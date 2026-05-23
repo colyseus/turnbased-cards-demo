@@ -25,23 +25,57 @@ interface InstancedCardsProps {
   cards: CardData[];
 }
 
-const vertexShader = `
+const vertexShader = /* glsl */ `
   precision highp float;
+
   attribute vec3 position;
   attribute vec2 uv;
   attribute mat4 instanceMatrix;
   attribute vec4 uvOffsetScale;
-  
+  attribute float instanceIndex;
+
   uniform mat4 modelMatrix;
   uniform mat4 viewMatrix;
   uniform mat4 projectionMatrix;
-  
+  uniform float uTime;
+  uniform float uCardCount;
+  uniform bool uUseGpuAnimation;
+
   varying vec2 vUv;
-  
+
   void main() {
     vUv = vec2(uv.x, 1.0 - uv.y) * uvOffsetScale.zw + uvOffsetScale.xy;
-    vec4 worldPosition = modelMatrix * instanceMatrix * vec4(position, 1.0);
-    gl_Position = projectionMatrix * viewMatrix * worldPosition;
+
+    // Extract base position from instanceMatrix (translation column)
+    vec3 basePos = vec3(instanceMatrix[3][0], instanceMatrix[3][1], instanceMatrix[3][2]);
+
+    vec3 finalPos = basePos;
+
+    // GPU-driven orbital animation: deterministic from instanceIndex + uTime
+    // No spring physics — runs entirely in vertex shader
+    if (uUseGpuAnimation) {
+      float fi = instanceIndex;
+      float total = max(uCardCount, 1.0);
+      float angle = (fi / total) * 6.28318530718 + uTime * 0.2;
+      float r = 3.0 + sin(uTime * 0.5 + fi * 0.1) * 2.0;
+      float zOff = sin(uTime + fi * 0.05) * 0.5;
+
+      finalPos = vec3(
+        cos(angle) * r,
+        sin(angle) * r,
+        zOff
+      );
+    }
+
+    // Compose: T(finalPos) * Rz(angle+PI/2) * S(0.5)
+    float animAngle = uUseGpuAnimation ? (angle + 1.57079632679) : 0.0;
+    float ca = cos(animAngle);
+    float sa = sin(animAngle);
+    mat3 rotZ = mat3(ca, -sa, 0.0, sa, ca, 0.0, 0.0, 0.0, 1.0);
+    mat3 scaleMat = mat3(0.5, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 1.0);
+    mat3 rotScale = rotZ * scaleMat;
+    vec4 worldPos = modelMatrix * vec4(basePos + rotScale * position, 1.0);
+    gl_Position = projectionMatrix * viewMatrix * worldPos;
   }
 `;
 
@@ -124,7 +158,12 @@ export function InstancedCards({ cards }: InstancedCardsProps) {
     return arr;
   }, []);
 
-  const uniforms = { map: { value: atlas } };
+  const uniforms = useMemo(() => ({
+  map: { value: atlas },
+  uTime: { value: 0 },
+  uCardCount: { value: 0 },
+  uUseGpuAnimation: { value: false },
+}), [atlas]);
 
   useFrame((_, delta) => {
     // Guard: skip if instanced meshes aren't mounted yet
