@@ -117,6 +117,13 @@ export function InstancedCards({ cards }: InstancedCardsProps) {
   // UV Offset & Scale Attributes (vec4: u, v, w, h)
   const uvCardAttr = useMemo(() => new Float32Array(MAX_CARDS * 4), []);
 
+  // Instance index — used by GPU shader to compute orbital animation deterministically
+  const instanceIndexAttr = useMemo(() => {
+    const arr = new Float32Array(MAX_CARDS);
+    for (let i = 0; i < MAX_CARDS; i++) arr[i] = i;
+    return arr;
+  }, []);
+
   const uniforms = { map: { value: atlas } };
 
   useFrame((_, delta) => {
@@ -232,6 +239,14 @@ export function InstancedCards({ cards }: InstancedCardsProps) {
             count={MAX_CARDS}
             array={uvCardAttr}
             itemSize={4}
+          />
+          <instancedBufferAttribute
+            args={[instanceIndexAttr, 1]}
+            name="instanceIndex"
+            attach="attributes-instanceIndex"
+            count={MAX_CARDS}
+            array={instanceIndexAttr}
+            itemSize={1}
           />
         </planeGeometry>
         <rawShaderMaterial
