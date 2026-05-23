@@ -2,7 +2,7 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { useMemo, useRef } from 'react';
 import { InstancedCards, CardData } from './game/InstancedCards';
 import { Table } from './game/Table';
-import { DevToolsProvider, DevToolsUI, useDevTools } from './DevTools';
+import { DevToolsProvider, DevToolsUI, DevToolsLogic, useDevTools } from './DevTools';
 import { TextureProvider } from './Preloader';
 
 function StressTestCards() {
@@ -78,6 +78,7 @@ function StressTestSceneInner({ onBack }: { onBack: () => void }) {
         <TextureProvider>
           <Table />
           <StressTestCards />
+          <DevToolsLogic />
         </TextureProvider>
       </Canvas>
 
