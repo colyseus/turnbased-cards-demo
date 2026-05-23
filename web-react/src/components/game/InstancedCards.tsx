@@ -140,8 +140,10 @@ export function InstancedCards({ cards }: InstancedCardsProps) {
   // Contiguous index counters for highlight/selected instance meshes
   const highlightIdx = useRef(0);
   const selectedIdx = useRef(0);
+  const needsSpring = useRef(false);
 
   // Memory Management: Cleanup removed cards from states Map
+  // and initialize GPU uniforms + instance matrices when cards change
   useEffect(() => {
     const cardIds = new Set(cards.map((c) => c.id));
     for (const id of states.current.keys()) {
@@ -149,7 +151,43 @@ export function InstancedCards({ cards }: InstancedCardsProps) {
         states.current.delete(id);
       }
     }
-  }, [cards]);
+
+    if (!meshCardRef.current) return;
+
+    // Detect whether any card needs spring physics
+    needsSpring.current = cards.some((c) => c.shake || c.highlight || c.selected);
+
+    // Update GPU uniforms
+    uniforms.uCardCount.value = cards.length;
+    uniforms.uUseGpuAnimation.value = !needsSpring.current;
+
+    // Initialize instance matrices and UVs
+    const count = Math.min(cards.length, MAX_CARDS);
+    for (let i = 0; i < count; i++) {
+      const card = cards[i];
+      _pos.set(card.position[0], card.position[1], card.position[2]);
+      _euler.set(0, 0, card.rotationZ);
+      _quat.setFromEuler(_euler);
+      _scale.setScalar(card.scale);
+      _matrix.compose(_pos, _quat, _scale);
+      meshCardRef.current.setMatrixAt(i, _matrix);
+
+      const uvs = getUVs(card.faceUp ? card.textureId : 'back');
+      const idx = i * 4;
+      uvCardAttr[idx] = uvs.u;
+      uvCardAttr[idx + 1] = uvs.v;
+      uvCardAttr[idx + 2] = uvs.w;
+      uvCardAttr[idx + 3] = uvs.h;
+    }
+
+    meshCardRef.current.count = count;
+    meshHighlightRef.current.count = 0;
+    meshSelectedRef.current.count = 0;
+    meshCardRef.current.instanceMatrix.needsUpdate = true;
+    if (meshCardRef.current.geometry.attributes.uvOffsetScale) {
+      (meshCardRef.current.geometry.attributes.uvOffsetScale as THREE.InstancedBufferAttribute).needsUpdate = true;
+    }
+  }, [cards, getUVs]);
 
   // UV Offset & Scale Attributes (vec4: u, v, w, h)
   const uvCardAttr = useMemo(() => new Float32Array(MAX_CARDS * 4), []);
@@ -169,18 +207,24 @@ export function InstancedCards({ cards }: InstancedCardsProps) {
 }), [atlas]);
 
   useFrame((_, delta) => {
-    // Guard: skip if instanced meshes aren't mounted yet
     if (!meshCardRef.current) return;
 
+    // Always update time — cheap single float assignment
+    uniforms.uTime.value += Math.min(delta, 0.05);
+
+    // FAST PATH: pure animated cards — GPU handles all position animation.
+    // CPU only sets count once; matrices already set by useEffect init.
+    if (!needsSpring.current) {
+      meshCardRef.current.count = cards.length;
+      return;
+    }
+
+    // SPRING PATH: game cards with shake/highlight/selected
     const dt = Math.min(delta, 0.05);
     const count = cards.length;
 
-    // Reset contiguous index counters for highlight/selected
     highlightIdx.current = 0;
     selectedIdx.current = 0;
-
-    // NO MORE GLOBAL MATRIX RESET LOOP.
-    // We only update the instances that are actually in use.
 
     for (let i = 0; i < count; i++) {
       if (i >= MAX_CARDS) break;
@@ -212,7 +256,7 @@ export function InstancedCards({ cards }: InstancedCardsProps) {
 
       let finalRotZ = s.rotZ;
       if (card.shake) {
-        const t = Date.now() / 1000;
+        const t = performance.now() / 1000;
         finalRotZ += Math.sin(t * 22) * 0.06 + Math.sin(t * 37) * 0.03;
       }
 
@@ -220,11 +264,9 @@ export function InstancedCards({ cards }: InstancedCardsProps) {
       _euler.set(0, 0, finalRotZ);
       _quat.setFromEuler(_euler);
       _scale.setScalar(s.scale);
-
       _matrix.compose(_pos, _quat, _scale);
       meshCardRef.current.setMatrixAt(i, _matrix);
 
-      // Highlight Matrix
       if (card.highlight) {
         _pos.copy(s.pos);
         _pos.z -= 0.01;
@@ -236,7 +278,6 @@ export function InstancedCards({ cards }: InstancedCardsProps) {
         highlightIdx.current++;
       }
 
-      // Selected Matrix
       if (card.selected) {
         _pos.copy(s.pos);
         _pos.z -= 0.015;
@@ -259,14 +300,12 @@ export function InstancedCards({ cards }: InstancedCardsProps) {
     meshCardRef.current.count = count;
     meshHighlightRef.current.count = highlightIdx.current;
     meshSelectedRef.current.count = selectedIdx.current;
-
     meshCardRef.current.instanceMatrix.needsUpdate = true;
     meshHighlightRef.current.instanceMatrix.needsUpdate = true;
     meshSelectedRef.current.instanceMatrix.needsUpdate = true;
 
     if (meshCardRef.current.geometry.attributes.uvOffsetScale) {
-      (meshCardRef.current.geometry.attributes.uvOffsetScale as THREE.InstancedBufferAttribute)
-        .needsUpdate = true;
+      (meshCardRef.current.geometry.attributes.uvOffsetScale as THREE.InstancedBufferAttribute).needsUpdate = true;
     }
   });
 
