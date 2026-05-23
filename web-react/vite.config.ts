@@ -12,6 +12,12 @@ export default defineConfig(({ mode }) => ({
       'server-shared': fileURLToPath(new URL('../server/shared/uno.ts', import.meta.url)),
     },
   },
+  server: {
+    // Allow serving files from the repo root (for server/shared/ imports)
+    fs: {
+      allow: ['..'],
+    },
+  },
   plugins: [
     react({
       // React compiler disabled for debugging
