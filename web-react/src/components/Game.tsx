@@ -1,35 +1,30 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { useThree } from "@react-three/fiber";
-import { InstancedCards, CardData } from "./game/InstancedCards";
-import { cardTextureFromSchema, canPlaySchema } from "../../../server/shared/uno";
-import {
-  playCardSound,
-  drawCardSound,
-  selectColorSound,
-  wildCardSound,
-} from "../sound";
-import { useRoom, useRoomState } from "../colyseus";
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useThree } from '@react-three/fiber';
+import { InstancedCards, CardData } from './game/InstancedCards';
+import { cardTextureFromSchema, canPlaySchema } from '../../../server/shared/uno';
+import { playCardSound, drawCardSound, selectColorSound, wildCardSound } from '../sound';
+import { useRoom, useRoomState } from '../colyseus';
 
-import { Table } from "./game/Table";
-import { TurnIndicator } from "./game/TurnIndicator";
-import { AnimatedRing } from "./game/AnimatedRing";
-import { ColorPicker } from "./game/ColorPicker";
-import { useDevTools } from "./DevTools";
+import { Table } from './game/Table';
+import { TurnIndicator } from './game/TurnIndicator';
+import { ColorOrb } from './game/ColorOrb';
+import { ColorPicker } from './game/ColorPicker';
+import { useDevTools } from './DevTools';
 
-import { CardSchema, PlayerSchema } from "../types";
-import { getVisualPosition, hashRotation, clamp } from "../utils";
+import { CardSchema, PlayerSchema } from '../types';
+import { getVisualPosition, hashRotation, clamp } from '../utils';
 
 // ── Types & Constants ───────────────────────────────────────────
 
-type UnoColor = "red" | "blue" | "green" | "yellow";
+type UnoColor = 'red' | 'blue' | 'green' | 'yellow';
 
 const SHOWCASE_DURATION_MS = 700;
 
 const COLOR_HEX: Record<UnoColor, string> = {
-  red: "#e63946",
-  blue: "#4361ee",
-  green: "#2ec4b6",
-  yellow: "#ffd60a",
+  red: '#e63946',
+  blue: '#4361ee',
+  green: '#2ec4b6',
+  yellow: '#ffd60a',
 };
 
 // ── Main Game component ─────────────────────────────────────────
@@ -45,7 +40,8 @@ interface GameProps {
 }
 
 export function Game(props: GameProps) {
-  const { sortByColor, onLastPlayed, onShake, onLongPress, selectedCardIndex, onSelectCard } = props;
+  const { sortByColor, onLastPlayed, onShake, onLongPress, selectedCardIndex, onSelectCard } =
+    props;
   const { room } = useRoom();
   const state = useRoomState();
   const { viewport } = useThree();
@@ -56,9 +52,7 @@ export function Game(props: GameProps) {
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
   const [showcaseCardId, setShowcaseCardId] = useState<string | null>(null);
   const [colorPickerFor, setColorPickerFor] = useState<string | null>(null);
-  const [hoveredPickerColor, setHoveredPickerColor] = useState<UnoColor | null>(
-    null,
-  );
+  const [hoveredPickerColor, setHoveredPickerColor] = useState<UnoColor | null>(null);
   const [invalidMoveCard, setInvalidMoveCard] = useState<string | null>(null);
   const invalidMoveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const actionCooldown = useRef<boolean>(false);
@@ -140,22 +134,31 @@ export function Game(props: GameProps) {
       if (showcaseCardId || colorPickerFor) return;
       if (state?.currentPlayer !== localSeatIndex || state?.winner !== -1) return;
 
-      const playableCards = localHand.filter(c => playableSet.has(c.id));
+      const playableCards = localHand.filter((c) => playableSet.has(c.id));
       if (playableCards.length === 0) return;
 
-      if (e.key === "ArrowRight") {
+      if (e.key === 'ArrowRight') {
         onSelectCard((selectedCardIndex + 1) % playableCards.length);
-      } else if (e.key === "ArrowLeft") {
+      } else if (e.key === 'ArrowLeft') {
         onSelectCard((selectedCardIndex - 1 + playableCards.length) % playableCards.length);
-      } else if (e.key === "Enter" || e.key === " ") {
+      } else if (e.key === 'Enter' || e.key === ' ') {
         const card = playableCards[selectedCardIndex];
         if (card) onPlayCard(card.id);
       }
     }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [localHand, playableSet, selectedCardIndex, state, localSeatIndex, showcaseCardId, colorPickerFor, onSelectCard]);
+  }, [
+    localHand,
+    playableSet,
+    selectedCardIndex,
+    state,
+    localSeatIndex,
+    showcaseCardId,
+    colorPickerFor,
+    onSelectCard,
+  ]);
 
   // Cleanup pending timers on unmount
   useEffect(() => {
@@ -171,32 +174,34 @@ export function Game(props: GameProps) {
     (cardId: string) => {
       if (actionCooldown.current || !room) return;
       actionCooldown.current = true;
-      setTimeout(() => { actionCooldown.current = false; }, 400);
+      setTimeout(() => {
+        actionCooldown.current = false;
+      }, 400);
 
       const card = localHand.find((c) => c.id === cardId);
       if (!card) return;
 
-      if (card.cardType === "wild") {
+      if (card.cardType === 'wild') {
         setColorPickerFor(cardId);
         selectColorSound();
       } else {
-        room.send("play_card", { cardId });
+        room.send('play_card', { cardId });
         setShowcaseCardId(cardId);
         playCardSound();
       }
     },
-    [room, localHand],
+    [room, localHand]
   );
 
   const onPickColor = useCallback(
     (color: UnoColor) => {
       if (!colorPickerFor || !room) return;
-      room.send("play_card", { cardId: colorPickerFor, chosenColor: color });
+      room.send('play_card', { cardId: colorPickerFor, chosenColor: color });
       setShowcaseCardId(colorPickerFor);
       setColorPickerFor(null);
       wildCardSound();
     },
-    [room, colorPickerFor],
+    [room, colorPickerFor]
   );
 
   // ── Layout constants ─────────────────────────────────────────
@@ -204,19 +209,28 @@ export function Game(props: GameProps) {
   const L = useMemo(() => {
     const isMobile = vw < 6;
     const isPortrait = vh > vw;
-    const baseScale = isMobile ? 0.8 : 1.2;
+    const baseScale = isMobile ? 0.62 : 1.14;
+    const maxFanWidth = vw * (isMobile ? 0.82 : 0.68);
+    const localSpacing = isMobile
+      ? clamp(maxFanWidth / Math.max(localHand.length - 1, 1), 0.18, 0.32)
+      : 0.55;
     return {
       playerScale: baseScale,
-      playerSpacing: isMobile ? 0.35 : 0.6,
+      playerSpacing: localSpacing,
       pileScale: baseScale * 1.1,
       discardScale: baseScale * 1.25,
-      bottomY: isPortrait ? -vh * 0.42 : -vh * 0.38,
-      topY: isPortrait ? vh * 0.38 : vh * 0.34,
-      sideX: isPortrait ? vw * 0.4 : vw * 0.38,
+      bottomY: isPortrait ? -vh * 0.21 : -vh * 0.36,
+      topY: isPortrait ? vh * 0.31 : vh * 0.32,
+      sideX: isPortrait ? vw * 0.33 : vw * 0.35,
       sideY: 0,
-      pileX: isMobile ? 0.9 : 1.5,
+      pileX: isMobile ? 0.76 : 1.42,
+      activeColorPosition: [isMobile ? 0 : -2.2, isMobile ? 1.25 : 1.7, 0.52] as [
+        number,
+        number,
+        number,
+      ],
     };
-  }, [vw, vh]);
+  }, [vw, vh, localHand.length]);
 
   // ── Sync last played card to HUD ─────────────────────────────
 
@@ -226,7 +240,7 @@ export function Game(props: GameProps) {
       return;
     }
     const top = state.discardPile[state.discardPile.length - 1];
-    let playerName = "Unknown";
+    let playerName = 'Unknown';
     for (const p of Object.values(state.players) as PlayerSchema[]) {
       if (p.seatIndex === state.lastPlayerIndex) playerName = p.name;
     }
@@ -256,18 +270,18 @@ export function Game(props: GameProps) {
 
     // 1. Stress Test Cards (background)
     if (stressTestCount > 0) {
-        for (let i = 0; i < stressTestCount; i++) {
-            const angle = (i / stressTestCount) * Math.PI * 2 + Date.now() * 0.0001;
-            const r = 4 + Math.sin(i * 0.1) * 2;
-            list.push({
-                id: `stress-${i}`,
-                textureId: (i % 2 === 0) ? "back" : "red_0",
-                position: [Math.cos(angle) * r, Math.sin(angle) * r, -1 + (i * 0.001)],
-                rotationZ: angle,
-                faceUp: i % 2 !== 0,
-                scale: 0.5,
-            });
-        }
+      for (let i = 0; i < stressTestCount; i++) {
+        const angle = (i / stressTestCount) * Math.PI * 2 + Date.now() * 0.0001;
+        const r = 4 + Math.sin(i * 0.1) * 2;
+        list.push({
+          id: `stress-${i}`,
+          textureId: i % 2 === 0 ? 'back' : 'red_0',
+          position: [Math.cos(angle) * r, Math.sin(angle) * r, -1 + i * 0.001],
+          rotationZ: angle,
+          faceUp: i % 2 !== 0,
+          scale: 0.5,
+        });
+      }
     }
 
     if (!state) return list;
@@ -277,7 +291,7 @@ export function Game(props: GameProps) {
     for (let i = 0; i < deckCount; i++) {
       list.push({
         id: `deck-${i}`,
-        textureId: "back",
+        textureId: 'back',
         position: [-L.pileX, i * 0.015, 0],
         rotationZ: 0,
         faceUp: false,
@@ -304,7 +318,7 @@ export function Game(props: GameProps) {
 
     // 4. Showcase card (flying to pile)
     if (showcaseCardId) {
-      const card = (state.discardPile as CardSchema[]).find(c => c.id === showcaseCardId);
+      const card = (state.discardPile as CardSchema[]).find((c) => c.id === showcaseCardId);
       if (card) {
         list.push({
           id: `showcase-${card.id}`,
@@ -330,7 +344,10 @@ export function Game(props: GameProps) {
         const id = card ? card.id : `${player.sessionId}-${i}`;
         const center = i - (count - 1) / 2;
 
-        let x = 0, y = 0, z = 0, rotZ = 0;
+        let x = 0,
+          y = 0,
+          z = 0,
+          rotZ = 0;
         if (visualPos === 0) {
           x = center * spacing;
           y = L.bottomY - Math.abs(center) * 0.03;
@@ -354,15 +371,18 @@ export function Game(props: GameProps) {
         }
 
         const isHovered = hoveredCard === id;
-        const isSelected = isLocal && playableSet.has(id) && localHand.filter(c => playableSet.has(c.id)).indexOf(card!) === selectedCardIndex;
+        const isSelected =
+          isLocal &&
+          playableSet.has(id) &&
+          localHand.filter((c) => playableSet.has(c.id)).indexOf(card!) === selectedCardIndex;
 
         list.push({
           id: id,
-          textureId: card ? cardTextureFromSchema(card) : "back",
-          position: [x, y, (isHovered || isSelected) ? z + 0.3 : z],
+          textureId: card ? cardTextureFromSchema(card) : 'back',
+          position: [x, y, isHovered || isSelected ? z + 0.3 : z],
           rotationZ: rotZ,
           faceUp: isLocal,
-          scale: (isHovered || isSelected) ? scale * 1.15 : scale,
+          scale: isHovered || isSelected ? scale * 1.15 : scale,
           highlight: isLocal && playableSet.has(id),
           shake: invalidMoveCard === id,
           selected: isSelected,
@@ -385,9 +405,7 @@ export function Game(props: GameProps) {
     stressTestCount,
   ]);
 
-  const activeColor = state
-    ? (state.activeColor as UnoColor) || "red"
-    : "red";
+  const activeColor = state ? (state.activeColor as UnoColor) || 'red' : 'red';
 
   if (!state || !room) return null;
 
@@ -395,20 +413,17 @@ export function Game(props: GameProps) {
     <group>
       <Table />
 
-      {state.phase === "playing" && (
-        <AnimatedRing
+      {state.phase === 'playing' && (
+        <ColorOrb
           color={COLOR_HEX[activeColor]}
-          innerRadius={0.55 * L.discardScale}
-          outerRadius={0.62 * L.discardScale}
-          position={[L.pileX, 0, 0.49]}
+          isWildCard={!!colorPickerFor}
+          scale={L.discardScale * 0.4}
+          position={L.activeColorPosition}
         />
       )}
 
-      {state.phase === "playing" && state.winner === -1 && (
-        <TurnIndicator
-          activePlayerIndex={state.activePlayerIndex}
-          reverse={state.reverse}
-        />
+      {state.phase === 'playing' && state.winner === -1 && (
+        <TurnIndicator activePlayerIndex={state.activePlayerIndex} reverse={state.reverse} />
       )}
 
       <InstancedCards cards={cards} />
@@ -423,11 +438,7 @@ export function Game(props: GameProps) {
           return (
             <mesh
               key={`hit-${card.id}`}
-              position={[
-                center * L.playerSpacing,
-                L.bottomY - Math.abs(center) * 0.03,
-                0.08,
-              ]}
+              position={[center * L.playerSpacing, L.bottomY - Math.abs(center) * 0.03, 0.08]}
               rotation={[0, 0, -center * 0.03]}
               onClick={(e) => {
                 e.stopPropagation();
@@ -459,12 +470,12 @@ export function Game(props: GameProps) {
               onPointerEnter={(e) => {
                 e.stopPropagation();
                 if (playable) {
-                  document.body.style.cursor = "pointer";
+                  document.body.style.cursor = 'pointer';
                   setHoveredCard(card.id);
                 }
               }}
               onPointerLeave={() => {
-                document.body.style.cursor = "auto";
+                document.body.style.cursor = 'auto';
                 setHoveredCard(null);
                 if (longPressTimer.current) {
                   clearTimeout(longPressTimer.current);
@@ -472,14 +483,8 @@ export function Game(props: GameProps) {
                 }
               }}
             >
-              <planeGeometry
-                args={[L.playerSpacing, L.playerScale * 1.2]}
-              />
-              <meshBasicMaterial
-                transparent
-                opacity={0}
-                depthWrite={false}
-              />
+              <planeGeometry args={[L.playerSpacing, L.playerScale * 1.2]} />
+              <meshBasicMaterial transparent opacity={0} depthWrite={false} />
             </mesh>
           );
         })}
@@ -494,12 +499,18 @@ export function Game(props: GameProps) {
               e.stopPropagation();
               if (actionCooldown.current) return;
               actionCooldown.current = true;
-              setTimeout(() => { actionCooldown.current = false; }, 300);
+              setTimeout(() => {
+                actionCooldown.current = false;
+              }, 300);
               drawCardSound();
-              room.send("draw_card");
+              room.send('draw_card');
             }}
-            onPointerEnter={() => { document.body.style.cursor = "pointer"; }}
-            onPointerLeave={() => { document.body.style.cursor = "auto"; }}
+            onPointerEnter={() => {
+              document.body.style.cursor = 'pointer';
+            }}
+            onPointerLeave={() => {
+              document.body.style.cursor = 'auto';
+            }}
           >
             <planeGeometry args={[L.pileScale * 1.5, L.pileScale * 2.2]} />
             <meshBasicMaterial transparent opacity={0} depthWrite={false} />

@@ -16,7 +16,7 @@ This project is a multiplayer UNO card game built with the [Colyseus](https://co
 ## Key Technologies
 
 - **Backend:** Colyseus 0.17, TypeScript, Express, Vitest.
-- **Frontend (Web):** React 19, Vite, React Three Fiber (Three.js), Playwright.
+- **Frontend (Web):** React 19, Vite, React Three Fiber (Three.js), agent-browser for browser QA.
 - **Communication:** WebSockets (via Colyseus SDK).
 
 ## Building and Running
@@ -61,7 +61,7 @@ To run both the server and the web client simultaneously:
 
 ### Testing
 - **Server:** Unit tests using Vitest in `server/test/`. Run with `npm test`.
-- **Web Client:** E2E tests using Playwright in `web-react/e2e/`. Run with `npm run test:e2e`.
+- **Web Client:** Use `agent-browser` for browser smoke checks and rendered UI verification.
 - **Smoke Test:** `./scripts/smoke-web-agent-browser.sh` validates basic functionality using browser automation.
 
 ## Important Files

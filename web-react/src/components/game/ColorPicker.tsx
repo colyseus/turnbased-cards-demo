@@ -1,14 +1,14 @@
-import { useEffect, useMemo, useRef } from "react";
-import { useFrame } from "@react-three/fiber";
-import * as THREE from "three";
-import { UnoColor } from "../../../../server/shared/uno";
+import { useEffect, useMemo, useRef } from 'react';
+import { useFrame } from '@react-three/fiber';
+import * as THREE from 'three';
+import { UnoColor } from '../../../../server/shared/uno';
 
-const PICKER_COLORS: UnoColor[] = ["red", "yellow", "green", "blue"];
+const PICKER_COLORS: UnoColor[] = ['red', 'yellow', 'green', 'blue'];
 const COLOR_HEX: Record<UnoColor, string> = {
-  red: "#e63946",
-  blue: "#4361ee",
-  green: "#2ec4b6",
-  yellow: "#ffd60a",
+  red: '#e63946',
+  blue: '#4361ee',
+  green: '#2ec4b6',
+  yellow: '#ffd60a',
 };
 
 interface ChipState {
@@ -47,7 +47,7 @@ export function ColorPicker({
       tick: new THREE.BoxGeometry(0.08, 0.32, 0.01),
       connector: new THREE.RingGeometry(0.9, 1.02, 80, 1, 0, Math.PI * 0.34),
     }),
-    [],
+    []
   );
 
   useEffect(() => {
@@ -104,7 +104,11 @@ export function ColorPicker({
         <meshBasicMaterial ref={overlayRef} color="#05050d" transparent opacity={0} />
       </mesh>
 
-      <mesh position={[0, 0, -0.07]} geometry={geometries.overlay} onClick={() => onHoverColor(null)}>
+      <mesh
+        position={[0, 0, -0.07]}
+        geometry={geometries.overlay}
+        onClick={() => onHoverColor(null)}
+      >
         <meshBasicMaterial transparent opacity={0} />
       </mesh>
 
@@ -120,7 +124,11 @@ export function ColorPicker({
               <meshBasicMaterial color={COLOR_HEX[color]} transparent opacity={0.18} />
             </mesh>
             <mesh geometry={geometries.chipRing}>
-              <meshBasicMaterial color={hoveredPickerColor === color ? "#00e5ff" : "#ffffff"} transparent opacity={hoveredPickerColor === color ? 0.9 : 0.68} />
+              <meshBasicMaterial
+                color={hoveredPickerColor === color ? '#00e5ff' : '#ffffff'}
+                transparent
+                opacity={hoveredPickerColor === color ? 0.9 : 0.68}
+              />
             </mesh>
             <mesh position={[0, 0, 0.01]} geometry={geometries.chip}>
               <meshBasicMaterial color={COLOR_HEX[color]} />

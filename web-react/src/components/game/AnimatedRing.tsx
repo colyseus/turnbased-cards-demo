@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import * as THREE from "three";
+import { useMemo } from 'react';
+import * as THREE from 'three';
 
 interface ColorRingProps {
   color: string;
@@ -8,12 +8,7 @@ interface ColorRingProps {
   position: [number, number, number];
 }
 
-export function AnimatedRing({
-  color,
-  innerRadius,
-  outerRadius,
-  position,
-}: ColorRingProps) {
+export function AnimatedRing({ color, innerRadius, outerRadius, position }: ColorRingProps) {
   const geometries = useMemo(
     () => ({
       // Dark recessed base — the socket the jewel sits in
@@ -27,7 +22,7 @@ export function AnimatedRing({
       // Center glow
       core: new THREE.CircleGeometry(innerRadius * 0.55, 80),
     }),
-    [innerRadius, outerRadius],
+    [innerRadius, outerRadius]
   );
 
   return (

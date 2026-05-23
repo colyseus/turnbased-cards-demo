@@ -1,6 +1,6 @@
-import { useState, useRef, createContext, useContext, useCallback, useEffect } from "react";
-import { useThree, useFrame } from "@react-three/fiber";
-import * as THREE from "three";
+import { useState, useRef, createContext, useContext, useCallback, useEffect } from 'react';
+import { useThree, useFrame } from '@react-three/fiber';
+import * as THREE from 'three';
 
 interface BenchmarkData {
   fps: number[];
@@ -37,7 +37,7 @@ const DevToolsContext = createContext<DevToolsContextValue | null>(null);
 
 export function useDevTools() {
   const ctx = useContext(DevToolsContext);
-  if (!ctx) throw new Error("useDevTools must be used within DevToolsProvider");
+  if (!ctx) throw new Error('useDevTools must be used within DevToolsProvider');
   return ctx;
 }
 
@@ -46,7 +46,7 @@ export function DevToolsProvider({ children }: { children: React.ReactNode }) {
   const [isBenchmarking, setIsBenchmarking] = useState(false);
   const [stressTestCount, setStressTestCount] = useState(0);
   const [wireframe, setWireframe] = useState(false);
-  
+
   const data = useRef<BenchmarkData>({
     fps: [],
     drawCalls: [],
@@ -72,31 +72,34 @@ export function DevToolsProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const exportResults = useCallback(() => {
-    const blob = new Blob([JSON.stringify(data.current, null, 2)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify(data.current, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
+    const a = document.createElement('a');
     a.href = url;
     a.download = `uno-benchmark-${Date.now()}.json`;
     a.click();
     URL.revokeObjectURL(url);
   }, []);
 
-  const recordData = useCallback((stats: BenchmarkStats) => {
-    if (!isBenchmarking) return;
-    data.current.fps.push(stats.fps);
-    data.current.drawCalls.push(stats.drawCalls);
-    data.current.triangles.push(stats.triangles);
-    data.current.frameTime.push(stats.frameTime);
-    data.current.timestamp.push(performance.now());
-  }, [isBenchmarking]);
+  const recordData = useCallback(
+    (stats: BenchmarkStats) => {
+      if (!isBenchmarking) return;
+      data.current.fps.push(stats.fps);
+      data.current.drawCalls.push(stats.drawCalls);
+      data.current.triangles.push(stats.triangles);
+      data.current.frameTime.push(stats.frameTime);
+      data.current.timestamp.push(performance.now());
+    },
+    [isBenchmarking]
+  );
 
   // Toggle shortcut
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "`") setIsOpen(v => !v);
+      if (e.key === '`') setIsOpen((v) => !v);
     };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
   return (
@@ -155,7 +158,9 @@ export function DevToolsLogic() {
       const mesh = obj as THREE.Mesh;
       if (mesh.material) {
         if (Array.isArray(mesh.material)) {
-          (mesh.material as THREE.MeshBasicMaterial[]).forEach(m => { m.wireframe = wireframe; });
+          (mesh.material as THREE.MeshBasicMaterial[]).forEach((m) => {
+            m.wireframe = wireframe;
+          });
         } else {
           (mesh.material as THREE.MeshBasicMaterial).wireframe = wireframe;
         }
@@ -167,11 +172,18 @@ export function DevToolsLogic() {
 }
 
 export function DevToolsUI() {
-  const { 
-    isOpen, setIsOpen,
-    isBenchmarking, startBenchmark, stopBenchmark, exportResults, 
-    currentStats, stressTestCount, setStressTestCount,
-    wireframe, setWireframe
+  const {
+    isOpen,
+    setIsOpen,
+    isBenchmarking,
+    startBenchmark,
+    stopBenchmark,
+    exportResults,
+    currentStats,
+    stressTestCount,
+    setStressTestCount,
+    wireframe,
+    setWireframe,
   } = useDevTools();
 
   if (!isOpen) {
@@ -186,7 +198,9 @@ export function DevToolsUI() {
     <div className="devtools-panel">
       <div className="devtools-header">
         <span>DevTools</span>
-        <button className="close-btn" onClick={() => setIsOpen(false)}>×</button>
+        <button className="close-btn" onClick={() => setIsOpen(false)}>
+          ×
+        </button>
       </div>
 
       <div className="devtools-section">
@@ -194,7 +208,7 @@ export function DevToolsUI() {
         <div className="benchmark-stats">
           <div className="stat-row">
             <span>FPS</span>
-            <span className={currentStats.fps < 30 ? "val low" : "val"}>{currentStats.fps}</span>
+            <span className={currentStats.fps < 30 ? 'val low' : 'val'}>{currentStats.fps}</span>
           </div>
           <div className="stat-row">
             <span>Draw Calls</span>
@@ -209,14 +223,20 @@ export function DevToolsUI() {
             <span className="val">{currentStats.frameTime.toFixed(2)}ms</span>
           </div>
         </div>
-        
+
         <div className="benchmark-controls">
           {!isBenchmarking ? (
-            <button className="bench-btn start" onClick={startBenchmark}>Start Benchmark</button>
+            <button className="bench-btn start" onClick={startBenchmark}>
+              Start Benchmark
+            </button>
           ) : (
-            <button className="bench-btn stop" onClick={stopBenchmark}>Stop & Record</button>
+            <button className="bench-btn stop" onClick={stopBenchmark}>
+              Stop & Record
+            </button>
           )}
-          <button className="bench-btn export" onClick={exportResults} disabled={isBenchmarking}>Export JSON</button>
+          <button className="bench-btn export" onClick={exportResults} disabled={isBenchmarking}>
+            Export JSON
+          </button>
         </div>
       </div>
 
@@ -227,12 +247,12 @@ export function DevToolsUI() {
             <label>Extra Cards</label>
             <span className="val">{stressTestCount}</span>
           </div>
-          <input 
-            type="range" 
-            min="0" 
-            max="5000" 
-            step="100" 
-            value={stressTestCount} 
+          <input
+            type="range"
+            min="0"
+            max="5000"
+            step="100"
+            value={stressTestCount}
             onChange={(e) => setStressTestCount(parseInt(e.target.value))}
           />
         </div>
@@ -242,10 +262,10 @@ export function DevToolsUI() {
         <div className="section-title">Debug Toggles</div>
         <div className="toggle-row">
           <label>Wireframe Mode</label>
-          <input 
-            type="checkbox" 
-            checked={wireframe} 
-            onChange={(e) => setWireframe(e.target.checked)} 
+          <input
+            type="checkbox"
+            checked={wireframe}
+            onChange={(e) => setWireframe(e.target.checked)}
           />
         </div>
       </div>

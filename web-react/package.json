@@ -6,24 +6,22 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "test:atlas": "node scripts/assert-card-atlas.mjs",
     "lint": "eslint . --max-warnings 0",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
     "preview": "vite preview",
-    "test:e2e": "playwright test",
-    "test:e2e:install": "playwright install chromium",
     "analyze": "vite build --mode analyze"
   },
   "dependencies": {
     "@colyseus/react": "^0.1.14",
     "@colyseus/sdk": "^0.17.0",
-    "@react-three/fiber": "^9.5.0",
+    "@react-three/fiber": "^9.6.1",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "three": "^0.183.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
-    "@playwright/test": "^1.60.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@types/three": "^0.183.1",

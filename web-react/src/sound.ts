@@ -3,8 +3,12 @@
  */
 
 let soundEnabled = true;
-export function setSoundEnabled(v: boolean) { soundEnabled = v; }
-export function isSoundEnabled() { return soundEnabled; }
+export function setSoundEnabled(v: boolean) {
+  soundEnabled = v;
+}
+export function isSoundEnabled() {
+  return soundEnabled;
+}
 
 let audioCtx: AudioContext | null = null;
 
@@ -16,7 +20,7 @@ function getCtx(): AudioContext {
 }
 
 /** Short sine-wave beep */
-function beep(frequency: number, duration: number, gain = 0.15, type: OscillatorType = "sine") {
+function beep(frequency: number, duration: number, gain = 0.15, type: OscillatorType = 'sine') {
   if (!soundEnabled) return;
   try {
     const ctx = getCtx();
@@ -59,7 +63,7 @@ function noise(duration: number, gain = 0.08) {
 
 /** Play a card sound — short high-pitched click */
 export function playCardSound() {
-  beep(880, 0.06, 0.12, "triangle");
+  beep(880, 0.06, 0.12, 'triangle');
 }
 
 /** Draw card sound — soft shuffling noise */
@@ -76,7 +80,7 @@ export function selectColorSound() {
 
 /** Wild card played — lower tone */
 export function wildCardSound() {
-  beep(220, 0.15, 0.15, "sawtooth");
+  beep(220, 0.15, 0.15, 'sawtooth');
   setTimeout(() => beep(196, 0.15, 0.1), 100);
 }
 
@@ -90,13 +94,13 @@ export function winSound() {
 
 /** UNO called — special alert */
 export function unoSound() {
-  beep(880, 0.1, 0.15, "square");
+  beep(880, 0.1, 0.15, 'square');
   setTimeout(() => beep(1047, 0.2, 0.12), 80);
 }
 
 /** Card hover — very subtle tick */
 export function hoverCardSound() {
-  beep(1200, 0.02, 0.04, "sine");
+  beep(1200, 0.02, 0.04, 'sine');
 }
 
 type VibratePattern = number | number[];

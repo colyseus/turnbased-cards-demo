@@ -1,10 +1,10 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useCardAtlas } from '../Preloader';
 import { useDevTools } from '../DevTools';
+import { CARD_ASPECT } from '../../cards/cardAtlas';
 
-const CARD_ASPECT = 240 / 375;
 const STIFFNESS = 200;
 const DAMPING = 30;
 const MAX_CARDS = 5000;
@@ -39,7 +39,7 @@ const vertexShader = `
   varying vec2 vUv;
   
   void main() {
-    vUv = uv * uvOffsetScale.zw + uvOffsetScale.xy;
+    vUv = vec2(uv.x, 1.0 - uv.y) * uvOffsetScale.zw + uvOffsetScale.xy;
     vec4 worldPosition = modelMatrix * instanceMatrix * vec4(position, 1.0);
     gl_Position = projectionMatrix * viewMatrix * worldPosition;
   }
@@ -83,19 +83,22 @@ export function InstancedCards({ cards }: InstancedCardsProps) {
   const { atlas, getUVs } = useCardAtlas();
   const { wireframe } = useDevTools();
 
-  const meshFrontRef = useRef<THREE.InstancedMesh>(null!);
-  const meshBackRef = useRef<THREE.InstancedMesh>(null!);
+  const meshCardRef = useRef<THREE.InstancedMesh>(null!);
   const meshHighlightRef = useRef<THREE.InstancedMesh>(null!);
   const meshSelectedRef = useRef<THREE.InstancedMesh>(null!);
 
   // Animation state
-  const states = useRef<Map<string, {
-    pos: THREE.Vector3;
-    rotZ: number;
-    flipY: number;
-    scale: number;
-    vel: { x: number; y: number; z: number; rotZ: number; flipY: number; scale: number };
-  }>>(new Map());
+  const states = useRef<
+    Map<
+      string,
+      {
+        pos: THREE.Vector3;
+        rotZ: number;
+        scale: number;
+        vel: { x: number; y: number; z: number; rotZ: number; scale: number };
+      }
+    >
+  >(new Map());
 
   // Contiguous index counters for highlight/selected instance meshes
   const highlightIdx = useRef(0);
@@ -103,7 +106,7 @@ export function InstancedCards({ cards }: InstancedCardsProps) {
 
   // Memory Management: Cleanup removed cards from states Map
   useEffect(() => {
-    const cardIds = new Set(cards.map(c => c.id));
+    const cardIds = new Set(cards.map((c) => c.id));
     for (const id of states.current.keys()) {
       if (!cardIds.has(id)) {
         states.current.delete(id);
@@ -112,22 +115,13 @@ export function InstancedCards({ cards }: InstancedCardsProps) {
   }, [cards]);
 
   // UV Offset & Scale Attributes (vec4: u, v, w, h)
-  const uvFrontAttr = new Float32Array(MAX_CARDS * 4);
-  const uvBackAttr = new Float32Array(MAX_CARDS * 4);
-  // Back UV is always the same, fill once - use safe fallback until context is ready
-  const backUVs = getUVs('back') ?? { u: 0.5, v: 0.1667, w: 0.1, h: 0.1667 };
-  for (let i = 0; i < MAX_CARDS; i++) {
-    const idx = i * 4;
-    // Flip U horizontally so BackSide-rendered card back isn't mirrored
-    uvBackAttr[idx] = -(backUVs.u + backUVs.w); uvBackAttr[idx+1] = backUVs.v;
-    uvBackAttr[idx+2] = backUVs.w; uvBackAttr[idx+3] = backUVs.h;
-  }
+  const uvCardAttr = useMemo(() => new Float32Array(MAX_CARDS * 4), []);
 
   const uniforms = { map: { value: atlas } };
 
   useFrame((_, delta) => {
     // Guard: skip if instanced meshes aren't mounted yet
-    if (!meshFrontRef.current || !meshBackRef.current) return;
+    if (!meshCardRef.current) return;
 
     const dt = Math.min(delta, 0.05);
     const count = cards.length;
@@ -136,7 +130,7 @@ export function InstancedCards({ cards }: InstancedCardsProps) {
     highlightIdx.current = 0;
     selectedIdx.current = 0;
 
-    // NO MORE GLOBAL MATRIX RESET LOOP. 
+    // NO MORE GLOBAL MATRIX RESET LOOP.
     // We only update the instances that are actually in use.
 
     for (let i = 0; i < count; i++) {
@@ -148,9 +142,8 @@ export function InstancedCards({ cards }: InstancedCardsProps) {
         s = {
           pos: new THREE.Vector3(...card.position),
           rotZ: card.rotationZ,
-          flipY: card.faceUp ? 0 : Math.PI,
           scale: card.scale,
-          vel: { x: 0, y: 0, z: 0, rotZ: 0, flipY: 0, scale: 0 }
+          vel: { x: 0, y: 0, z: 0, rotZ: 0, scale: 0 },
         };
         states.current.set(card.id, s);
       }
@@ -166,7 +159,6 @@ export function InstancedCards({ cards }: InstancedCardsProps) {
       }
 
       [s.rotZ, s.vel.rotZ] = spring(s.rotZ, card.rotationZ, s.vel.rotZ, dt);
-      [s.flipY, s.vel.flipY] = spring(s.flipY, card.faceUp ? 0 : Math.PI, s.vel.flipY, dt);
       [s.scale, s.vel.scale] = spring(s.scale, card.scale, s.vel.scale, dt);
 
       let finalRotZ = s.rotZ;
@@ -176,114 +168,89 @@ export function InstancedCards({ cards }: InstancedCardsProps) {
       }
 
       _pos.copy(s.pos);
-      _euler.set(0, s.flipY, finalRotZ);
+      _euler.set(0, 0, finalRotZ);
       _quat.setFromEuler(_euler);
       _scale.setScalar(s.scale);
-      
-      // Front Matrix
-      _pos.z += 0.005;
-      _matrix.compose(_pos, _quat, _scale);
-      meshFrontRef.current.setMatrixAt(i, _matrix);
 
-      // Back Matrix
-      _pos.z -= 0.01;
       _matrix.compose(_pos, _quat, _scale);
-      meshBackRef.current.setMatrixAt(i, _matrix);
+      meshCardRef.current.setMatrixAt(i, _matrix);
 
       // Highlight Matrix
       if (card.highlight) {
-          _pos.copy(s.pos);
-          _pos.z -= 0.01;
-          _euler.set(0, 0, finalRotZ);
-          _quat.setFromEuler(_euler);
-          _scale.set(s.scale * 1.05, s.scale * 1.05, 1);
-          _matrix.compose(_pos, _quat, _scale);
-          meshHighlightRef.current.setMatrixAt(highlightIdx.current, _matrix);
-          highlightIdx.current++;
+        _pos.copy(s.pos);
+        _pos.z -= 0.01;
+        _euler.set(0, 0, finalRotZ);
+        _quat.setFromEuler(_euler);
+        _scale.set(s.scale * 1.05, s.scale * 1.05, 1);
+        _matrix.compose(_pos, _quat, _scale);
+        meshHighlightRef.current.setMatrixAt(highlightIdx.current, _matrix);
+        highlightIdx.current++;
       }
 
       // Selected Matrix
       if (card.selected) {
-          _pos.copy(s.pos);
-          _pos.z -= 0.015;
-          _euler.set(0, 0, finalRotZ);
-          _quat.setFromEuler(_euler);
-          _scale.set(s.scale * 1.1, s.scale * 1.1, 1);
-          _matrix.compose(_pos, _quat, _scale);
-          meshSelectedRef.current.setMatrixAt(selectedIdx.current, _matrix);
-          selectedIdx.current++;
+        _pos.copy(s.pos);
+        _pos.z -= 0.015;
+        _euler.set(0, 0, finalRotZ);
+        _quat.setFromEuler(_euler);
+        _scale.set(s.scale * 1.1, s.scale * 1.1, 1);
+        _matrix.compose(_pos, _quat, _scale);
+        meshSelectedRef.current.setMatrixAt(selectedIdx.current, _matrix);
+        selectedIdx.current++;
       }
 
-      // Update Front UVs
-      const uvs = getUVs(card.textureId);
+      const uvs = getUVs(card.faceUp ? card.textureId : 'back');
       const idx = i * 4;
-      uvFrontAttr[idx] = uvs.u; uvFrontAttr[idx+1] = uvs.v;
-      uvFrontAttr[idx+2] = uvs.w; uvFrontAttr[idx+3] = uvs.h;
+      uvCardAttr[idx] = uvs.u;
+      uvCardAttr[idx + 1] = uvs.v;
+      uvCardAttr[idx + 2] = uvs.w;
+      uvCardAttr[idx + 3] = uvs.h;
     }
 
-    meshFrontRef.current.count = count;
-    meshBackRef.current.count = count;
+    meshCardRef.current.count = count;
     meshHighlightRef.current.count = highlightIdx.current;
     meshSelectedRef.current.count = selectedIdx.current;
 
-    meshFrontRef.current.instanceMatrix.needsUpdate = true;
-    meshBackRef.current.instanceMatrix.needsUpdate = true;
+    meshCardRef.current.instanceMatrix.needsUpdate = true;
     meshHighlightRef.current.instanceMatrix.needsUpdate = true;
     meshSelectedRef.current.instanceMatrix.needsUpdate = true;
-    
-    if (meshFrontRef.current.geometry.attributes.uvOffsetScale) {
-        (meshFrontRef.current.geometry.attributes.uvOffsetScale as THREE.InstancedBufferAttribute).needsUpdate = true;
+
+    if (meshCardRef.current.geometry.attributes.uvOffsetScale) {
+      (meshCardRef.current.geometry.attributes.uvOffsetScale as THREE.InstancedBufferAttribute)
+        .needsUpdate = true;
     }
   });
 
   return (
     <>
-      <instancedMesh ref={meshFrontRef} args={[null!, null!, MAX_CARDS]}>
+      <instancedMesh ref={meshCardRef} args={[null!, null!, MAX_CARDS]}>
         <planeGeometry args={[CARD_ASPECT, 1]}>
           <instancedBufferAttribute
-            args={[uvFrontAttr, 4]}
+            args={[uvCardAttr, 4]}
             name="uvOffsetScale"
             attach="attributes-uvOffsetScale"
             count={MAX_CARDS}
-            array={uvFrontAttr}
+            array={uvCardAttr}
             itemSize={4}
           />
         </planeGeometry>
-        <rawShaderMaterial 
-          uniforms={uniforms} 
-          vertexShader={vertexShader} 
-          fragmentShader={fragmentShader} 
-          transparent 
-          wireframe={wireframe}
-        />
-      </instancedMesh>
-      
-      <instancedMesh ref={meshBackRef} args={[null!, null!, MAX_CARDS]}>
-        <planeGeometry args={[CARD_ASPECT, 1]}>
-          <instancedBufferAttribute
-            args={[uvBackAttr, 4]}
-            name="uvOffsetScale"
-            attach="attributes-uvOffsetScale"
-            count={MAX_CARDS}
-            array={uvBackAttr}
-            itemSize={4}
-          />
-        </planeGeometry>
-        <rawShaderMaterial 
-          uniforms={uniforms} 
-          vertexShader={vertexShader} 
-          fragmentShader={fragmentShader} 
-          transparent 
-          side={THREE.BackSide}
+        <rawShaderMaterial
+          uniforms={uniforms}
+          vertexShader={vertexShader}
+          fragmentShader={fragmentShader}
+          transparent
           wireframe={wireframe}
         />
       </instancedMesh>
 
       <instancedMesh ref={meshHighlightRef} args={[null!, null!, MAX_CARDS]}>
         <planeGeometry args={[CARD_ASPECT, 1]} />
-        <rawShaderMaterial 
-          uniforms={{ color: { value: new THREE.Color("#00e5ff") }, opacity: { value: 0.25 } }}
-          vertexShader={vertexShader.replace('vUv = uv * uvOffsetScale.zw + uvOffsetScale.xy;', 'vUv = uv;')}
+        <rawShaderMaterial
+          uniforms={{ color: { value: new THREE.Color('#ffcc00') }, opacity: { value: 0.25 } }}
+          vertexShader={vertexShader.replace(
+            'vUv = vec2(uv.x, 1.0 - uv.y) * uvOffsetScale.zw + uvOffsetScale.xy;',
+            'vUv = uv;'
+          )}
           fragmentShader={highlightFragmentShader}
           transparent
           depthWrite={false}
@@ -293,9 +260,12 @@ export function InstancedCards({ cards }: InstancedCardsProps) {
 
       <instancedMesh ref={meshSelectedRef} args={[null!, null!, MAX_CARDS]}>
         <planeGeometry args={[CARD_ASPECT, 1]} />
-        <rawShaderMaterial 
-          uniforms={{ color: { value: new THREE.Color("#00e5ff") }, opacity: { value: 0.35 } }}
-          vertexShader={vertexShader.replace('vUv = uv * uvOffsetScale.zw + uvOffsetScale.xy;', 'vUv = uv;')}
+        <rawShaderMaterial
+          uniforms={{ color: { value: new THREE.Color('#00e5ff') }, opacity: { value: 0.35 } }}
+          vertexShader={vertexShader.replace(
+            'vUv = vec2(uv.x, 1.0 - uv.y) * uvOffsetScale.zw + uvOffsetScale.xy;',
+            'vUv = uv;'
+          )}
           fragmentShader={highlightFragmentShader}
           transparent
           depthWrite={false}

@@ -1,5 +1,5 @@
 export function getVisualPosition(seatIndex: number, localSeatIndex: number): number {
-  return ((seatIndex - localSeatIndex) + 4) % 4;
+  return (seatIndex - localSeatIndex + 4) % 4;
 }
 
 export function hashRotation(id: string, index: number): number {

@@ -1,13 +1,13 @@
-import { lazy, Suspense } from "react";
-import { useRoom, useRoomState } from "../../colyseus";
-import { LastPlayedInfo } from "../GameScene";
-import { PlayerSchema } from "../../types";
+import { lazy, Suspense } from 'react';
+import { useRoom, useRoomState } from '../../colyseus';
+import { LastPlayedInfo } from '../GameScene';
+import { PlayerSchema } from '../../types';
 
 // Lazy-load heavy overlays from current flat directory
-const RulesOverlay = lazy(() => import("./RulesOverlay"));
-const OptionsOverlay = lazy(() => import("./OptionsOverlay"));
-const ChatOverlay = lazy(() => import("./ChatOverlay"));
-const RematchOverlay = lazy(() => import("./RematchOverlay"));
+const RulesOverlay = lazy(() => import('./RulesOverlay'));
+const OptionsOverlay = lazy(() => import('./OptionsOverlay'));
+const ChatOverlay = lazy(() => import('./ChatOverlay'));
+const RematchOverlay = lazy(() => import('./RematchOverlay'));
 
 export interface GameHudProps {
   onSortToggle: () => void;
@@ -53,33 +53,35 @@ export function GameHud({
   if (!state) return null;
 
   const me = room
-    ? (Object.values(state.players) as PlayerSchema[]).find((p) => p.sessionId === room.sessionId) ?? null
+    ? ((Object.values(state.players) as PlayerSchema[]).find(
+        (p) => p.sessionId === room.sessionId
+      ) ?? null)
     : null;
   const players = Object.values(state.players) as PlayerSchema[];
   const currentPlayer = players.find((p) => p.seatIndex === state.currentPlayer);
-  const directionLabel = state.reverse ? "Counter-clockwise" : "Clockwise";
+  const directionLabel = state.reverse ? 'Counter-clockwise' : 'Clockwise';
   const dockActions = [
     {
-      label: sortByColor ? "Number" : "Color",
-      detail: "Sort",
-      aria: sortByColor ? "Sort by number" : "Sort by color",
+      label: sortByColor ? 'Number' : 'Color',
+      detail: 'Sort',
+      aria: sortByColor ? 'Sort by number' : 'Sort by color',
       onClick: onSortToggle,
     },
     {
       label: qualityLevel.slice(0, 1).toUpperCase(),
-      detail: "Quality",
+      detail: 'Quality',
       aria: `Quality: ${qualityLevel}`,
       onClick: onQualityToggle,
     },
     {
-      label: soundEnabled ? "On" : "Off",
-      detail: "Sound",
-      aria: soundEnabled ? "Mute sound" : "Enable sound",
+      label: soundEnabled ? 'On' : 'Off',
+      detail: 'Sound',
+      aria: soundEnabled ? 'Mute sound' : 'Enable sound',
       onClick: onSoundToggle,
     },
-    { label: "Rules", detail: "Guide", aria: "Show rules", onClick: onShowRules },
-    { label: "Setup", detail: "Options", aria: "Settings", onClick: onShowOptions },
-    { label: "Chat", detail: "Table", aria: "Show chat", onClick: onShowChat },
+    { label: 'Rules', detail: 'Guide', aria: 'Show rules', onClick: onShowRules },
+    { label: 'Setup', detail: 'Options', aria: 'Settings', onClick: onShowOptions },
+    { label: 'Chat', detail: 'Table', aria: 'Show chat', onClick: onShowChat },
   ];
 
   return (
@@ -87,7 +89,7 @@ export function GameHud({
       <aside className="arena-rail">
         <div className="arena-brand">
           <span>Room</span>
-          <strong>{room?.roomId || "..."}</strong>
+          <strong>{room?.roomId || '...'}</strong>
         </div>
 
         <div className="arena-metric">
@@ -100,7 +102,7 @@ export function GameHud({
             .sort((a, b) => a.seatIndex - b.seatIndex)
             .map((player) => (
               <div
-                className={`seat-row${player.seatIndex === state.currentPlayer ? " active" : ""}`}
+                className={`seat-row${player.seatIndex === state.currentPlayer ? ' active' : ''}`}
                 key={player.sessionId}
               >
                 <span className="seat-index">{player.seatIndex + 1}</span>
@@ -114,7 +116,7 @@ export function GameHud({
       <section className="turn-card" aria-live="polite">
         <div>
           <span>Current Turn</span>
-          <strong>{currentPlayer?.name || "Waiting"}</strong>
+          <strong>{currentPlayer?.name || 'Waiting'}</strong>
         </div>
         <div>
           <span>Direction</span>
@@ -130,7 +132,7 @@ export function GameHud({
         <div className="last-played-info">
           <span>Last play</span>
           <span className="player-name">{lastPlayed.playerName}</span>
-          <span className="card-name">{lastPlayed.cardId.replace("_", " ")}</span>
+          <span className="card-name">{lastPlayed.cardId.replace('_', ' ')}</span>
         </div>
       )}
 
@@ -153,8 +155,8 @@ export function GameHud({
       <Suspense fallback={null}>
         {showRules && <RulesOverlay onClose={onCloseRules} />}
         {showOptions && (
-          <OptionsOverlay 
-            onClose={onCloseOptions} 
+          <OptionsOverlay
+            onClose={onCloseOptions}
             soundEnabled={soundEnabled}
             onSoundToggle={onSoundToggle}
             qualityLevel={qualityLevel}
@@ -163,10 +165,20 @@ export function GameHud({
           />
         )}
         {showChat && <ChatOverlay onClose={onCloseChat} />}
-        {state.phase === "finished" && (
-            <div className="rematch-container" style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)", zIndex: 1000, pointerEvents: "auto" }}>
-                <RematchOverlay />
-            </div>
+        {state.phase === 'finished' && (
+          <div
+            className="rematch-container"
+            style={{
+              position: 'fixed',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              zIndex: 1000,
+              pointerEvents: 'auto',
+            }}
+          >
+            <RematchOverlay />
+          </div>
         )}
       </Suspense>
     </div>

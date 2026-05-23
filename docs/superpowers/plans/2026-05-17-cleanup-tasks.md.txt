@@ -17,7 +17,7 @@
 | `docs/superpowers/plans/2026-05-17-remaining-features.md` | Existing plan — rename to avoid Jekyll Liquid parse errors |
 | `docs/superpowers/specs/2026-05-17-remaining-features-design.md` | Existing spec — rename to avoid Jekyll Liquid parse errors |
 | `.tmp-agent-browser/` | Temporary agent-browser artifacts — delete |
-| `web-react/test-results/` | Playwright local test artifacts — delete |
+| `web-react/test-results/` | Browser test artifacts — delete |
 | `origin/feat/remaining-nice-to-haves` | Stale merged remote branch — delete |
 
 ---
@@ -84,7 +84,7 @@ Expected: No output (branch deleted).
 rm -rf /home/gfunk/github/turnbased-cards-demo/.tmp-agent-browser
 ```
 
-- [ ] **Step 2: Remove Playwright test-results**
+- [ ] **Step 2: Remove browser test-results**
 
 ```bash
 rm -rf /home/gfunk/github/turnbased-cards-demo/web-react/test-results

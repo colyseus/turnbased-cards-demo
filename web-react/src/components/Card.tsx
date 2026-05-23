@@ -2,8 +2,7 @@ import { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useCardAtlas } from './Preloader';
-
-const CARD_ASPECT = 240 / 375; // width / height
+import { CARD_ASPECT } from '../cards/cardAtlas';
 
 const STIFFNESS = 200;
 const DAMPING = 30;
@@ -61,20 +60,28 @@ export function Card({
   const frontUVs = useMemo(() => {
     const uvs = getUVs(textureId);
     return new Float32Array([
-      uvs.u, uvs.v + uvs.h,
-      uvs.u + uvs.w, uvs.v + uvs.h,
-      uvs.u, uvs.v,
-      uvs.u + uvs.w, uvs.v
+      uvs.u,
+      uvs.v + uvs.h,
+      uvs.u + uvs.w,
+      uvs.v + uvs.h,
+      uvs.u,
+      uvs.v,
+      uvs.u + uvs.w,
+      uvs.v,
     ]);
   }, [textureId, getUVs]);
 
   const backUVs = useMemo(() => {
     const uvs = getUVs('back');
     return new Float32Array([
-      uvs.u, uvs.v + uvs.h,
-      uvs.u + uvs.w, uvs.v + uvs.h,
-      uvs.u, uvs.v,
-      uvs.u + uvs.w, uvs.v
+      uvs.u,
+      uvs.v + uvs.h,
+      uvs.u + uvs.w,
+      uvs.v + uvs.h,
+      uvs.u,
+      uvs.v,
+      uvs.u + uvs.w,
+      uvs.v,
     ]);
   }, [getUVs]);
 

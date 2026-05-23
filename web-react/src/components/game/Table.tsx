@@ -1,5 +1,5 @@
-import { useEffect, useMemo } from "react";
-import * as THREE from "three";
+import { useEffect, useMemo } from 'react';
+import * as THREE from 'three';
 
 const SURFACE_SIZE = 1024;
 const BACKDROP_SIZE = 1024;
@@ -14,10 +14,10 @@ function hash(seed: number) {
 
 // eslint-disable-next-line no-unused-vars, no-undef
 function createCanvasTexture(size: number, draw: (ctx: CanvasRenderingContext2D) => void) {
-  const canvas = document.createElement("canvas");
+  const canvas = document.createElement('canvas');
   canvas.width = size;
   canvas.height = size;
-  const ctx = canvas.getContext("2d")!;
+  const ctx = canvas.getContext('2d')!;
   draw(ctx);
 
   const texture = new THREE.CanvasTexture(canvas);
@@ -29,10 +29,10 @@ function createCanvasTexture(size: number, draw: (ctx: CanvasRenderingContext2D)
 
 function createTableSurfaceTexture() {
   return createCanvasTexture(SURFACE_SIZE, (ctx) => {
-    ctx.fillStyle = "#1a1a2e";
+    ctx.fillStyle = '#1a1a2e';
     ctx.fillRect(0, 0, SURFACE_SIZE, SURFACE_SIZE);
 
-    ctx.globalCompositeOperation = "lighter";
+    ctx.globalCompositeOperation = 'lighter';
     for (let i = 0; i < 14000; i++) {
       const x = hash(i * 3) * SURFACE_SIZE;
       const y = hash(i * 3 + 1) * SURFACE_SIZE;
@@ -41,8 +41,8 @@ function createTableSurfaceTexture() {
       ctx.fillRect(x, y, 1, 1);
     }
 
-    ctx.globalCompositeOperation = "source-over";
-    ctx.strokeStyle = "rgba(0, 229, 255, 0.18)";
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.strokeStyle = 'rgba(0, 229, 255, 0.18)';
     ctx.lineWidth = 3;
     for (let i = 0; i < 5; i++) {
       ctx.beginPath();
@@ -50,7 +50,7 @@ function createTableSurfaceTexture() {
       ctx.stroke();
     }
 
-    ctx.strokeStyle = "rgba(0, 229, 255, 0.08)";
+    ctx.strokeStyle = 'rgba(0, 229, 255, 0.08)';
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.ellipse(512, 512, 440, 274, 0, 0, Math.PI * 2);
@@ -61,13 +61,13 @@ function createTableSurfaceTexture() {
 function createBackdropTexture() {
   return createCanvasTexture(BACKDROP_SIZE, (ctx) => {
     const bg = ctx.createLinearGradient(0, 0, BACKDROP_SIZE, BACKDROP_SIZE);
-    bg.addColorStop(0, "#1a1a2e");
-    bg.addColorStop(0.46, "#0f0f1a");
-    bg.addColorStop(1, "#05050d");
+    bg.addColorStop(0, '#1a1a2e');
+    bg.addColorStop(0.46, '#0f0f1a');
+    bg.addColorStop(1, '#05050d');
     ctx.fillStyle = bg;
     ctx.fillRect(0, 0, BACKDROP_SIZE, BACKDROP_SIZE);
 
-    ctx.strokeStyle = "rgba(0, 229, 255, 0.045)";
+    ctx.strokeStyle = 'rgba(0, 229, 255, 0.045)';
     ctx.lineWidth = 1;
     for (let x = -BACKDROP_SIZE; x < BACKDROP_SIZE * 2; x += 64) {
       ctx.beginPath();
@@ -76,12 +76,12 @@ function createBackdropTexture() {
       ctx.stroke();
     }
 
-    ctx.fillStyle = "rgba(157, 78, 221, 0.09)";
+    ctx.fillStyle = 'rgba(157, 78, 221, 0.09)';
     ctx.beginPath();
     ctx.arc(790, 730, 210, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.fillStyle = "rgba(0, 229, 255, 0.11)";
+    ctx.fillStyle = 'rgba(0, 229, 255, 0.11)';
     ctx.beginPath();
     ctx.arc(210, 260, 230, 0, Math.PI * 2);
     ctx.fill();
@@ -117,7 +117,7 @@ function RoundedPlane({
 }) {
   const geometry = useMemo(
     () => new THREE.ShapeGeometry(createRoundedRectShape(width, height, radius), segments),
-    [height, radius, segments, width],
+    [height, radius, segments, width]
   );
 
   useEffect(() => {
@@ -127,13 +127,7 @@ function RoundedPlane({
   return <primitive object={geometry} attach="geometry" />;
 }
 
-function TableTray({
-  position,
-  accent,
-}: {
-  position: [number, number, number];
-  accent: string;
-}) {
+function TableTray({ position, accent }: { position: [number, number, number]; accent: string }) {
   return (
     <group position={position}>
       <mesh position={[0, 0, -0.012]}>
@@ -173,19 +167,6 @@ function SeatAnchor({
         <boxGeometry args={[0.75, 0.045, 0.01]} />
         <meshBasicMaterial color="#ffffff" transparent opacity={0.12} />
       </mesh>
-    </group>
-  );
-}
-
-function DirectionLane() {
-  return (
-    <group position={[0, 0, 0.018]}>
-      {[0, 1, 2, 3].map((i) => (
-        <mesh key={i} rotation={[0, 0, (i * Math.PI) / 2]}>
-          <ringGeometry args={[2.35, 2.43, 72, 1, 0.1, Math.PI * 0.32]} />
-          <meshBasicMaterial color="#00e5ff" transparent opacity={0.2} />
-        </mesh>
-      ))}
     </group>
   );
 }

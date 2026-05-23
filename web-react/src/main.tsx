@@ -1,13 +1,19 @@
-import "./index.css";
-import { Suspense, useState, lazy, useRef } from "react";
-import { createRoot } from "react-dom/client";
-import { client, RoomProvider, useRoom, watchRoom } from "./colyseus";
-import { ErrorBoundary } from "./components/ErrorBoundary";
-import { getLeaderboard } from "./stats";
+import './index.css';
+import { Suspense, useState, lazy, useRef } from 'react';
+import { createRoot } from 'react-dom/client';
+import { client, RoomProvider, useRoom, watchRoom } from './colyseus';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { getLeaderboard } from './stats';
+import { CARD_COLS, CARD_ROWS, getCardCssBackgroundPosition } from './cards/cardAtlas';
+import { suppressDeprecatedClockWarning } from './threeTimerClock';
 
 // Lazy-load the 3D game canvas so three.js is not in the initial bundle
-const GameScene = lazy(() => import("./components/GameScene"));
-const StressTestScene = lazy(() => import("./components/StressTestScene"));
+const GameScene = lazy(() => import('./components/GameScene'));
+const StressTestScene = lazy(() => import('./components/StressTestScene'));
+
+suppressDeprecatedClockWarning();
+
+type ConnectFn = () => ReturnType<typeof watchRoom>;
 
 function Preloader() {
   return (
@@ -18,42 +24,63 @@ function Preloader() {
   );
 }
 
-function Lobby({ onJoined }: { onJoined: (_connect: () => Promise<any>) => void }) { // eslint-disable-line no-unused-vars, @typescript-eslint/no-explicit-any
-  const [name, setName] = useState("");
-  const [roomCode, setRoomCode] = useState("");
-  const [nameError, setNameError] = useState("");
-  const [mode, setMode] = useState<"play" | "watch">("play");
+function Lobby({
+  onJoined,
+}: {
+  // eslint-disable-next-line no-unused-vars
+  onJoined: (connect: ConnectFn) => void;
+}) {
+  const [name, setName] = useState('');
+  const [roomCode, setRoomCode] = useState('');
+  const [nameError, setNameError] = useState('');
+  const [mode, setMode] = useState<'play' | 'watch'>('play');
   const [privateRoom, setPrivateRoom] = useState(false);
-  const [password, setPassword] = useState("");
-  const [joinPassword, setJoinPassword] = useState("");
-  const [difficulty, setDifficulty] = useState<"easy" | "medium" | "hard">("medium");
+  const [password, setPassword] = useState('');
+  const [joinPassword, setJoinPassword] = useState('');
+  const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
   const [showStats, setShowStats] = useState(false);
 
   const validateName = (raw: string): string => {
     const trimmed = raw.trim();
-    if (!trimmed) return "Name cannot be empty.";
-    if (trimmed.length < 2) return "Name must be at least 2 characters.";
-    if (trimmed.length > 16) return "Name must be 16 characters or fewer.";
-    if (!/^[a-zA-Z0-9_\-\s]+$/.test(trimmed)) return "Name can only contain letters, numbers, spaces, hyphens, and underscores.";
-    return "";
+    if (!trimmed) return 'Name cannot be empty.';
+    if (trimmed.length < 2) return 'Name must be at least 2 characters.';
+    if (trimmed.length > 16) return 'Name must be 16 characters or fewer.';
+    if (!/^[a-zA-Z0-9_\-\s]+$/.test(trimmed))
+      return 'Name can only contain letters, numbers, spaces, hyphens, and underscores.';
+    return '';
   };
 
   const handleQuickPlay = (e: React.FormEvent) => {
     e.preventDefault();
     const error = validateName(name);
-    if (error) { setNameError(error); return; }
-    setNameError("");
+    if (error) {
+      setNameError(error);
+      return;
+    }
+    setNameError('');
     const trimmed = name.trim();
-    onJoined(() => client.joinOrCreate("uno", { name: trimmed, private: privateRoom, difficulty, password: password || undefined }));
+    onJoined(() =>
+      client.joinOrCreate('uno', {
+        name: trimmed,
+        private: privateRoom,
+        difficulty,
+        password: password || undefined,
+      })
+    );
   };
 
   const handleJoinByCode = () => {
     if (!roomCode.trim()) return;
     const error = validateName(name);
-    if (error) { setNameError(error); return; }
-    setNameError("");
+    if (error) {
+      setNameError(error);
+      return;
+    }
+    setNameError('');
     const trimmed = name.trim();
-    onJoined(() => client.joinById(roomCode.trim(), { name: trimmed, password: joinPassword || undefined }));
+    onJoined(() =>
+      client.joinById(roomCode.trim(), { name: trimmed, password: joinPassword || undefined })
+    );
   };
 
   const handleWatch = () => {
@@ -65,11 +92,15 @@ function Lobby({ onJoined }: { onJoined: (_connect: () => Promise<any>) => void 
     <div className="lobby" role="main" aria-label="Game lobby">
       <div className="lobby-stage" aria-hidden="true">
         <div className="lobby-orbit">
-          {["red_5", "blue_reverse", "yellow_skip", "green_draw2", "wild"].map((card, index) => (
+          {['red_5', 'blue_reverse', 'yellow_skip', 'green_draw2', 'wild'].map((card, index) => (
             <div
               key={card}
               className={`preview-card preview-card-${index + 1}`}
-              style={{ backgroundImage: `url('${import.meta.env.BASE_URL}cards/atlas.webp')` }}
+              style={{
+                backgroundImage: `url('${import.meta.env.BASE_URL}cards/atlas.webp')`,
+                backgroundSize: `${CARD_COLS * 100}% ${CARD_ROWS * 100}%`,
+                backgroundPosition: getCardCssBackgroundPosition(card),
+              }}
             />
           ))}
         </div>
@@ -80,20 +111,21 @@ function Lobby({ onJoined }: { onJoined: (_connect: () => Promise<any>) => void 
           <p className="lobby-mark">Live Table</p>
           <h1 className="lobby-title">Wild Table</h1>
           <p className="lobby-subtitle">
-            A clean multiplayer card arena built for fast turns, watchable matches, and low-friction private rooms.
+            A clean multiplayer card arena built for fast turns, watchable matches, and low-friction
+            private rooms.
           </p>
         </div>
 
         <div className="lobby-tabs">
           <button
-            className={`lobby-tab ${mode === "play" ? "lobby-tab-active" : ""}`}
-            onClick={() => setMode("play")}
+            className={`lobby-tab ${mode === 'play' ? 'lobby-tab-active' : ''}`}
+            onClick={() => setMode('play')}
           >
             Play
           </button>
           <button
-            className={`lobby-tab ${mode === "watch" ? "lobby-tab-active" : ""}`}
-            onClick={() => setMode("watch")}
+            className={`lobby-tab ${mode === 'watch' ? 'lobby-tab-active' : ''}`}
+            onClick={() => setMode('watch')}
           >
             Watch
           </button>
@@ -110,7 +142,7 @@ function Lobby({ onJoined }: { onJoined: (_connect: () => Promise<any>) => void 
           </button>
         </div>
 
-        {mode === "play" ? (
+        {mode === 'play' ? (
           <>
             <form onSubmit={handleQuickPlay} className="lobby-form" aria-label="Quick play form">
               <input
@@ -118,19 +150,25 @@ function Lobby({ onJoined }: { onJoined: (_connect: () => Promise<any>) => void 
                 type="text"
                 placeholder="Player name"
                 value={name}
-                onChange={(e) => { setName(e.target.value); setNameError(""); }}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  setNameError('');
+                }}
                 maxLength={16}
                 autoFocus
               />
               {nameError && <p className="lobby-error">{nameError}</p>}
-              <div className="option-row" style={{ width: "100%", justifyContent: "center", gap: 12 }}>
-                <span style={{ fontSize: 13, color: "rgba(255,255,255,0.6)" }}>Private room</span>
+              <div
+                className="option-row"
+                style={{ width: '100%', justifyContent: 'center', gap: 12 }}
+              >
+                <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>Private room</span>
                 <button
-                  className={`toggle-btn${privateRoom ? " on" : ""}`}
+                  className={`toggle-btn${privateRoom ? ' on' : ''}`}
                   onClick={() => setPrivateRoom((v) => !v)}
                   type="button"
                 >
-                  {privateRoom ? "ON" : "OFF"}
+                  {privateRoom ? 'ON' : 'OFF'}
                 </button>
               </div>
               {privateRoom && (
@@ -143,15 +181,18 @@ function Lobby({ onJoined }: { onJoined: (_connect: () => Promise<any>) => void 
                   maxLength={32}
                 />
               )}
-              <div className="option-row" style={{ width: "100%", justifyContent: "center", gap: 8 }}>
-                <span style={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }}>Bot difficulty</span>
-                {(["easy", "medium", "hard"] as const).map((d) => (
+              <div
+                className="option-row"
+                style={{ width: '100%', justifyContent: 'center', gap: 8 }}
+              >
+                <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>Bot difficulty</span>
+                {(['easy', 'medium', 'hard'] as const).map((d) => (
                   <button
                     key={d}
-                    className={`toggle-btn${difficulty === d ? " on" : ""}`}
+                    className={`toggle-btn${difficulty === d ? ' on' : ''}`}
                     onClick={() => setDifficulty(d)}
                     type="button"
-                    style={{ fontSize: 11, padding: "3px 10px" }}
+                    style={{ fontSize: 11, padding: '3px 10px' }}
                   >
                     {d.charAt(0).toUpperCase() + d.slice(1)}
                   </button>
@@ -224,13 +265,13 @@ function StatsOverlay({ onClose }: { onClose: () => void }) {
       <div className="rules-card" onClick={(e) => e.stopPropagation()}>
         <div className="rules-header">
           <h2>Leaderboard</h2>
-          <button className="rules-close" onClick={onClose}>✕</button>
+          <button className="rules-close" onClick={onClose}>
+            ✕
+          </button>
         </div>
         <div className="rules-body">
           {leaderboard.length === 0 ? (
-            <p className="empty-state">
-              No games played yet.
-            </p>
+            <p className="empty-state">No games played yet.</p>
           ) : (
             <table className="leaderboard-table">
               <thead>
@@ -266,7 +307,7 @@ function GameContent({ onDisconnect }: { onDisconnect: () => void }) {
     return (
       <div className="lobby">
         <div className="lobby-card">
-          <p className="lobby-error">{error.message || "Failed to connect"}</p>
+          <p className="lobby-error">{error.message || 'Failed to connect'}</p>
           <button className="lobby-btn" onClick={onDisconnect}>
             Back to Lobby
           </button>
@@ -297,7 +338,7 @@ function GameContent({ onDisconnect }: { onDisconnect: () => void }) {
 }
 
 function App() {
-  const [connectFn, setConnectFn] = useState<(() => Promise<any>) | null>(null); // eslint-disable-line @typescript-eslint/no-explicit-any
+  const [connectFn, setConnectFn] = useState<ConnectFn | null>(null);
   const [showStressTest, setShowStressTest] = useState(false);
 
   if (showStressTest) {
@@ -312,8 +353,8 @@ function App() {
     return (
       <>
         <Lobby onJoined={(fn) => setConnectFn(() => fn)} />
-        <button 
-          className="devtools-trigger" 
+        <button
+          className="devtools-trigger"
           style={{ bottom: 12, left: 12, right: 'auto' }}
           onClick={() => setShowStressTest(true)}
         >
@@ -332,13 +373,35 @@ function App() {
   );
 }
 
-createRoot(document.getElementById("root")!).render(<App />);
+createRoot(document.getElementById('root')!).render(<App />);
 
-// Register service worker for offline caching
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js").catch(() => {
-      // SW registration failed — silently ignore (e.g., in dev mode)
+const isLocalQaHost = ['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname);
+const LOCAL_CACHE_CLEAR_KEY = 'card-game-local-cache-cleared-v2';
+
+async function clearLocalServiceWorkerState() {
+  const registrations = await navigator.serviceWorker.getRegistrations();
+  await Promise.all(registrations.map((registration) => registration.unregister()));
+
+  if ('caches' in window && window.sessionStorage.getItem(LOCAL_CACHE_CLEAR_KEY) !== '1') {
+    const keys = await window.caches.keys();
+    await Promise.all(
+      keys.filter((key) => key.startsWith('card-game-')).map((key) => window.caches.delete(key))
+    );
+    window.sessionStorage.setItem(LOCAL_CACHE_CLEAR_KEY, '1');
+  }
+}
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    if (isLocalQaHost || import.meta.env.DEV) {
+      clearLocalServiceWorkerState().catch(() => {
+        // Local cleanup is best-effort and should not block QA.
+      });
+      return;
+    }
+
+    navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => {
+      // SW registration failed; the online app remains usable.
     });
   });
 }

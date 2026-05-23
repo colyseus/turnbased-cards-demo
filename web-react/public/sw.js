@@ -1,5 +1,4 @@
-// Simple service worker for offline caching
-const CACHE_NAME = 'card-game-v1';
+const CACHE_NAME = 'card-game-shell-v2';
 const ASSETS = [
   '/',
   '/index.html',
@@ -23,16 +22,19 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
-  event.respondWith(
-    caches.match(event.request).then((cached) => {
-      const fetched = fetch(event.request).then((response) => {
-        if (response && response.status === 200) {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-        }
-        return response;
-      }).catch(() => cached);
-      return cached || fetched;
-    })
-  );
+  const url = new URL(event.request.url);
+  const isShellRequest = url.origin === self.location.origin && ASSETS.includes(url.pathname);
+  const isFreshAsset =
+    url.pathname.endsWith('.js') ||
+    url.pathname.endsWith('.css') ||
+    url.pathname.includes('/cards/');
+
+  if (isFreshAsset) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
+  if (isShellRequest) {
+    event.respondWith(fetch(event.request).catch(() => caches.match(event.request)));
+  }
 });

@@ -1,11 +1,11 @@
-import { useRoom, useRoomState } from "../../colyseus";
-import { PlayerSchema } from "../../types";
+import { useRoom, useRoomState } from '../../colyseus';
+import { PlayerSchema } from '../../types';
 
 export default function RematchOverlay() {
   const { room } = useRoom();
   const state = useRoomState();
 
-  if (!room || !state || state.phase !== "finished") return null;
+  if (!room || !state || state.phase !== 'finished') return null;
 
   const rematchVotes = (state as unknown as { rematchVotes?: number[] }).rematchVotes ?? [];
 
@@ -23,29 +23,40 @@ export default function RematchOverlay() {
   const localVoted = localPlayer ? rematchVotes.includes(localPlayer.seatIndex) : false;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, pointerEvents: "auto" }} role="dialog" aria-modal="true" aria-label="Rematch">
-      <div style={{ fontSize: 14, color: "rgba(255,255,255,0.6)" }}>
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 12,
+        pointerEvents: 'auto',
+      }}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Rematch"
+    >
+      <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)' }}>
         {voteCount}/{connectedHumans} voted for rematch
       </div>
       {canVote && !localVoted && (
         <button
           className="wood-btn"
           onClick={() => {
-            room.send("vote_rematch");
+            room.send('vote_rematch');
           }}
         >
           Vote Rematch
         </button>
       )}
       {canVote && localVoted && (
-        <button className="wood-btn" disabled style={{ opacity: 0.5, cursor: "default" }}>
+        <button className="wood-btn" disabled style={{ opacity: 0.5, cursor: 'default' }}>
           Voted ✓
         </button>
       )}
       <button
         className="wood-btn"
-        style={{ fontSize: 14, padding: "10px 28px" }}
-        onClick={() => room.send("restart")}
+        style={{ fontSize: 14, padding: '10px 28px' }}
+        onClick={() => room.send('restart')}
       >
         New Game
       </button>

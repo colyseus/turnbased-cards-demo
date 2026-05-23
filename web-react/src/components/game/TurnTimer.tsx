@@ -15,16 +15,14 @@ export function TurnTimer({ deadline, isBot }: { deadline: number; isBot: boolea
       const circle = svgRef.current;
       if (circle) {
         const circumference = 2 * Math.PI * 9;
-        circle.style.strokeDashoffset = String(
-          circumference * (1 - progress),
-        );
+        circle.style.strokeDashoffset = String(circumference * (1 - progress));
         // Color: calm accent -> warning -> danger.
         if (progress > 0.5) {
-          circle.style.stroke = "#00e5ff";
+          circle.style.stroke = '#00e5ff';
         } else if (progress > 0.2) {
-          circle.style.stroke = "#ffd60a";
+          circle.style.stroke = '#ffd60a';
         } else {
-          circle.style.stroke = "#e63946";
+          circle.style.stroke = '#e63946';
         }
       }
       if (remaining > 0) raf = requestAnimationFrame(tick);
@@ -37,14 +35,7 @@ export function TurnTimer({ deadline, isBot }: { deadline: number; isBot: boolea
 
   return (
     <svg className="turn-timer" width="22" height="22" viewBox="0 0 22 22">
-      <circle
-        cx="11"
-        cy="11"
-        r="9"
-        fill="none"
-        stroke="rgba(255,255,255,0.15)"
-        strokeWidth="2.5"
-      />
+      <circle cx="11" cy="11" r="9" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="2.5" />
       <circle
         ref={svgRef}
         cx="11"

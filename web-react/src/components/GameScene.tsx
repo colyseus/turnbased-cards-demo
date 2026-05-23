@@ -1,11 +1,12 @@
-import { Canvas, useThree, useFrame } from "@react-three/fiber";
-import { useState, useRef, useCallback, useEffect } from "react";
-import * as THREE from "three";
-import { Game } from "./Game";
-import { GameHud } from "./game/GameHud";
-import { TextureProvider } from "./Preloader";
-import { DevToolsProvider, DevToolsLogic, DevToolsUI } from "./DevTools";
-import { LongPressCard } from "./LongPressCard";
+import { Canvas, useThree, useFrame } from '@react-three/fiber';
+import { useState, useRef, useCallback, useEffect } from 'react';
+import * as THREE from 'three';
+import { Game } from './Game';
+import { GameHud } from './game/GameHud';
+import { TextureProvider } from './Preloader';
+import { DevToolsProvider, DevToolsLogic, DevToolsUI } from './DevTools';
+import { LongPressCard } from './LongPressCard';
+import { createTimerClock } from '../threeTimerClock';
 
 export interface LastPlayedInfo {
   cardId: string;
@@ -45,9 +46,12 @@ function CameraShake({ shakeStart }: { shakeStart: React.MutableRefObject<number
   return null;
 }
 
-export type QualityLevel = "low" | "medium" | "high";
+export type QualityLevel = 'low' | 'medium' | 'high';
 
-const QUALITY_PRESETS: Record<QualityLevel, { dpr: number | [number, number]; antialias: boolean }> = {
+const QUALITY_PRESETS: Record<
+  QualityLevel,
+  { dpr: number | [number, number]; antialias: boolean }
+> = {
   low: { dpr: 1, antialias: false },
   medium: { dpr: 1.5, antialias: true },
   high: { dpr: [1, 2], antialias: true },
@@ -58,7 +62,7 @@ export default function GameScene() {
   const [showRules, setShowRules] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const [qualityLevel, setQualityLevel] = useState<QualityLevel>("medium");
+  const [qualityLevel, setQualityLevel] = useState<QualityLevel>('medium');
   const [lastPlayed, setLastPlayed] = useState<LastPlayedInfo | null>(null);
   const [longPressCard, setLongPressCard] = useState<LongPressInfo | null>(null);
   const [showChat, setShowChat] = useState(false);
@@ -77,30 +81,30 @@ export default function GameScene() {
     function onKeyDown(e: KeyboardEvent) {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       switch (e.key.toLowerCase()) {
-        case "m":
+        case 'm':
           setSoundEnabled((v) => !v);
           break;
-        case "s":
+        case 's':
           setSortByColor((v) => !v);
           break;
-        case "q":
-          setQualityLevel((v) => (v === "low" ? "medium" : v === "medium" ? "high" : "low"));
+        case 'q':
+          setQualityLevel((v) => (v === 'low' ? 'medium' : v === 'medium' ? 'high' : 'low'));
           break;
-        case "f":
+        case 'f':
           if (document.fullscreenElement) document.exitFullscreen();
           else document.documentElement.requestFullscreen();
           break;
-        case "?":
-        case "/":
+        case '?':
+        case '/':
           setShowRules((v) => !v);
           break;
-        case "c":
+        case 'c':
           setShowChat((v) => !v);
           break;
       }
     }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
   // Swipe gestures for mobile card navigation
@@ -115,17 +119,17 @@ export default function GameScene() {
       if (Math.abs(dx) < SWIPE_THRESHOLD || Math.abs(dy) > Math.abs(dx)) return;
 
       // Dispatch arrow key events for swipe
-      const event = new KeyboardEvent("keydown", {
-        key: dx > 0 ? "ArrowRight" : "ArrowLeft",
+      const event = new KeyboardEvent('keydown', {
+        key: dx > 0 ? 'ArrowRight' : 'ArrowLeft',
         bubbles: true,
       });
       window.dispatchEvent(event);
     }
-    window.addEventListener("touchstart", onTouchStart, { passive: true });
-    window.addEventListener("touchend", onTouchEnd, { passive: true });
+    window.addEventListener('touchstart', onTouchStart, { passive: true });
+    window.addEventListener('touchend', onTouchEnd, { passive: true });
     return () => {
-      window.removeEventListener("touchstart", onTouchStart);
-      window.removeEventListener("touchend", onTouchEnd);
+      window.removeEventListener('touchstart', onTouchStart);
+      window.removeEventListener('touchend', onTouchEnd);
     };
   }, []);
 
@@ -134,7 +138,14 @@ export default function GameScene() {
       <Canvas
         camera={{ position: [0, -0.5, 10], fov: 50 }}
         dpr={QUALITY_PRESETS[qualityLevel].dpr}
-        gl={{ antialias: QUALITY_PRESETS[qualityLevel].antialias, alpha: false, powerPreference: "high-performance" }}
+        gl={{
+          antialias: QUALITY_PRESETS[qualityLevel].antialias,
+          alpha: false,
+          powerPreference: 'high-performance',
+        }}
+        onCreated={(state) => {
+          state.clock = createTimerClock() as typeof state.clock;
+        }}
       >
         <ambientLight intensity={2.5} />
         <directionalLight position={[0, 2, 10]} intensity={1.5} />
@@ -154,10 +165,7 @@ export default function GameScene() {
       </Canvas>
       <DevToolsUI />
       {longPressCard && (
-        <LongPressCard
-          textureId={longPressCard.textureId}
-          onClose={() => setLongPressCard(null)}
-        />
+        <LongPressCard textureId={longPressCard.textureId} onClose={() => setLongPressCard(null)} />
       )}
       <GameHud
         sortByColor={sortByColor}
@@ -171,12 +179,14 @@ export default function GameScene() {
         soundEnabled={soundEnabled}
         onSoundToggle={() => setSoundEnabled((v) => !v)}
         qualityLevel={qualityLevel}
-        onQualityToggle={() => setQualityLevel((v) => (v === "low" ? "medium" : v === "medium" ? "high" : "low"))}
+        onQualityToggle={() =>
+          setQualityLevel((v) => (v === 'low' ? 'medium' : v === 'medium' ? 'high' : 'low'))
+        }
         lastPlayed={lastPlayed}
         showChat={showChat}
         onShowChat={() => setShowChat(true)}
         onCloseChat={() => setShowChat(false)}
-        />
-        </DevToolsProvider>
-        );
-        }
+      />
+    </DevToolsProvider>
+  );
+}

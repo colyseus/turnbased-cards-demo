@@ -1,6 +1,6 @@
 export interface CardSchema {
   id: string;
-  cardType: "color" | "wild";
+  cardType: 'color' | 'wild';
   color: string;
   value: string;
   chosenColor: string;
