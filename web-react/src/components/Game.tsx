@@ -35,12 +35,13 @@ interface GameProps {
   onLastPlayed: (info: { cardId: string; playerName: string; textureId: string } | null) => void;
   onShake: () => void;
   onLongPress: (textureId: string) => void;
+  onShowcaseChange: (showcaseId: string | null) => void;
   selectedCardIndex: number;
   onSelectCard: (index: number) => void;
 }
 
 export function Game(props: GameProps) {
-  const { sortByColor, onLastPlayed, onShake, onLongPress, selectedCardIndex, onSelectCard } =
+  const { sortByColor, onLastPlayed, onShake, onLongPress, onShowcaseChange, selectedCardIndex, onSelectCard } =
     props;
   const { room } = useRoom();
   const state = useRoomState();
@@ -262,6 +263,12 @@ export function Game(props: GameProps) {
       return () => clearTimeout(timer);
     }
   }, [showcaseCardId, onShake]);
+
+  // ── Effect: Notify parent of showcase state changes ──────────
+
+  useEffect(() => {
+    onShowcaseChange(showcaseCardId);
+  }, [showcaseCardId, onShowcaseChange]);
 
   // ── Building the card list ───────────────────────────────────
 

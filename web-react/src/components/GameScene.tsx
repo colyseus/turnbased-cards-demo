@@ -1,7 +1,15 @@
 import { Canvas, useThree, useFrame } from '@react-three/fiber';
-import { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import * as THREE from 'three';
 import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUniformsLib.js';
+import {
+  EffectComposer,
+  Bloom,
+  Vignette,
+  SSAO,
+  ToneMapping,
+} from '@react-three/postprocessing';
+
 import { Game } from './Game';
 import { GameHud } from './game/GameHud';
 import { TextureProvider } from './Preloader';
@@ -21,28 +29,117 @@ interface LongPressInfo {
   textureId: string;
 }
 
-const SHAKE_DURATION_MS = 400;
+
 const SHAKE_INTENSITY = 0.08;
 
-function CameraShake({ shakeStart }: { shakeStart: React.MutableRefObject<number> }) {
+function CameraShake({
+  shakeStart,
+  showcaseCardId,
+}: {
+  shakeStart: React.RefObject<number>;
+  showcaseCardId: string | null;
+}) {
   const { camera } = useThree();
   const origPos = useRef(new THREE.Vector3());
   const initialized = useRef(false);
 
-  useFrame(() => {
+  // Spring physics state
+  const springPos = useRef(new THREE.Vector3());
+  const springVel = useRef(new THREE.Vector3());
+
+  // Shake state
+  const shakeAmp = useRef(0);
+  const shakePhase = useRef(0);
+
+  // Idle bob state
+  const bobPhase = useRef(0);
+
+  // Focus transition state
+  const focusTarget = useRef(new THREE.Vector3());
+  const prevShowcaseCardId = useRef<string | null>(null);
+
+  // Mobile detection
+  const isMobile = useRef(false);
+
+  useEffect(() => {
+    isMobile.current = window.innerWidth < 768;
+  }, []);
+
+  useFrame((_, delta) => {
     if (!initialized.current) {
       origPos.current.copy(camera.position);
+      (camera as THREE.PerspectiveCamera).fov = isMobile.current ? 55 : 50;
+      camera.updateProjectionMatrix();
       initialized.current = true;
     }
-    const elapsed = Date.now() - shakeStart.current;
-    if (elapsed < SHAKE_DURATION_MS) {
-      const progress = elapsed / SHAKE_DURATION_MS;
-      const intensity = SHAKE_INTENSITY * (1 - progress);
-      camera.position.x = origPos.current.x + (Math.random() - 0.5) * 2 * intensity;
-      camera.position.y = origPos.current.y + (Math.random() - 0.5) * 2 * intensity;
+
+    const elapsed = (Date.now() - shakeStart.current) / 1000;
+
+    // Trigger shake when shakeStart is set
+    if (shakeStart.current > 0 && shakeAmp.current === 0) {
+      origPos.current.copy(camera.position);
+      springPos.current.set(0, 0, 0);
+      springVel.current.set(0, 0, 0);
+      shakeAmp.current = SHAKE_INTENSITY;
+      shakePhase.current = 0;
+    }
+
+    // Spring-based shake with decay
+    const shakeFreq = 15;
+    const shakeDecay = 15;
+
+    if (shakeAmp.current > 0.001) {
+      // Decaying sinusoidal shake using spring physics
+      const shakeOffset =
+        Math.sin(shakePhase.current) *
+        shakeAmp.current *
+        Math.exp(-shakeDecay * elapsed);
+
+      // Spring physics
+      const stiffness = 50;
+      const damping = 10;
+      const springForce = springPos.current.clone().multiplyScalar(-stiffness);
+      springForce.add(springVel.current.clone().multiplyScalar(-damping));
+      springVel.current.add(springForce.multiplyScalar(delta));
+      springPos.current.add(springVel.current.clone().multiplyScalar(delta));
+
+      camera.position.x = origPos.current.x + springPos.current.x;
+      camera.position.y = origPos.current.y + springPos.current.y + shakeOffset;
+
+      shakePhase.current += shakeFreq * delta;
     } else if (initialized.current) {
-      camera.position.x = origPos.current.x;
-      camera.position.y = origPos.current.y;
+      // Settled - return to original with smooth lerp
+      shakeAmp.current = 0;
+      camera.position.x = THREE.MathUtils.lerp(camera.position.x, origPos.current.x, 0.15);
+      camera.position.y = THREE.MathUtils.lerp(camera.position.y, origPos.current.y, 0.15);
+    }
+
+    // Idle camera bob (subtle sinusoidal Y movement, period 4s, amplitude 0.02)
+    if (shakeAmp.current < 0.001) {
+      bobPhase.current += (2 * Math.PI) / 4 * delta;
+      const bobOffset = Math.sin(bobPhase.current) * 0.02;
+      camera.position.y += bobOffset;
+    }
+
+    // Focus transition - smooth lean toward discard pile when card is played
+    if (showcaseCardId !== prevShowcaseCardId.current) {
+      if (showcaseCardId) {
+        // Card was played - focus on discard pile direction
+        const pileWorldPos = new THREE.Vector3(1.42, 0, 0); // discard pile X position
+        const targetDir = pileWorldPos.clone().sub(origPos.current).normalize();
+        focusTarget.current.copy(targetDir.multiplyScalar(0.15));
+      }
+      prevShowcaseCardId.current = showcaseCardId;
+    }
+
+    // Apply focus transition with spring-eased lerp
+    if (showcaseCardId) {
+      camera.position.x += THREE.MathUtils.lerp(focusTarget.current.x, 0, 0.85) * delta;
+      camera.position.y += THREE.MathUtils.lerp(focusTarget.current.y, 0, 0.9) * delta;
+    } else {
+      // Return to center when no showcase
+      focusTarget.current.x = THREE.MathUtils.lerp(focusTarget.current.x, 0, 0.1);
+      focusTarget.current.y = THREE.MathUtils.lerp(focusTarget.current.y, 0, 0.1);
     }
   });
 
@@ -103,6 +200,23 @@ function LightingSetup() {
   );
 }
 
+function PostProcessingSetup({ qualityLevel }: { qualityLevel: QualityLevel }) {
+  const { gl } = useThree();
+  useEffect(() => {
+    gl.toneMapping = THREE.ACESFilmicToneMapping;
+    gl.toneMappingExposure = 1;
+  }, [gl]);
+  const effects: React.ReactElement[] = [
+    <Bloom luminanceThreshold={0.7} luminanceSmoothing={0.4} intensity={0.5} />,
+    <Vignette offset={1.2} darkness={1.0} />,
+    <ToneMapping />,
+  ];
+  if (qualityLevel === 'high') {
+    effects.unshift(<SSAO radius={0.4} intensity={1} />);
+  }
+  return <EffectComposer>{effects}</EffectComposer>;
+}
+
 export type QualityLevel = 'low' | 'medium' | 'high';
 
 const QUALITY_PRESETS: Record<
@@ -124,6 +238,7 @@ export default function GameScene() {
   const [longPressCard, setLongPressCard] = useState<LongPressInfo | null>(null);
   const [showChat, setShowChat] = useState(false);
   const [selectedCardIndex, setSelectedCardIndex] = useState(-1);
+  const [showcaseCardId, setShowcaseCardId] = useState<string | null>(null);
   const shakeStart = useRef(0);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
@@ -131,6 +246,10 @@ export default function GameScene() {
 
   const triggerShake = useCallback(() => {
     shakeStart.current = Date.now();
+  }, []);
+
+  const handleShowcaseChange = useCallback((id: string | null) => {
+    setShowcaseCardId(id);
   }, []);
 
   // Keyboard shortcuts
@@ -204,8 +323,9 @@ export default function GameScene() {
           state.clock = createTimerClock() as typeof state.clock;
         }}
       >
+        <PostProcessingSetup qualityLevel={qualityLevel} />
         <LightingSetup />
-        <CameraShake shakeStart={shakeStart} />
+        <CameraShake shakeStart={shakeStart} showcaseCardId={showcaseCardId} />
         <DevToolsLogic />
         <TextureProvider>
           <Game
@@ -214,6 +334,7 @@ export default function GameScene() {
             onLastPlayed={setLastPlayed}
             onShake={triggerShake}
             onLongPress={(textureId) => setLongPressCard({ textureId })}
+            onShowcaseChange={handleShowcaseChange}
             selectedCardIndex={selectedCardIndex}
             onSelectCard={setSelectedCardIndex}
           />
