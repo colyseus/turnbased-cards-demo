@@ -22,7 +22,7 @@ export function TurnTimer({ deadline, isBot }: { deadline: number; isBot: boolea
         if (progress > 0.5) {
           circle.style.stroke = "#33bb44";
         } else if (progress > 0.2) {
-          circle.style.stroke = "#ffcc00";
+          circle.style.stroke = "#4bd4c8";
         } else {
           circle.style.stroke = "#ff4444";
         }

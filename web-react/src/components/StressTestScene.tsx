@@ -2,7 +2,7 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { useMemo, useRef } from "react";
 import { InstancedCards, CardData } from "./game/InstancedCards";
 import { Table } from "./game/Table";
-import { DevToolsProvider, DevToolsLogic, DevToolsUI, useDevTools } from "./DevTools";
+import { DevToolsProvider, DevToolsUI, useDevTools } from "./DevTools";
 import { TextureProvider } from "./Preloader";
 
 function StressTestCards() {
@@ -45,9 +45,9 @@ function StressTestCards() {
   return <InstancedCards cards={cards} />;
 }
 
-export default function StressTestScene({ onBack }: { onBack: () => void }) {
+function StressTestSceneInner({ onBack }: { onBack: () => void }) {
   return (
-    <DevToolsProvider>
+    <>
       <div className="stress-test-overlay">
         <button className="hud-btn back-btn" onClick={onBack}>
           ← Back to Lobby
@@ -61,14 +61,21 @@ export default function StressTestScene({ onBack }: { onBack: () => void }) {
       >
         <ambientLight intensity={2.0} />
         <pointLight position={[10, 10, 10]} intensity={1.5} />
-        <DevToolsLogic />
         <TextureProvider>
           <Table />
           <StressTestCards />
         </TextureProvider>
       </Canvas>
-      
+
       <DevToolsUI />
+    </>
+  );
+}
+
+export default function StressTestScene(props: { onBack: () => void }) {
+  return (
+    <DevToolsProvider>
+      <StressTestSceneInner {...props} />
     </DevToolsProvider>
   );
 }

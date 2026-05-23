@@ -1,6 +1,6 @@
-import { useRef, useMemo, useEffect } from 'react';
-import { useFrame } from '@react-three/fiber';
-import * as THREE from 'three';
+import { useEffect, useMemo, useRef } from "react";
+import { useFrame } from "@react-three/fiber";
+import * as THREE from "three";
 
 const STIFFNESS = 200;
 const DAMPING = 25;
@@ -17,41 +17,40 @@ export function AnimatedRing({
   position: [number, number, number];
 }) {
   const groupRef = useRef<THREE.Group>(null!);
+  const sweepRef = useRef<THREE.Group>(null!);
   const vel = useRef({ scale: 0 });
   const prevColor = useRef(color);
   const target = useRef({ scale: 1 });
   const currentScale = useRef(1);
 
-  const outerRingGeo = useMemo(
-    () => new THREE.RingGeometry(innerRadius, outerRadius, 48),
-    [innerRadius, outerRadius]
-  );
-  const innerFillGeo = useMemo(
-    () => new THREE.CircleGeometry(innerRadius * 0.97, 48),
-    [innerRadius]
-  );
-  const inlayGeo = useMemo(
-    () => new THREE.RingGeometry(innerRadius + 0.01, innerRadius + 0.03, 48),
-    [innerRadius]
+  const geometries = useMemo(
+    () => ({
+      outerHalo: new THREE.RingGeometry(outerRadius + 0.1, outerRadius + 0.18, 96),
+      outerFrame: new THREE.RingGeometry(outerRadius - 0.02, outerRadius + 0.08, 96),
+      innerFrame: new THREE.RingGeometry(innerRadius - 0.05, innerRadius + 0.015, 96),
+      colorCore: new THREE.CircleGeometry(innerRadius * 0.9, 96),
+      sweep: new THREE.RingGeometry(outerRadius + 0.2, outerRadius + 0.29, 96, 1, 0, Math.PI * 0.34),
+      notch: new THREE.BoxGeometry(0.1, 0.34, 0.01),
+    }),
+    [innerRadius, outerRadius],
   );
 
   useEffect(() => {
     return () => {
-      outerRingGeo.dispose();
-      innerFillGeo.dispose();
-      inlayGeo.dispose();
+      Object.values(geometries).forEach((geometry) => geometry.dispose());
     };
-  }, [outerRingGeo, innerFillGeo, inlayGeo]);
+  }, [geometries]);
 
   if (color !== prevColor.current) {
     prevColor.current = color;
-    target.current.scale = 1.8;
+    target.current.scale = 1.7;
     vel.current.scale = 0;
   }
 
   useFrame((_, delta) => {
     const dt = Math.min(delta, 0.05);
     const g = groupRef.current;
+    const sweep = sweepRef.current;
     if (!g) return;
 
     const cur = currentScale.current;
@@ -59,6 +58,10 @@ export function AnimatedRing({
     vel.current.scale += acc * dt;
     currentScale.current = cur + vel.current.scale * dt;
     g.scale.setScalar(currentScale.current);
+
+    if (sweep) {
+      sweep.rotation.z += dt * 0.58;
+    }
 
     if (
       Math.abs(currentScale.current - target.current.scale) < 0.01 &&
@@ -72,25 +75,41 @@ export function AnimatedRing({
 
   return (
     <group ref={groupRef} position={position}>
-      <mesh geometry={outerRingGeo}>
-        <meshStandardMaterial
-          color="#3d2010"
-          roughness={0.75}
-          metalness={0.05}
-        />
+      <mesh geometry={geometries.outerHalo}>
+        <meshBasicMaterial color={color} transparent opacity={0.16} />
+      </mesh>
+      <mesh geometry={geometries.outerFrame}>
+        <meshStandardMaterial color="#121c27" roughness={0.5} metalness={0.24} />
+      </mesh>
+      <mesh geometry={geometries.innerFrame}>
+        <meshStandardMaterial color="#4bd4c8" roughness={0.42} metalness={0.18} />
+      </mesh>
+      <mesh position={[0, 0, 0.001]} geometry={geometries.colorCore}>
+        <meshBasicMaterial color={color} transparent opacity={0.88} />
       </mesh>
 
-      <mesh geometry={inlayGeo}>
-        <meshStandardMaterial
-          color="#8b5e34"
-          roughness={0.7}
-          metalness={0.05}
-        />
-      </mesh>
+      <group ref={sweepRef}>
+        {[0, 1, 2].map((index) => (
+          <mesh key={index} rotation={[0, 0, (index * Math.PI * 2) / 3]} geometry={geometries.sweep}>
+            <meshBasicMaterial color="#f7f7f2" transparent opacity={0.16} />
+          </mesh>
+        ))}
+      </group>
 
-      <mesh position={[0, 0, 0.001]} geometry={innerFillGeo}>
-        <meshBasicMaterial color={color} />
-      </mesh>
+      {[0, 1, 2, 3].map((index) => (
+        <mesh
+          key={index}
+          position={[
+            Math.cos((index * Math.PI) / 2) * (outerRadius + 0.15),
+            Math.sin((index * Math.PI) / 2) * (outerRadius + 0.15),
+            0.01,
+          ]}
+          rotation={[0, 0, (index * Math.PI) / 2]}
+          geometry={geometries.notch}
+        >
+          <meshBasicMaterial color="#4bd4c8" transparent opacity={0.36} />
+        </mesh>
+      ))}
     </group>
   );
 }

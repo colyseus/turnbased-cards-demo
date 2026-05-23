@@ -63,15 +63,26 @@ function Lobby({ onJoined }: { onJoined: (_connect: () => Promise<any>) => void 
 
   return (
     <div className="lobby" role="main" aria-label="Game lobby">
-      <div className="lobby-card">
-        <div className="lobby-header">
-          <h1 className="lobby-title">Card Game</h1>
-          <div 
-            className="lobby-hero-card" 
-            style={{ backgroundImage: `url('${import.meta.env.BASE_URL}cards/atlas.webp?v=${Date.now()}')` }}
-          />
+      <div className="lobby-stage" aria-hidden="true">
+        <div className="lobby-orbit">
+          {["red_5", "blue_reverse", "yellow_skip", "green_draw2", "wild"].map((card, index) => (
+            <div
+              key={card}
+              className={`preview-card preview-card-${index + 1}`}
+              style={{ backgroundImage: `url('${import.meta.env.BASE_URL}cards/atlas.webp')` }}
+            />
+          ))}
         </div>
-        <p className="lobby-subtitle">Colyseus Demo</p>
+      </div>
+
+      <section className="lobby-card">
+        <div className="lobby-copy">
+          <p className="lobby-mark">Live Table</p>
+          <h1 className="lobby-title">Wild Table</h1>
+          <p className="lobby-subtitle">
+            A clean multiplayer card arena built for fast turns, watchable matches, and low-friction private rooms.
+          </p>
+        </div>
 
         <div className="lobby-tabs">
           <button
@@ -88,26 +99,24 @@ function Lobby({ onJoined }: { onJoined: (_connect: () => Promise<any>) => void 
           </button>
         </div>
 
-        <div style={{ position: "absolute", top: 16, right: 16 }}>
+        <div className="lobby-tools">
           <button
-            className="hud-btn"
+            className="hud-icon-btn"
             title="Leaderboard"
             aria-label="Leaderboard"
             onClick={() => setShowStats(true)}
-            style={{ width: 34, height: 34, fontSize: 16 }}
           >
-            🏆
+            Rank
           </button>
         </div>
 
         {mode === "play" ? (
           <>
-            <nav aria-label="Game menu">
-          <form onSubmit={handleQuickPlay} className="lobby-form">
+            <form onSubmit={handleQuickPlay} className="lobby-form" aria-label="Quick play form">
               <input
                 className="lobby-input"
                 type="text"
-                placeholder="Enter your name..."
+                placeholder="Player name"
                 value={name}
                 onChange={(e) => { setName(e.target.value); setNameError(""); }}
                 maxLength={16}
@@ -128,11 +137,10 @@ function Lobby({ onJoined }: { onJoined: (_connect: () => Promise<any>) => void 
                 <input
                   className="lobby-input"
                   type="password"
-                  placeholder="Room password (optional)..."
+                  placeholder="Room password optional"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   maxLength={32}
-                  style={{ width: 220, fontSize: 14, padding: "10px 16px" }}
                 />
               )}
               <div className="option-row" style={{ width: "100%", justifyContent: "center", gap: 8 }}>
@@ -149,24 +157,23 @@ function Lobby({ onJoined }: { onJoined: (_connect: () => Promise<any>) => void 
                   </button>
                 ))}
               </div>
-              <button className="lobby-btn" type="submit">
-                Quick Play
+              <button className="lobby-btn primary-action" type="submit">
+                Start Table
               </button>
             </form>
-            </nav>
-            <div className="lobby-divider">or join by code</div>
+            <div className="lobby-divider">join existing room</div>
             <div className="lobby-join-code">
               <input
                 className="lobby-input lobby-code-input"
                 type="text"
-                placeholder="Room code..."
+                placeholder="Room code"
                 value={roomCode}
                 onChange={(e) => setRoomCode(e.target.value)}
               />
               <input
                 className="lobby-input lobby-code-input"
                 type="password"
-                placeholder="Password..."
+                placeholder="Password"
                 value={joinPassword}
                 onChange={(e) => setJoinPassword(e.target.value)}
                 style={{ width: 120 }}
@@ -176,7 +183,7 @@ function Lobby({ onJoined }: { onJoined: (_connect: () => Promise<any>) => void 
                 onClick={handleJoinByCode}
                 disabled={!roomCode.trim()}
               >
-                Join
+                Enter
               </button>
             </div>
           </>
@@ -186,7 +193,7 @@ function Lobby({ onJoined }: { onJoined: (_connect: () => Promise<any>) => void 
               <input
                 className="lobby-input lobby-code-input"
                 type="text"
-                placeholder="Room code..."
+                placeholder="Room code"
                 value={roomCode}
                 onChange={(e) => setRoomCode(e.target.value)}
                 autoFocus
@@ -196,7 +203,7 @@ function Lobby({ onJoined }: { onJoined: (_connect: () => Promise<any>) => void 
                 onClick={handleWatch}
                 disabled={!roomCode.trim()}
               >
-                Watch
+                Watch Table
               </button>
             </div>
             <p className="lobby-subtitle" style={{ fontSize: 12, marginTop: 8 }}>
@@ -204,7 +211,7 @@ function Lobby({ onJoined }: { onJoined: (_connect: () => Promise<any>) => void 
             </p>
           </>
         )}
-      </div>
+      </section>
       {showStats && <StatsOverlay onClose={() => setShowStats(false)} />}
     </div>
   );
@@ -221,24 +228,24 @@ function StatsOverlay({ onClose }: { onClose: () => void }) {
         </div>
         <div className="rules-body">
           {leaderboard.length === 0 ? (
-            <p style={{ fontSize: 14, color: "rgba(255,255,255,0.5)", textAlign: "center" }}>
+            <p className="empty-state">
               No games played yet.
             </p>
           ) : (
-            <table style={{ width: "100%", fontSize: 13, color: "rgba(255,255,255,0.8)", borderCollapse: "collapse" }}>
+            <table className="leaderboard-table">
               <thead>
-                <tr style={{ color: "#ffcc00", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                  <th style={{ textAlign: "left", padding: "4px 8px" }}>Player</th>
-                  <th style={{ textAlign: "center", padding: "4px 8px" }}>Wins</th>
-                  <th style={{ textAlign: "center", padding: "4px 8px" }}>Played</th>
+                <tr>
+                  <th>Player</th>
+                  <th>Wins</th>
+                  <th>Played</th>
                 </tr>
               </thead>
               <tbody>
                 {leaderboard.map(({ name, stats }) => (
-                  <tr key={name} style={{ borderTop: "1px solid rgba(255,255,255,0.1)" }}>
-                    <td style={{ padding: "6px 8px", fontWeight: 600 }}>{name}</td>
-                    <td style={{ textAlign: "center", padding: "6px 8px", color: "#ffcc00" }}>{stats.wins}</td>
-                    <td style={{ textAlign: "center", padding: "6px 8px" }}>{stats.gamesPlayed}</td>
+                  <tr key={name}>
+                    <td>{name}</td>
+                    <td>{stats.wins}</td>
+                    <td>{stats.gamesPlayed}</td>
                   </tr>
                 ))}
               </tbody>

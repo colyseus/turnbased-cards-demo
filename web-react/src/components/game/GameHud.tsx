@@ -55,46 +55,99 @@ export function GameHud({
   const me = room
     ? (Object.values(state.players) as PlayerSchema[]).find((p) => p.sessionId === room.sessionId) ?? null
     : null;
+  const players = Object.values(state.players) as PlayerSchema[];
+  const currentPlayer = players.find((p) => p.seatIndex === state.currentPlayer);
+  const directionLabel = state.reverse ? "Counter-clockwise" : "Clockwise";
+  const dockActions = [
+    {
+      label: sortByColor ? "Number" : "Color",
+      detail: "Sort",
+      aria: sortByColor ? "Sort by number" : "Sort by color",
+      onClick: onSortToggle,
+    },
+    {
+      label: qualityLevel.slice(0, 1).toUpperCase(),
+      detail: "Quality",
+      aria: `Quality: ${qualityLevel}`,
+      onClick: onQualityToggle,
+    },
+    {
+      label: soundEnabled ? "On" : "Off",
+      detail: "Sound",
+      aria: soundEnabled ? "Mute sound" : "Enable sound",
+      onClick: onSoundToggle,
+    },
+    { label: "Rules", detail: "Guide", aria: "Show rules", onClick: onShowRules },
+    { label: "Setup", detail: "Options", aria: "Settings", onClick: onShowOptions },
+    { label: "Chat", detail: "Table", aria: "Show chat", onClick: onShowChat },
+  ];
 
   return (
-    <div className="game-hud" style={{ pointerEvents: "none" }}>
-      {/* Top Left: Room Info */}
-      <div className="hud-top-left" style={{ pointerEvents: "auto" }}>
-        <div className="room-code">ROOM: {room?.roomId || "..." }</div>
-        <div className="spectator-count">
-          {state.spectatorCount} {state.spectatorCount === 1 ? "spectator" : "spectators"}
+    <div className="game-hud">
+      <aside className="arena-rail">
+        <div className="arena-brand">
+          <span>Room</span>
+          <strong>{room?.roomId || "..."}</strong>
         </div>
-      </div>
 
-      {/* Top Right: Actions */}
-      <div className="hud-actions" style={{ pointerEvents: "auto" }}>
-        <button className="hud-btn" aria-label={sortByColor ? "Sort by color" : "Sort by number"} title="Sort hand" onClick={onSortToggle}>
-          {sortByColor ? "🎨" : "🔢"}
-        </button>
-        <button className="hud-btn" aria-label={`Quality: ${qualityLevel}`} title="Quality" onClick={onQualityToggle}>
-          {qualityLevel === "low" ? "🌑" : qualityLevel === "medium" ? "🌓" : "🌕"}
-        </button>
-        <button className="hud-btn" aria-label={soundEnabled ? "Mute sound" : "Enable sound"} title="Sound" onClick={onSoundToggle}>
-          {soundEnabled ? "🔊" : "🔇"}
-        </button>
-        <button className="hud-btn" aria-label="Show rules" title="Rules" onClick={onShowRules}>
-          ❓
-        </button>
-        <button className="hud-btn" aria-label="Settings" title="Settings" onClick={onShowOptions}>
-          ⚙️
-        </button>
-        <button className="hud-btn" aria-label="Show chat" title="Chat" onClick={onShowChat}>
-          💬
-        </button>
-      </div>
+        <div className="arena-metric">
+          <span>Viewers</span>
+          <strong>{state.spectatorCount}</strong>
+        </div>
 
-      {/* Bottom Center: Last Played Info */}
+        <div className="seat-list" aria-label="Players">
+          {players
+            .sort((a, b) => a.seatIndex - b.seatIndex)
+            .map((player) => (
+              <div
+                className={`seat-row${player.seatIndex === state.currentPlayer ? " active" : ""}`}
+                key={player.sessionId}
+              >
+                <span className="seat-index">{player.seatIndex + 1}</span>
+                <span className="seat-name">{player.name}</span>
+                <strong>{player.handCount ?? player.hand?.length ?? 0}</strong>
+              </div>
+            ))}
+        </div>
+      </aside>
+
+      <section className="turn-card" aria-live="polite">
+        <div>
+          <span>Current Turn</span>
+          <strong>{currentPlayer?.name || "Waiting"}</strong>
+        </div>
+        <div>
+          <span>Direction</span>
+          <strong>{directionLabel}</strong>
+        </div>
+        <div>
+          <span>Draw Stack</span>
+          <strong>{state.pendingDraw || 0}</strong>
+        </div>
+      </section>
+
       {lastPlayed && (
         <div className="last-played-info">
-          <span className="player-name">{lastPlayed.playerName}</span> played{" "}
+          <span>Last play</span>
+          <span className="player-name">{lastPlayed.playerName}</span>
           <span className="card-name">{lastPlayed.cardId.replace("_", " ")}</span>
         </div>
       )}
+
+      <nav className="arena-dock" aria-label="Game controls">
+        {dockActions.map((action) => (
+          <button
+            className="dock-btn"
+            aria-label={action.aria}
+            key={action.aria}
+            onClick={action.onClick}
+            type="button"
+          >
+            <strong>{action.label}</strong>
+            <span>{action.detail}</span>
+          </button>
+        ))}
+      </nav>
 
       {/* Overlays */}
       <Suspense fallback={null}>

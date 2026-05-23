@@ -159,13 +159,13 @@ export function Card({
       {highlight && (
         <mesh position={[0, 0, -0.02]}>
           <planeGeometry args={[CARD_ASPECT + 0.04, 1.04]} />
-          <meshBasicMaterial color="#ffcc00" transparent opacity={0.25} depthWrite={false} />
+          <meshBasicMaterial color="#ffcf5a" transparent opacity={0.25} depthWrite={false} />
         </mesh>
       )}
       {selected && (
         <mesh position={[0, 0, -0.03]}>
           <planeGeometry args={[CARD_ASPECT + 0.06, 1.06]} />
-          <meshBasicMaterial color="#00e5ff" transparent opacity={0.35} depthWrite={false} />
+          <meshBasicMaterial color="#4bd4c8" transparent opacity={0.35} depthWrite={false} />
         </mesh>
       )}
       <group ref={flipRef}>

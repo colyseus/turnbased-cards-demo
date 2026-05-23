@@ -3,17 +3,18 @@ import react from '@vitejs/plugin-react'
 import { analyzer } from 'vite-bundle-analyzer'
 
 // https://vitejs.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   base: process.env.BASE_URL || '/',
   plugins: [
     react({
       // React compiler disabled for debugging
     }),
-    analyzer({
-      analyzerMode: 'server',
-      openAnalyzer: false,
-      reportTitle: 'bundle-stats',
-    }),
+    mode === 'analyze' &&
+      analyzer({
+        analyzerMode: 'server',
+        openAnalyzer: false,
+        reportTitle: 'bundle-stats',
+      }),
   ],
   build: {
     target: 'esnext',
@@ -29,4 +30,4 @@ export default defineConfig({
       },
     },
   },
-})
+}))
