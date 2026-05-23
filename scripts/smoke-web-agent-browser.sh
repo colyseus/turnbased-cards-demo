@@ -16,12 +16,16 @@ trap cleanup EXIT INT TERM
 mkdir -p "$SHOT_DIR"
 
 cd "$SERVER_DIR"
-npm run dev > /tmp/uno-server.log 2>&1 &
-SERVER_PID=$!
+if ! curl -fsS http://localhost:2567 >/dev/null 2>&1; then
+  npm run dev > /tmp/uno-server.log 2>&1 &
+  SERVER_PID=$!
+fi
 
 cd "$CLIENT_DIR"
-npm run dev > /tmp/uno-web.log 2>&1 &
-CLIENT_PID=$!
+if ! curl -fsS http://localhost:5173 >/dev/null 2>&1; then
+  npm run dev > /tmp/uno-web.log 2>&1 &
+  CLIENT_PID=$!
+fi
 
 for _ in {1..40}; do
   if curl -fsS http://localhost:2567 >/dev/null 2>&1 && curl -fsS http://localhost:5173 >/dev/null 2>&1; then
@@ -37,5 +41,10 @@ agent-browser open http://localhost:5173
 agent-browser wait --load networkidle
 agent-browser get title
 agent-browser screenshot "$SHOT_DIR/web-react-home.png"
+agent-browser find role button click --name "STRESS TEST"
+agent-browser wait --fn 'document.querySelector(".stress-test-overlay")?.dataset.autoplayStatus === "idle"'
+agent-browser find role button click --name "Auto-Play Game"
+agent-browser wait --fn 'document.querySelector(".stress-test-overlay")?.dataset.autoplayStatus === "complete"'
+agent-browser screenshot "$SHOT_DIR/web-react-stress-autoplay.png"
 
-echo "Smoke test passed. Screenshot: $SHOT_DIR/web-react-home.png"
+echo "Smoke test passed. Screenshots: $SHOT_DIR/web-react-home.png $SHOT_DIR/web-react-stress-autoplay.png"

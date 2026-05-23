@@ -79,10 +79,10 @@ export function AnimatedRing({
         <meshBasicMaterial color={color} transparent opacity={0.16} />
       </mesh>
       <mesh geometry={geometries.outerFrame}>
-        <meshStandardMaterial color="#121c27" roughness={0.5} metalness={0.24} />
+        <meshStandardMaterial color="#252540" roughness={0.5} metalness={0.18} />
       </mesh>
       <mesh geometry={geometries.innerFrame}>
-        <meshStandardMaterial color="#4bd4c8" roughness={0.42} metalness={0.18} />
+        <meshStandardMaterial color="#00e5ff" roughness={0.42} metalness={0.12} />
       </mesh>
       <mesh position={[0, 0, 0.001]} geometry={geometries.colorCore}>
         <meshBasicMaterial color={color} transparent opacity={0.88} />
@@ -91,7 +91,7 @@ export function AnimatedRing({
       <group ref={sweepRef}>
         {[0, 1, 2].map((index) => (
           <mesh key={index} rotation={[0, 0, (index * Math.PI * 2) / 3]} geometry={geometries.sweep}>
-            <meshBasicMaterial color="#f7f7f2" transparent opacity={0.16} />
+            <meshBasicMaterial color="#ffffff" transparent opacity={0.12} />
           </mesh>
         ))}
       </group>
@@ -107,7 +107,7 @@ export function AnimatedRing({
           rotation={[0, 0, (index * Math.PI) / 2]}
           geometry={geometries.notch}
         >
-          <meshBasicMaterial color="#4bd4c8" transparent opacity={0.36} />
+          <meshBasicMaterial color="#00e5ff" transparent opacity={0.36} />
         </mesh>
       ))}
     </group>

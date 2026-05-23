@@ -26,10 +26,10 @@ type UnoColor = "red" | "blue" | "green" | "yellow";
 const SHOWCASE_DURATION_MS = 700;
 
 const COLOR_HEX: Record<UnoColor, string> = {
-  red: "#ff625f",
-  blue: "#4c8dff",
-  green: "#43d47d",
-  yellow: "#ffcf5a",
+  red: "#e63946",
+  blue: "#4361ee",
+  green: "#2ec4b6",
+  yellow: "#ffd60a",
 };
 
 // ── Main Game component ─────────────────────────────────────────

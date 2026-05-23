@@ -281,7 +281,7 @@ export function InstancedCards({ cards }: InstancedCardsProps) {
       <instancedMesh ref={meshHighlightRef} args={[null!, null!, MAX_CARDS]}>
         <planeGeometry args={[CARD_ASPECT, 1]} />
         <rawShaderMaterial 
-          uniforms={{ color: { value: new THREE.Color("#4bd4c8") }, opacity: { value: 0.25 } }}
+          uniforms={{ color: { value: new THREE.Color("#00e5ff") }, opacity: { value: 0.25 } }}
           vertexShader={vertexShader.replace('vUv = uv * uvOffsetScale.zw + uvOffsetScale.xy;', 'vUv = uv;')}
           fragmentShader={highlightFragmentShader}
           transparent
@@ -293,7 +293,7 @@ export function InstancedCards({ cards }: InstancedCardsProps) {
       <instancedMesh ref={meshSelectedRef} args={[null!, null!, MAX_CARDS]}>
         <planeGeometry args={[CARD_ASPECT, 1]} />
         <rawShaderMaterial 
-          uniforms={{ color: { value: new THREE.Color("#4bd4c8") }, opacity: { value: 0.35 } }}
+          uniforms={{ color: { value: new THREE.Color("#00e5ff") }, opacity: { value: 0.35 } }}
           vertexShader={vertexShader.replace('vUv = uv * uvOffsetScale.zw + uvOffsetScale.xy;', 'vUv = uv;')}
           fragmentShader={highlightFragmentShader}
           transparent

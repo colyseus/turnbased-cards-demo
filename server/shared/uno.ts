@@ -369,6 +369,49 @@ export function aiTurn(state: UnoState): UnoState {
   return playCard(state, player, card.id, chosenColor);
 }
 
+export interface AutoPlayResult {
+  state: UnoState;
+  completed: boolean;
+  turnsPlayed: number;
+  winner: number | null;
+  reason: 'winner' | 'turn_limit';
+}
+
+export interface AutoPlayOptions {
+  maxTurns?: number;
+  onTurn?: (state: UnoState, turn: number) => void;
+}
+
+/** Play a complete bot-only game for deterministic test harnesses and demos. */
+export function autoPlayGame(
+  initialState: UnoState = createGame(),
+  options: AutoPlayOptions = {},
+): AutoPlayResult {
+  const maxTurns = options.maxTurns ?? 1000;
+  let state = initialState;
+  let turnsPlayed = 0;
+
+  while (state.winner === null && turnsPlayed < maxTurns) {
+    const before = state;
+    state = aiTurn(state);
+    turnsPlayed++;
+    options.onTurn?.(state, turnsPlayed);
+
+    if (state === before) {
+      break;
+    }
+  }
+
+  const completed = state.winner !== null;
+  return {
+    state,
+    completed,
+    turnsPlayed,
+    winner: state.winner,
+    reason: completed ? 'winner' : 'turn_limit',
+  };
+}
+
 /** Score a color for AI selection using schema card format */
 export function scoreColorSchema(
   color: UnoColor,

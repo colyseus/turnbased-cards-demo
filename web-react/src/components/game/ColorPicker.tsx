@@ -5,10 +5,10 @@ import { UnoColor } from "../../../../server/shared/uno";
 
 const PICKER_COLORS: UnoColor[] = ["red", "yellow", "green", "blue"];
 const COLOR_HEX: Record<UnoColor, string> = {
-  red: "#ff625f",
-  blue: "#4c8dff",
-  green: "#43d47d",
-  yellow: "#ffcf5a",
+  red: "#e63946",
+  blue: "#4361ee",
+  green: "#2ec4b6",
+  yellow: "#ffd60a",
 };
 
 interface ChipState {
@@ -100,11 +100,11 @@ export function ColorPicker({
 
   return (
     <group ref={groupRef}>
-      <mesh position={[0, 0, 1.5]} geometry={geometries.overlay}>
-        <meshBasicMaterial ref={overlayRef} color="#030507" transparent opacity={0} />
+      <mesh position={[0, 0, -0.08]} geometry={geometries.overlay}>
+        <meshBasicMaterial ref={overlayRef} color="#05050d" transparent opacity={0} />
       </mesh>
 
-      <mesh position={[0, 0, 1.4]} geometry={geometries.overlay} onClick={() => onHoverColor(null)}>
+      <mesh position={[0, 0, -0.07]} geometry={geometries.overlay} onClick={() => onHoverColor(null)}>
         <meshBasicMaterial transparent opacity={0} />
       </mesh>
 
@@ -120,7 +120,7 @@ export function ColorPicker({
               <meshBasicMaterial color={COLOR_HEX[color]} transparent opacity={0.18} />
             </mesh>
             <mesh geometry={geometries.chipRing}>
-              <meshBasicMaterial color="#f7f7f2" transparent opacity={0.82} />
+              <meshBasicMaterial color={hoveredPickerColor === color ? "#00e5ff" : "#ffffff"} transparent opacity={hoveredPickerColor === color ? 0.9 : 0.68} />
             </mesh>
             <mesh position={[0, 0, 0.01]} geometry={geometries.chip}>
               <meshBasicMaterial color={COLOR_HEX[color]} />
@@ -136,7 +136,7 @@ export function ColorPicker({
                 rotation={[0, 0, (tick * Math.PI) / 2]}
                 geometry={geometries.tick}
               >
-                <meshBasicMaterial color="#05070b" transparent opacity={0.22} />
+                <meshBasicMaterial color="#0f0f1a" transparent opacity={0.3} />
               </mesh>
             ))}
             <mesh

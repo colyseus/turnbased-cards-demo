@@ -9,6 +9,7 @@ import {
   getPlayableCards,
   handleDraw,
   aiTurn,
+  autoPlayGame,
   UnoState,
   UnoColor,
   UnoCard,
@@ -487,5 +488,27 @@ describe("aiTurn", () => {
     expect(result.pendingDraw).toBe(0);
     // Card should not have been played
     expect(result.discardPile[result.discardPile.length - 1].id).not.toBe("b3");
+  });
+});
+
+describe("autoPlayGame", () => {
+  it("plays a complete game to a winner", () => {
+    const result = autoPlayGame(createGame(), { maxTurns: 1000 });
+
+    expect(result.completed).toBe(true);
+    expect(result.reason).toBe("winner");
+    expect(result.winner).toBeGreaterThanOrEqual(0);
+    expect(result.winner).toBeLessThan(4);
+    expect(result.turnsPlayed).toBeGreaterThan(0);
+    expect(result.state.hands[result.winner!]).toHaveLength(0);
+  });
+
+  it("reports turn-limit exhaustion without pretending the game completed", () => {
+    const result = autoPlayGame(createGame(), { maxTurns: 0 });
+
+    expect(result.completed).toBe(false);
+    expect(result.reason).toBe("turn_limit");
+    expect(result.winner).toBeNull();
+    expect(result.turnsPlayed).toBe(0);
   });
 });

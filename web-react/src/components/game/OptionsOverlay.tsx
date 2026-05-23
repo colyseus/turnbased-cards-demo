@@ -47,7 +47,7 @@ export default function OptionsOverlay({
                 {qualityLabel}
               </button>
             </div>
-            <p style={{ fontSize: 12, color: "rgba(17,20,26,0.52)", marginTop: 4 }}>
+            <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>
               Cycles: Low → Medium → High
             </p>
           </section>
@@ -55,17 +55,17 @@ export default function OptionsOverlay({
             <section>
               <h3>Your Stats</h3>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, fontSize: 13 }}>
-                <div style={{ color: "rgba(17,20,26,0.6)" }}>Games: <span style={{ color: "#11141a" }}>{stats.gamesPlayed}</span></div>
-                <div style={{ color: "rgba(17,20,26,0.6)" }}>Wins: <span style={{ color: "#146f6a" }}>{stats.wins}</span></div>
-                <div style={{ color: "rgba(17,20,26,0.6)" }}>UNO calls: <span style={{ color: "#11141a" }}>{stats.unoCalls}</span></div>
-                <div style={{ color: "rgba(17,20,26,0.6)" }}>Cards: <span style={{ color: "#11141a" }}>{stats.cardsPlayed}</span></div>
+                <div style={{ color: "var(--text-muted)" }}>Games: <span style={{ color: "var(--text-primary)" }}>{stats.gamesPlayed}</span></div>
+                <div style={{ color: "var(--text-muted)" }}>Wins: <span style={{ color: "var(--accent)" }}>{stats.wins}</span></div>
+                <div style={{ color: "var(--text-muted)" }}>UNO calls: <span style={{ color: "var(--text-primary)" }}>{stats.unoCalls}</span></div>
+                <div style={{ color: "var(--text-muted)" }}>Cards: <span style={{ color: "var(--text-primary)" }}>{stats.cardsPlayed}</span></div>
               </div>
             </section>
           )}
           <section>
             <h3>About</h3>
             <p>Turn-based Card Game — Colyseus Demo</p>
-            <p style={{ fontSize: 12, color: "rgba(17,20,26,0.52)", marginTop: 4 }}>
+            <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>
               Built with React Three Fiber, TypeScript, and Colyseus
             </p>
           </section>

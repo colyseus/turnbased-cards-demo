@@ -1,9 +1,19 @@
 import { Canvas, useFrame } from "@react-three/fiber";
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, useState } from "react";
 import { InstancedCards, CardData } from "./game/InstancedCards";
 import { Table } from "./game/Table";
-import { DevToolsProvider, DevToolsUI, useDevTools } from "./DevTools";
+import { ColorPicker } from "./game/ColorPicker";
+import { DevToolsLogic, DevToolsProvider, DevToolsUI, useDevTools } from "./DevTools";
 import { TextureProvider } from "./Preloader";
+import { autoPlayGame, UnoColor } from "../../../server/shared/uno";
+
+type AutoPlayStatus = "idle" | "running" | "complete" | "limit";
+
+interface AutoPlaySummary {
+  status: AutoPlayStatus;
+  turns: number;
+  winner: number | null;
+}
 
 function StressTestCards() {
   const { stressTestCount } = useDevTools();
@@ -46,13 +56,44 @@ function StressTestCards() {
 }
 
 function StressTestSceneInner({ onBack }: { onBack: () => void }) {
+  const showColorPicker = new window.URLSearchParams(window.location.search).get("colorPicker") === "1";
+  const [hoveredPickerColor, setHoveredPickerColor] = useState<UnoColor | null>("yellow");
+  const [autoPlaySummary, setAutoPlaySummary] = useState<AutoPlaySummary>({
+    status: "idle",
+    turns: 0,
+    winner: null,
+  });
+
+  const runAutoPlay = () => {
+    setAutoPlaySummary({ status: "running", turns: 0, winner: null });
+    window.setTimeout(() => {
+      const result = autoPlayGame(undefined, { maxTurns: 1000 });
+      setAutoPlaySummary({
+        status: result.completed ? "complete" : "limit",
+        turns: result.turnsPlayed,
+        winner: result.winner,
+      });
+    }, 0);
+  };
+
   return (
     <>
-      <div className="stress-test-overlay">
+      <div className="stress-test-overlay" data-autoplay-status={autoPlaySummary.status}>
         <button className="hud-btn back-btn" onClick={onBack}>
           ← Back to Lobby
         </button>
-        <div className="stress-test-title">Rendering Stress Test</div>
+        <div className="stress-test-title">Stress Test Scene</div>
+        <button className="hud-btn autoplay-btn" onClick={runAutoPlay}>
+          Auto-Play Game
+        </button>
+        <div className="stress-test-summary" aria-live="polite">
+          {autoPlaySummary.status === "idle" && "Auto-play ready"}
+          {autoPlaySummary.status === "running" && "Auto-play running"}
+          {autoPlaySummary.status === "complete" &&
+            `Winner P${autoPlaySummary.winner! + 1} in ${autoPlaySummary.turns} turns`}
+          {autoPlaySummary.status === "limit" &&
+            `Turn limit reached after ${autoPlaySummary.turns} turns`}
+        </div>
       </div>
 
       <Canvas
@@ -61,9 +102,17 @@ function StressTestSceneInner({ onBack }: { onBack: () => void }) {
       >
         <ambientLight intensity={2.0} />
         <pointLight position={[10, 10, 10]} intensity={1.5} />
+        <DevToolsLogic />
         <TextureProvider>
           <Table />
-          <StressTestCards />
+          {!showColorPicker && <StressTestCards />}
+          {showColorPicker && (
+            <ColorPicker
+              hoveredPickerColor={hoveredPickerColor}
+              onPickColor={setHoveredPickerColor}
+              onHoverColor={setHoveredPickerColor}
+            />
+          )}
         </TextureProvider>
       </Canvas>
 

@@ -6,6 +6,11 @@ const SEAT_COUNT = 4;
 const ORBIT_RADIUS = 2.86;
 const STIFFNESS = 180;
 const DAMPING = 18;
+const ACCENT = "#00e5ff";
+const SURFACE = "#0f0f1a";
+const ELEVATED = "#252540";
+const MUTED = "#888899";
+const WHITE = "#ffffff";
 
 export function TurnIndicator({
   activePlayerIndex,
@@ -24,6 +29,7 @@ export function TurnIndicator({
       seatRing: new THREE.RingGeometry(0.13, 0.26, 36),
       seatCore: new THREE.CircleGeometry(0.1, 32),
       orbitArc: new THREE.RingGeometry(ORBIT_RADIUS - 0.02, ORBIT_RADIUS + 0.03, 96, 1, 0.05, Math.PI * 0.28),
+      activeHalo: new THREE.RingGeometry(0.48, 0.55, 56),
       activePuck: new THREE.RingGeometry(0.28, 0.43, 48),
       activeCore: new THREE.CircleGeometry(0.16, 32),
     }),
@@ -66,7 +72,7 @@ export function TurnIndicator({
             rotation={[0, 0, (index * Math.PI * 2) / SEAT_COUNT]}
             geometry={geometries.orbitArc}
           >
-            <meshBasicMaterial color="#4bd4c8" transparent opacity={0.18} />
+            <meshBasicMaterial color={ACCENT} transparent opacity={0.18} />
           </mesh>
         ))}
       </group>
@@ -76,11 +82,16 @@ export function TurnIndicator({
         const active = index === activePlayerIndex;
         return (
           <group key={index} position={[Math.sin(angle) * ORBIT_RADIUS, Math.cos(angle) * ORBIT_RADIUS, 0.02]}>
+            {active && (
+              <mesh geometry={geometries.activeHalo}>
+                <meshBasicMaterial color={ACCENT} transparent opacity={0.14} />
+              </mesh>
+            )}
             <mesh geometry={geometries.seatRing}>
-              <meshBasicMaterial color={active ? "#4bd4c8" : "#f7f7f2"} transparent opacity={active ? 0.48 : 0.16} />
+              <meshBasicMaterial color={active ? ACCENT : MUTED} transparent opacity={active ? 0.52 : 0.18} />
             </mesh>
             <mesh geometry={geometries.seatCore}>
-              <meshBasicMaterial color={active ? "#4bd4c8" : "#151a24"} transparent opacity={active ? 0.55 : 0.85} />
+              <meshBasicMaterial color={active ? ACCENT : ELEVATED} transparent opacity={active ? 0.58 : 0.62} />
             </mesh>
           </group>
         );
@@ -89,10 +100,13 @@ export function TurnIndicator({
       <group ref={activeRef}>
         <group position={[0, ORBIT_RADIUS, 0.045]}>
           <mesh geometry={geometries.activePuck}>
-            <meshBasicMaterial color="#4bd4c8" transparent opacity={0.28} />
+            <meshBasicMaterial color={ACCENT} transparent opacity={0.3} />
           </mesh>
           <mesh geometry={geometries.activeCore}>
-            <meshBasicMaterial color="#f7f7f2" transparent opacity={0.74} />
+            <meshBasicMaterial color={WHITE} transparent opacity={0.78} />
+          </mesh>
+          <mesh scale={[0.62, 0.62, 1]} geometry={geometries.activeCore}>
+            <meshBasicMaterial color={SURFACE} transparent opacity={0.86} />
           </mesh>
         </group>
       </group>

@@ -25,6 +25,20 @@
   --blue: #4c8dff;
   --green: #43d47d;
   --shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
+
+  --bg-primary: #1a1a2e;
+  --bg-surface: #0f0f1a;
+  --bg-elevated: #252540;
+  --accent: #00e5ff;
+  --accent-dim: rgba(0, 229, 255, 0.2);
+  --accent-glow: rgba(0, 229, 255, 0.4);
+  --text-primary: #ffffff;
+  --text-muted: #888899;
+  --card-red: #e63946;
+  --card-blue: #4361ee;
+  --card-green: #2ec4b6;
+  --card-yellow: #ffd60a;
+  --card-wild: #9d4edd;
 }
 
 * {
@@ -39,9 +53,9 @@ body,
   height: 100vh;
   overflow: hidden;
   background:
-    radial-gradient(circle at 24% 28%, rgba(75, 212, 200, 0.18), transparent 28rem),
-    radial-gradient(circle at 78% 70%, rgba(255, 98, 95, 0.12), transparent 30rem),
-    linear-gradient(135deg, #07080a, #121722 48%, #08090d);
+    radial-gradient(circle at 24% 28%, rgba(0, 229, 255, 0.12), transparent 28rem),
+    radial-gradient(circle at 78% 70%, rgba(157, 78, 221, 0.1), transparent 30rem),
+    linear-gradient(135deg, var(--bg-primary), var(--bg-surface) 52%, #05050d);
 }
 
 button,
@@ -126,7 +140,7 @@ canvas {
   aspect-ratio: 240 / 375;
   border-radius: 9px;
   background-image: url("/cards/atlas.webp");
-  background-size: 2400px 2250px;
+  background-size: 1000% 600%;
   box-shadow: 0 20px 42px rgba(0, 0, 0, 0.48);
 }
 
@@ -134,35 +148,35 @@ canvas {
   left: 30%;
   top: 46%;
   rotate: -28deg;
-  background-position: -1200px 0;
+  background-position: 55.5556% 0;
 }
 
 .preview-card-2 {
   left: 42%;
   top: 38%;
   rotate: -8deg;
-  background-position: -960px -750px;
+  background-position: 44.4444% 40%;
 }
 
 .preview-card-3 {
   left: 52%;
   top: 39%;
   rotate: 12deg;
-  background-position: -2160px -1500px;
+  background-position: 100% 80%;
 }
 
 .preview-card-4 {
   left: 60%;
   top: 49%;
   rotate: 32deg;
-  background-position: -1920px -1125px;
+  background-position: 88.8889% 60%;
 }
 
 .preview-card-5 {
   left: 47%;
   top: 18%;
   rotate: 18deg;
-  background-position: -480px -1875px;
+  background-position: 22.2222% 100%;
 }
 
 .lobby-card {
@@ -392,20 +406,30 @@ canvas {
 
 .toggle-btn {
   min-height: 31px;
-  border-radius: 8px;
-  border: 1px solid var(--line);
-  background: rgba(247, 247, 242, 0.07);
-  color: var(--muted);
+  border-radius: 16px;
+  border: 1px solid var(--accent-dim);
+  background: var(--bg-surface);
+  color: var(--text-muted);
   padding: 0 12px;
-  font-size: 11px;
-  font-weight: 850;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease,
+    transform 150ms ease;
 }
 
 .toggle-btn.on,
 .toggle-btn:hover {
-  border-color: rgba(75, 212, 200, 0.72);
-  background: rgba(75, 212, 200, 0.14);
-  color: var(--paper);
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.toggle-btn:hover {
+  transform: translateY(-1px);
 }
 
 .lobby-error {
@@ -426,10 +450,14 @@ canvas {
 .arena-dock,
 .last-played-info {
   pointer-events: auto;
-  border: 1px solid var(--line);
+  border: 1px solid var(--accent-dim);
   border-radius: 8px;
-  background: var(--panel);
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.36);
+  background:
+    linear-gradient(180deg, rgba(37, 37, 64, 0.78), rgba(15, 15, 26, 0.88)),
+    var(--bg-surface);
+  box-shadow:
+    0 0 24px rgba(0, 229, 255, 0.08),
+    0 18px 50px rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(16px);
 }
 
@@ -449,7 +477,7 @@ canvas {
 .turn-card strong {
   display: block;
   margin-top: 7px;
-  color: var(--paper);
+  color: var(--text-primary);
   font-size: 15px;
   font-weight: 900;
   line-height: 1;
@@ -464,7 +492,7 @@ canvas {
   grid-template-columns: 1fr auto;
   align-items: end;
   padding-top: 12px;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--accent-dim);
 }
 
 .arena-metric strong {
@@ -477,7 +505,7 @@ canvas {
   flex-direction: column;
   gap: 6px;
   padding-top: 12px;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--accent-dim);
 }
 
 .seat-row {
@@ -488,12 +516,12 @@ canvas {
   gap: 8px;
   border-radius: 7px;
   padding: 5px 7px;
-  color: var(--muted);
+  color: var(--text-muted);
 }
 
 .seat-row.active {
-  background: rgba(75, 212, 200, 0.14);
-  color: var(--paper);
+  background: var(--accent-dim);
+  color: var(--text-primary);
 }
 
 .seat-index {
@@ -502,8 +530,8 @@ canvas {
   width: 24px;
   height: 24px;
   border-radius: 6px;
-  background: rgba(247, 247, 242, 0.08);
-  color: var(--faint);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-muted);
   font-size: 11px;
   font-weight: 900;
 }
@@ -517,7 +545,7 @@ canvas {
 }
 
 .seat-row strong {
-  color: var(--gold);
+  color: var(--accent);
   font-size: 12px;
 }
 
@@ -533,11 +561,11 @@ canvas {
 
 .turn-card > div {
   padding: 13px 16px;
-  background: rgba(247, 247, 242, 0.035);
+  background: rgba(255, 255, 255, 0.035);
 }
 
 .turn-card > div + div {
-  border-left: 1px solid var(--line);
+  border-left: 1px solid var(--accent-dim);
 }
 
 .arena-dock {
@@ -553,10 +581,10 @@ canvas {
 
 .dock-btn {
   min-height: 50px;
-  border-radius: 7px;
-  border: 1px solid transparent;
-  background: rgba(247, 247, 242, 0.065);
-  color: var(--paper);
+  border-radius: 20px;
+  border: 1px solid var(--accent-dim);
+  background: var(--bg-surface);
+  color: var(--text-primary);
   padding: 8px 10px;
 }
 
@@ -568,14 +596,15 @@ canvas {
 }
 
 .dock-btn span {
-  color: var(--faint);
+  color: var(--text-muted);
   letter-spacing: 0.08em;
 }
 
 .dock-btn:hover {
-  border-color: rgba(75, 212, 200, 0.72);
-  background: rgba(75, 212, 200, 0.14);
-  transform: translateY(-1px);
+  border-color: var(--accent);
+  background: var(--bg-elevated);
+  box-shadow: 0 0 16px var(--accent-dim);
+  transform: translateY(-1px) scale(1.02);
 }
 
 .last-played-info {
@@ -590,13 +619,13 @@ canvas {
 }
 
 .last-played-info .player-name {
-  color: var(--paper);
+  color: var(--text-primary);
   font-size: 16px;
   font-weight: 900;
 }
 
 .last-played-info .card-name {
-  color: var(--gold);
+  color: var(--accent);
   font-family: "SFMono-Regular", Consolas, monospace;
   font-size: 12px;
 }
@@ -604,18 +633,20 @@ canvas {
 .player-label {
   position: absolute;
   pointer-events: none;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--panel);
-  color: var(--paper);
-  padding: 7px 10px;
-  font-size: 12px;
-  font-weight: 850;
+  border: 1px solid var(--accent-dim);
+  border-radius: 12px;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.34);
 }
 
 .player-label.active {
-  border-color: rgba(75, 212, 200, 0.74);
-  color: var(--aqua);
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 0 18px var(--accent-dim), 0 10px 28px rgba(0, 0, 0, 0.34);
 }
 
 .player-label.p0 {
@@ -651,7 +682,7 @@ canvas {
 
 .player-label .card-count {
   margin-left: 8px;
-  color: var(--gold);
+  color: var(--accent);
 }
 
 .player-label .card-count.bump {
@@ -668,12 +699,13 @@ canvas {
   position: fixed;
   inset: 0;
   z-index: 1000;
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   padding: 20px;
   pointer-events: auto;
-  background: rgba(7, 8, 10, 0.72);
-  backdrop-filter: blur(10px);
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(6px);
 }
 
 .rules-card,
@@ -683,12 +715,12 @@ canvas {
   width: min(92vw, 540px);
   max-height: min(80vh, 720px);
   overflow: auto;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #f7f7f2;
-  color: #11141a;
-  padding: 24px;
-  box-shadow: var(--shadow);
+  border: 1px solid var(--accent-dim);
+  border-radius: 12px;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  padding: 28px;
+  box-shadow: 0 16px 64px rgba(0, 0, 0, 0.5);
 }
 
 .rules-header {
@@ -696,36 +728,43 @@ canvas {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+  margin-bottom: 24px;
   padding-bottom: 16px;
-  border-bottom: 1px solid rgba(17, 20, 26, 0.14);
+  border-bottom: 1px solid var(--accent-dim);
 }
 
 .rules-header h2 {
-  color: #11141a;
-  font-size: 22px;
+  color: var(--text-primary);
+  font-size: 18px;
+  font-weight: 800;
   line-height: 1.1;
 }
 
 .rules-close {
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  background: #11141a;
-  color: #f7f7f2;
-  font-size: 18px;
+  width: auto;
+  height: auto;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  padding: 0 4px;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.rules-close:hover {
+  color: var(--accent);
 }
 
 .rules-body {
   display: flex;
   flex-direction: column;
   gap: 18px;
-  padding-top: 18px;
 }
 
 .rules-body section h3,
 .section-title {
   margin-bottom: 8px;
-  color: #146f6a;
+  color: var(--accent);
   font-size: 11px;
   font-weight: 900;
   text-transform: uppercase;
@@ -734,7 +773,7 @@ canvas {
 
 .rules-body p,
 .rules-body li {
-  color: rgba(17, 20, 26, 0.72);
+  color: var(--text-muted);
   font-size: 14px;
   line-height: 1.6;
 }
@@ -744,37 +783,37 @@ canvas {
 }
 
 .rules-body strong {
-  color: #11141a;
+  color: var(--text-primary);
 }
 
 .shortcuts-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
-  color: rgba(17, 20, 26, 0.72);
+  color: var(--text-muted);
   font-size: 13px;
 }
 
 .empty-state {
-  color: rgba(17, 20, 26, 0.55);
+  color: var(--text-muted);
   text-align: center;
 }
 
 .leaderboard-table {
   width: 100%;
   border-collapse: collapse;
-  color: rgba(17, 20, 26, 0.74);
+  color: var(--text-muted);
   font-size: 13px;
 }
 
 .leaderboard-table th,
 .leaderboard-table td {
   padding: 8px;
-  border-bottom: 1px solid rgba(17, 20, 26, 0.12);
+  border-bottom: 1px solid var(--accent-dim);
 }
 
 .leaderboard-table th {
-  color: #146f6a;
+  color: var(--accent);
   font-size: 11px;
   text-align: left;
   text-transform: uppercase;
@@ -787,15 +826,16 @@ canvas {
 }
 
 .leaderboard-table td:first-child {
-  color: #11141a;
+  color: var(--text-primary);
   font-weight: 900;
 }
 
 .wood-btn {
   min-height: 40px;
-  border-radius: 8px;
-  background: #11141a;
-  color: #f7f7f2;
+  border-radius: 20px;
+  border: 1px solid var(--accent-dim);
+  background: var(--bg-surface);
+  color: var(--text-primary);
   padding: 0 18px;
   font-size: 13px;
   font-weight: 850;
@@ -884,10 +924,10 @@ canvas {
   bottom: 12px;
   z-index: 999;
   min-height: 34px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--panel);
-  color: var(--aqua);
+  border: 1px solid var(--accent-dim);
+  border-radius: 4px;
+  background: var(--bg-surface);
+  color: var(--accent);
   padding: 0 10px;
   font-size: 10px;
   font-weight: 900;
@@ -900,13 +940,15 @@ canvas {
   right: 12px;
   bottom: 12px;
   z-index: 1000;
-  width: 300px;
+  display: flex;
+  width: 280px;
+  flex-direction: column;
   overflow: hidden;
-  border: 1px solid var(--line);
+  border: 1px solid var(--accent-dim);
   border-radius: 8px;
-  background: var(--panel-solid);
-  color: var(--paper);
-  box-shadow: var(--shadow);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
 }
 
 .devtools-header,
@@ -916,7 +958,7 @@ canvas {
   justify-content: space-between;
   padding: 10px 14px;
   background: rgba(0, 0, 0, 0.26);
-  color: var(--aqua);
+  color: var(--accent);
   font-size: 12px;
   font-weight: 850;
 }
@@ -931,7 +973,7 @@ canvas {
 
 .devtools-section {
   padding: 14px;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--accent-dim);
 }
 
 .devtools-stats,
@@ -952,7 +994,7 @@ canvas {
 }
 
 .stat-row .val {
-  color: var(--aqua);
+  color: var(--accent);
   font-family: "SFMono-Regular", Consolas, monospace;
 }
 
@@ -996,17 +1038,20 @@ canvas {
 
 .stress-test input[type="range"] {
   width: 100%;
-  accent-color: var(--aqua);
+  accent-color: var(--accent);
 }
 
 .stress-test-overlay {
   position: fixed;
-  inset: 0 0 auto;
+  top: 0;
+  left: 0;
+  width: 100%;
   z-index: 100;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 18px;
+  gap: 16px;
+  padding: 20px;
   pointer-events: none;
 }
 
@@ -1015,22 +1060,82 @@ canvas {
 }
 
 .stress-test-title {
-  color: var(--aqua);
-  font-size: 13px;
-  font-weight: 850;
+  flex: 1 1 auto;
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.2;
+  text-align: center;
   text-transform: uppercase;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.05em;
+}
+
+.autoplay-btn {
+  flex: 0 0 auto;
+  min-height: 38px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: var(--accent);
+  color: #111111;
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.stress-test-summary {
+  flex: 0 1 220px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: right;
 }
 
 .back-btn {
+  flex: 0 0 auto;
   min-height: 38px;
-  border-radius: 8px;
-  border: 1px solid var(--line);
-  background: var(--panel);
-  color: var(--paper);
-  padding: 0 14px;
+  border-radius: 20px;
+  border: 1px solid var(--accent-dim);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  padding: 8px 16px;
   font-size: 12px;
-  font-weight: 850;
+  font-weight: 700;
+}
+
+.back-btn:hover {
+  border-color: var(--accent);
+  background: var(--bg-elevated);
+}
+
+@media (max-width: 560px) {
+  .stress-test-overlay {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    padding: 14px 12px;
+  }
+
+  .stress-test-title {
+    order: 3;
+    flex-basis: 100%;
+    max-width: none;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-align: left;
+  }
+
+  .back-btn,
+  .autoplay-btn {
+    max-width: 126px;
+    padding: 0 12px;
+    white-space: normal;
+  }
+
+  .stress-test-summary {
+    order: 4;
+    flex-basis: 100%;
+    text-align: left;
+  }
 }
 
 .color-picker-drawer {
@@ -1041,11 +1146,11 @@ canvas {
   display: flex;
   gap: 14px;
   padding: 16px 22px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--accent-dim);
   border-bottom: 0;
-  border-radius: 8px 8px 0 0;
-  background: var(--panel-solid);
-  box-shadow: var(--shadow);
+  border-radius: 16px 16px 0 0;
+  background: var(--bg-surface);
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.3);
   transform: translateX(-50%) translateY(100%);
   transition: transform 180ms ease;
 }
@@ -1064,7 +1169,8 @@ canvas {
 
 .color-picker-option:hover,
 .color-picker-option.selected {
-  border-color: var(--paper);
+  border-color: var(--accent);
+  box-shadow: 0 0 12px var(--accent-glow);
   transform: scale(1.08);
 }
 
