@@ -1055,6 +1055,135 @@ canvas {
   pointer-events: none;
 }
 
+.stress-test-overlay[data-phase="running"] .stress-test-title,
+.stress-test-overlay[data-phase="paused"] .stress-test-title {
+  color: var(--accent);
+}
+
+.stress-test-overlay[data-phase="finished"] .stress-test-title {
+  color: var(--gold);
+}
+
+.playback-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.speed-btns {
+  position: fixed;
+  top: 76px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 4px;
+  z-index: 101;
+}
+
+.speed-btn {
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--bg-surface);
+  color: var(--text-muted);
+  font-size: 11px;
+  cursor: pointer;
+  transition: border-color 160ms, color 160ms, background 160ms;
+}
+
+.speed-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.speed-btn.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.debug-panel {
+  position: fixed;
+  bottom: 60px;
+  left: 12px;
+  width: 320px;
+  max-height: 200px;
+  overflow-y: auto;
+  background: var(--bg-surface);
+  border: 1px solid var(--accent-dim);
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 11px;
+  color: var(--text-muted);
+  z-index: 50;
+}
+
+.debug-panel::-webkit-scrollbar {
+  width: 4px;
+}
+
+.debug-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.debug-panel::-webkit-scrollbar-thumb {
+  background: var(--accent-dim);
+  border-radius: 2px;
+}
+
+.debug-section-title {
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 6px;
+}
+
+.debug-panel .turn-entry {
+  display: flex;
+  gap: 8px;
+  padding: 2px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.debug-panel .turn-entry:last-child {
+  border-bottom: none;
+}
+
+.debug-panel .turn-num {
+  color: var(--accent);
+  min-width: 36px;
+  flex-shrink: 0;
+}
+
+.debug-panel .player-badge {
+  color: var(--text-primary);
+  min-width: 20px;
+  flex-shrink: 0;
+}
+
+.debug-panel .action-text {
+  color: var(--muted);
+  word-break: break-all;
+}
+
+.demo-badge {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  background: var(--accent);
+  color: var(--bg-primary);
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  z-index: 100;
+}
+
 .stress-test-overlay button {
   pointer-events: auto;
 }

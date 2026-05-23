@@ -1,10 +1,17 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { analyzer } from 'vite-bundle-analyzer'
+import { fileURLToPath, URL } from 'node:url'
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   base: process.env.BASE_URL || '/',
+  resolve: {
+    alias: {
+      // Map server-shared to the actual server/shared/uno.ts for stress test imports
+      'server-shared': fileURLToPath(new URL('../server/shared/uno.ts', import.meta.url)),
+    },
+  },
   plugins: [
     react({
       // React compiler disabled for debugging
