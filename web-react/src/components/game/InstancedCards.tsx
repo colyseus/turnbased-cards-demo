@@ -53,12 +53,15 @@ const vertexShader = /* glsl */ `
 
     // GPU-driven orbital animation: deterministic from instanceIndex + uTime
     // No spring physics — runs entirely in vertex shader
+    float angle = 0.0;
+    float r = 0.0;
+    float zOff = 0.0;
     if (uUseGpuAnimation) {
       float fi = instanceIndex;
       float total = max(uCardCount, 1.0);
-      float angle = (fi / total) * 6.28318530718 + uTime * 0.2;
-      float r = 3.0 + sin(uTime * 0.5 + fi * 0.1) * 2.0;
-      float zOff = sin(uTime + fi * 0.05) * 0.5;
+      angle = (fi / total) * 6.28318530718 + uTime * 0.2;
+      r = 3.0 + sin(uTime * 0.5 + fi * 0.1) * 2.0;
+      zOff = sin(uTime + fi * 0.05) * 0.5;
 
       finalPos = vec3(
         cos(angle) * r,
@@ -74,7 +77,7 @@ const vertexShader = /* glsl */ `
     mat3 rotZ = mat3(ca, -sa, 0.0, sa, ca, 0.0, 0.0, 0.0, 1.0);
     mat3 scaleMat = mat3(0.5, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 1.0);
     mat3 rotScale = rotZ * scaleMat;
-    vec4 worldPos = modelMatrix * vec4(basePos + rotScale * position, 1.0);
+    vec4 worldPos = modelMatrix * vec4(finalPos + rotScale * position, 1.0);
     gl_Position = projectionMatrix * viewMatrix * worldPos;
   }
 `;
