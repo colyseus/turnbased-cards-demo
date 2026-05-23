@@ -1,12 +1,15 @@
 import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { useState, useRef, useCallback, useEffect } from 'react';
 import * as THREE from 'three';
+import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUniformsLib.js';
 import { Game } from './Game';
 import { GameHud } from './game/GameHud';
 import { TextureProvider } from './Preloader';
 import { DevToolsProvider, DevToolsLogic, DevToolsUI } from './DevTools';
 import { LongPressCard } from './LongPressCard';
 import { createTimerClock } from '../threeTimerClock';
+
+RectAreaLightUniformsLib.init();
 
 export interface LastPlayedInfo {
   cardId: string;
@@ -44,6 +47,60 @@ function CameraShake({ shakeStart }: { shakeStart: React.MutableRefObject<number
   });
 
   return null;
+}
+
+function LightingSetup() {
+  const { gl } = useThree();
+
+  useEffect(() => {
+    gl.shadowMap.enabled = true;
+    gl.shadowMap.type = THREE.PCFSoftShadowMap;
+  }, [gl]);
+
+  return (
+    <>
+      {/* 3-Point Lighting Rig */}
+      {/* Key Light - warm directional light, main shadow caster */}
+      <directionalLight
+        position={[5, 8, 5]}
+        intensity={2}
+        color={0xffeedd}
+        castShadow
+        shadow-mapSize-width={1024}
+        shadow-mapSize-height={1024}
+        shadow-camera-near={0.1}
+        shadow-camera-far={30}
+        shadow-camera-left={-8}
+        shadow-camera-right={8}
+        shadow-camera-top={8}
+        shadow-camera-bottom={-8}
+        shadow-bias={-0.001}
+      />
+      {/* Fill Light - cool hemisphere light, lifts shadows softly */}
+      <hemisphereLight
+        color={0x88ccff}
+        groundColor={0x222244}
+        intensity={0.6}
+      />
+      {/* Rim/Back Light - magenta point light behind table for edge definition */}
+      <pointLight
+        position={[0, 3, -6]}
+        intensity={1.2}
+        color={0xff00ff}
+        distance={15}
+        decay={2}
+      />
+      {/* RectAreaLight - soft ambient fill from above */}
+      <rectAreaLight
+        position={[0, 6, 0]}
+        width={12}
+        height={8}
+        intensity={1.5}
+        color={0x00e5ff}
+        rotation={[-Math.PI / 2.5, 0, 0]}
+      />
+    </>
+  );
 }
 
 export type QualityLevel = 'low' | 'medium' | 'high';
@@ -147,8 +204,7 @@ export default function GameScene() {
           state.clock = createTimerClock() as typeof state.clock;
         }}
       >
-        <ambientLight intensity={2.5} />
-        <directionalLight position={[0, 2, 10]} intensity={1.5} />
+        <LightingSetup />
         <CameraShake shakeStart={shakeStart} />
         <DevToolsLogic />
         <TextureProvider>
