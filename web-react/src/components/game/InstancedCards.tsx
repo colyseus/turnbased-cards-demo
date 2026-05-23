@@ -118,7 +118,8 @@ export function InstancedCards({ cards }: InstancedCardsProps) {
   const backUVs = getUVs('back') ?? { u: 0.5, v: 0.1667, w: 0.1, h: 0.1667 };
   for (let i = 0; i < MAX_CARDS; i++) {
     const idx = i * 4;
-    uvBackAttr[idx] = backUVs.u; uvBackAttr[idx+1] = backUVs.v;
+    // Flip U horizontally so BackSide-rendered card back isn't mirrored
+    uvBackAttr[idx] = -(backUVs.u + backUVs.w); uvBackAttr[idx+1] = backUVs.v;
     uvBackAttr[idx+2] = backUVs.w; uvBackAttr[idx+3] = backUVs.h;
   }
 
