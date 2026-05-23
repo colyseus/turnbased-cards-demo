@@ -36,9 +36,11 @@ export function TurnIndicator({
         0.05,
         Math.PI * 0.28
       ),
+      orbitTick: new THREE.BoxGeometry(0.025, 0.06, 0.01),
       activeHalo: new THREE.RingGeometry(0.48, 0.55, 56),
       activePuck: new THREE.RingGeometry(0.28, 0.43, 48),
       activeCore: new THREE.CircleGeometry(0.16, 32),
+      trailRing: new THREE.RingGeometry(0.32, 0.4, 48),
     }),
     []
   );
@@ -63,6 +65,9 @@ export function TurnIndicator({
 
     if (activeRef.current) {
       activeRef.current.rotation.z = currentRotation.current;
+      // Breathing effect: scale oscillates 1.0 → 1.05 over 1s
+      const breathe = 1 + 0.025 * Math.sin(Date.now() * 0.006);
+      activeRef.current.scale.set(breathe, breathe, 1);
     }
 
     if (orbitRef.current) {
@@ -72,28 +77,56 @@ export function TurnIndicator({
 
   return (
     <group position={[0, 0, 0.02]}>
+      {/* Orbit arcs with directional tick marks */}
       <group ref={orbitRef}>
-        {[0, 1, 2, 3].map((index) => (
-          <mesh
-            key={index}
-            rotation={[0, 0, (index * Math.PI * 2) / SEAT_COUNT]}
-            geometry={geometries.orbitArc}
-          >
-            <meshBasicMaterial color={ACCENT} transparent opacity={0.18} />
-          </mesh>
-        ))}
+        {[0, 1, 2, 3].map((index) => {
+          const isActive = index === activePlayerIndex;
+          const arcAngle = (index / SEAT_COUNT) * Math.PI * 2;
+          const tickRotation = reverse ? arcAngle + Math.PI * 0.15 : arcAngle - Math.PI * 0.15;
+          return (
+            <group key={index}>
+              <mesh
+                rotation={[0, 0, arcAngle]}
+                geometry={geometries.orbitArc}
+              >
+                <meshBasicMaterial
+                  color={ACCENT}
+                  transparent
+                  opacity={isActive ? 0.32 : 0.18}
+                />
+              </mesh>
+              {/* Directional tick mark at arc start */}
+              <mesh
+                position={[
+                  Math.sin(arcAngle + (reverse ? 0.05 : -0.05)) * ORBIT_RADIUS,
+                  Math.cos(arcAngle + (reverse ? 0.05 : -0.05)) * ORBIT_RADIUS,
+                  0.01,
+                ]}
+                rotation={[0, 0, tickRotation]}
+                geometry={geometries.orbitTick}
+              >
+                <meshBasicMaterial color={ACCENT} transparent opacity={isActive ? 0.7 : 0.35} />
+              </mesh>
+            </group>
+          );
+        })}
       </group>
 
+      {/* Seat rings with pulsing glow */}
       {Array.from({ length: SEAT_COUNT }, (_, index) => {
         const angle = (index / SEAT_COUNT) * Math.PI * 2;
         const active = index === activePlayerIndex;
+        // Pulse sync with active indicator breathing
+        const pulsePhase = Date.now() * 0.006;
+        const seatPulse = active ? 1 + 0.15 * Math.sin(pulsePhase) : 1;
         return (
           <group
             key={index}
             position={[Math.sin(angle) * ORBIT_RADIUS, Math.cos(angle) * ORBIT_RADIUS, 0.02]}
           >
+            {/* Pulsing glow halo around active seat */}
             {active && (
-              <mesh geometry={geometries.activeHalo}>
+              <mesh geometry={geometries.activeHalo} scale={[seatPulse, seatPulse, 1]}>
                 <meshBasicMaterial color={ACCENT} transparent opacity={0.14} />
               </mesh>
             )}
@@ -115,8 +148,20 @@ export function TurnIndicator({
         );
       })}
 
+      {/* Active indicator with trail/afterglow */}
       <group ref={activeRef}>
         <group position={[0, ORBIT_RADIUS, 0.045]}>
+          {/* Trail/afterglow rings - semi-transparent layers behind the puck */}
+          <mesh geometry={geometries.trailRing} scale={[1.6, 1.6, 1]}>
+            <meshBasicMaterial color={ACCENT} transparent opacity={0.06} />
+          </mesh>
+          <mesh geometry={geometries.trailRing} scale={[1.35, 1.35, 1]}>
+            <meshBasicMaterial color={ACCENT} transparent opacity={0.1} />
+          </mesh>
+          <mesh geometry={geometries.trailRing} scale={[1.15, 1.15, 1]}>
+            <meshBasicMaterial color={ACCENT} transparent opacity={0.16} />
+          </mesh>
+
           <mesh geometry={geometries.activePuck}>
             <meshBasicMaterial color={ACCENT} transparent opacity={0.3} />
           </mesh>

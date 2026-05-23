@@ -25,6 +25,7 @@ const fragmentShader = /* glsl */ `
   uniform vec3 uColor;
   uniform float uTime;
   uniform float uPopIntensity;
+  uniform float uPointLightIntensity;
 
   varying vec3 vNormal;
   varying vec3 vPosition;
@@ -53,27 +54,39 @@ const fragmentShader = /* glsl */ `
   void main() {
     vec3 viewDir = normalize(cameraPosition - vWorldPosition);
 
-    // Fresnel rim glow
-    float fresnel = pow(1.0 - max(dot(viewDir, vNormal), 0.0), 2.5);
+    // Enhanced fresnel rim glow — power 3.5, brightness 3.0
+    float fresnel = pow(1.0 - max(dot(viewDir, vNormal), 0.0), 3.5);
 
-    // Procedural facet-slice lines — two noise frequencies
+    // Procedural facet-slice lines — two-frequency noise, sharper edges
     float n1 = noise(vPosition * 4.0 + uTime * 0.15);
     float n2 = noise(vPosition * 9.0 - uTime * 0.08);
-    float facetLine = smoothstep(0.45, 0.55, n1) * smoothstep(0.48, 0.52, n2);
+    float n3 = noise(vPosition * 18.0 + uTime * 0.04);
+    float facetLine = smoothstep(0.47, 0.53, n1) * smoothstep(0.49, 0.51, n2);
+    float facetLineSharp = smoothstep(0.46, 0.54, n3) * 0.3;
+    facetLine = max(facetLine, facetLineSharp);
 
     // Core glow — radial brightness strongest at face centers
     float coreGlow = 1.0 - length(vPosition) * 1.2;
     coreGlow = clamp(coreGlow, 0.0, 1.0);
     coreGlow = pow(coreGlow, 1.5);
 
-    // Breathing pulse — period ~2s
-    float breath = sin(uTime * 3.14159) * 0.05 + 0.95;
+    // Inner refraction shimmer — secondary normal-based highlight
+    float innerShimmer = pow(max(dot(viewDir, vNormal), 0.0), 2.0) * 0.4;
+    vec3 shimmerColor = uColor * innerShimmer;
 
-    // Combine: base color + fresnel rim + facet darkening + core glow
+    // Core point light — flickering inner glow
+    float pointLight = uPointLightIntensity * (1.0 - length(vPosition) * 0.9);
+    pointLight = clamp(pointLight, 0.0, 1.0);
+    vec3 pointLightColor = uColor * pointLight * 0.5;
+
+    // Breathing pulse — stronger glow, period ~2s
+    float breath = sin(uTime * 3.14159) * 0.08 + 0.92;
+
+    // Combine: base color + fresnel rim + facet darkening + core glow + shimmer + point light
     vec3 baseColor = uColor * (0.6 + coreGlow * 0.4);
-    vec3 rimColor = uColor * fresnel * 2.5;
+    vec3 rimColor = uColor * fresnel * 3.0;
     float facetDark = mix(0.0, 0.35, facetLine);
-    vec3 finalColor = (baseColor + rimColor) * (1.0 - facetDark) * breath;
+    vec3 finalColor = (baseColor + rimColor + shimmerColor + pointLightColor) * (1.0 - facetDark) * breath;
 
     // Pop brightness boost
     finalColor *= uPopIntensity;
@@ -102,8 +115,9 @@ export function ColorOrb({
   const prevColor = useRef<string>(color);
   const popIntensity = useRef(1.0);
   const elapsed = useRef(0.0);
+  const pointLightIntensity = useRef(1.0);
 
-  const geometry = useMemo(() => new THREE.OctahedronGeometry(1, 0), []);
+  const geometry = useMemo(() => new THREE.OctahedronGeometry(1.15, 0), []);
   const colorVec = useMemo(() => new THREE.Color(color), [color]);
 
   useEffect(() => {
@@ -117,7 +131,7 @@ export function ColorOrb({
     if (color !== prevColor.current) {
       prevColor.current = color;
       colorVec.set(color);
-      popIntensity.current = isWildCard ? 1.5 : 1.2;
+      popIntensity.current = isWildCard ? 1.8 : 1.2;
       scaleVel.current = 0;
       scaleSpring.current = 0;
     }
@@ -130,6 +144,10 @@ export function ColorOrb({
     // Decay pop intensity back to 1.0
     popIntensity.current += (1.0 - popIntensity.current) * dt * 5;
 
+    // Flickering point light intensity
+    const flicker = Math.sin(elapsed.current * 7.3) * 0.1 + Math.sin(elapsed.current * 13.7) * 0.05;
+    pointLightIntensity.current = 1.0 + flicker;
+
     // Spring toward target scale of 1.0
     const target = 1.0;
     const deltaS = target - scaleSpring.current;
@@ -139,12 +157,15 @@ export function ColorOrb({
 
     if (groupRef.current) {
       groupRef.current.scale.setScalar(scale * scaleSpring.current);
+      // Slow y-axis rotation
+      groupRef.current.rotation.y = elapsed.current * 0.15;
     }
 
     if (materialRef.current) {
       materialRef.current.uniforms.uColor.value.set(color);
       materialRef.current.uniforms.uTime.value = elapsed.current;
       materialRef.current.uniforms.uPopIntensity.value = popIntensity.current;
+      materialRef.current.uniforms.uPointLightIntensity.value = pointLightIntensity.current;
     }
   });
 
@@ -159,6 +180,7 @@ export function ColorOrb({
             uColor: { value: colorVec },
             uTime: { value: 0 },
             uPopIntensity: { value: 1.0 },
+            uPointLightIntensity: { value: 1.0 },
           }}
         />
       </mesh>
