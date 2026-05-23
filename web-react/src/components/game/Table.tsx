@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
+import { ContactShadows } from '@react-three/drei';
 
 const SURFACE_SIZE = 1024;
 const BACKDROP_SIZE = 1024;
@@ -88,6 +89,27 @@ function createBackdropTexture() {
   });
 }
 
+function createFeltNormalMap(size = 512) {
+  return createCanvasTexture(size, (ctx) => {
+    // Flat normal base (pointing up in tangent space = 128,128,255)
+    ctx.fillStyle = 'rgb(128,128,255)';
+    ctx.fillRect(0, 0, size, size);
+
+    // Subtle grain bumps for felt texture
+    ctx.globalCompositeOperation = 'overlay';
+    for (let i = 0; i < 8000; i++) {
+      const x = hash(i * 2) * size;
+      const y = hash(i * 2 + 1) * size;
+      const r = hash(i * 3) * 2.5 + 0.5;
+      const intensity = hash(i * 3 + 2) * 20 + 118;
+      ctx.fillStyle = `rgb(${intensity}, ${intensity}, 255)`;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  });
+}
+
 function createRoundedRectShape(width: number, height: number, radius: number) {
   const shape = new THREE.Shape();
   const x = -width / 2;
@@ -127,20 +149,64 @@ function RoundedPlane({
   return <primitive object={geometry} attach="geometry" />;
 }
 
+// Fresnel rim glow shader for table edge ring
+const fresnelRingMaterial = new THREE.ShaderMaterial({
+  uniforms: {
+    uColor: { value: new THREE.Color('#00e5ff') },
+    uPower: { value: 2.8 },
+    uIntensity: { value: 0.9 },
+  },
+  vertexShader: /* glsl */ `
+    varying vec3 vNormal;
+    varying vec3 vViewPosition;
+
+    void main() {
+      vNormal = normalize(normalMatrix * normal);
+      vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+      vViewPosition = -mvPosition.xyz;
+      gl_Position = projectionMatrix * mvPosition;
+    }
+  `,
+  fragmentShader: /* glsl */ `
+    uniform vec3 uColor;
+    uniform float uPower;
+    uniform float uIntensity;
+
+    varying vec3 vNormal;
+    varying vec3 vViewPosition;
+
+    void main() {
+      vec3 viewDir = normalize(vViewPosition);
+      float fresnel = pow(1.0 - abs(dot(viewDir, vNormal)), uPower);
+      gl_FragColor = vec4(uColor * fresnel * uIntensity, fresnel * 0.85);
+    }
+  `,
+  transparent: true,
+  side: THREE.DoubleSide,
+});
+
 function TableTray({ position, accent }: { position: [number, number, number]; accent: string }) {
   return (
     <group position={position}>
       <mesh position={[0, 0, -0.012]}>
         <RoundedPlane width={1.35} height={1.9} radius={0.16} segments={12} />
-        <meshBasicMaterial color="#05050d" transparent opacity={0.72} />
+        <meshStandardMaterial color="#05050d" roughness={0.4} metalness={0.1} />
       </mesh>
       <mesh>
         <RoundedPlane width={1.2} height={1.72} radius={0.14} segments={12} />
-        <meshBasicMaterial color="#0f0f1a" transparent opacity={0.86} />
+        <meshStandardMaterial color="#0f0f1a" roughness={0.25} metalness={0.15} envMapIntensity={0.4} />
       </mesh>
       <mesh position={[0, 0, 0.006]}>
         <RoundedPlane width={1.02} height={1.5} radius={0.12} segments={12} />
-        <meshBasicMaterial color={accent} transparent opacity={0.18} />
+        <meshStandardMaterial
+          color={accent}
+          roughness={0.08}
+          metalness={0.6}
+          emissive={accent}
+          emissiveIntensity={0.35}
+          transparent
+          opacity={0.55}
+        />
       </mesh>
     </group>
   );
@@ -157,15 +223,39 @@ function SeatAnchor({
     <group position={position} rotation={[0, 0, rotation]}>
       <mesh>
         <ringGeometry args={[0.24, 0.34, 32]} />
-        <meshBasicMaterial color="#00e5ff" transparent opacity={0.22} />
+        <meshStandardMaterial
+          color="#00e5ff"
+          metalness={0.3}
+          roughness={0.6}
+          emissive="#00e5ff"
+          emissiveIntensity={0.18}
+          transparent
+          opacity={0.82}
+        />
       </mesh>
       <mesh position={[0, 0.5, 0]}>
         <boxGeometry args={[0.75, 0.045, 0.01]} />
-        <meshBasicMaterial color="#ffffff" transparent opacity={0.12} />
+        <meshStandardMaterial
+          color="#ffffff"
+          metalness={0.2}
+          roughness={0.7}
+          emissive="#ffffff"
+          emissiveIntensity={0.08}
+          transparent
+          opacity={0.45}
+        />
       </mesh>
       <mesh position={[0, -0.5, 0]}>
         <boxGeometry args={[0.75, 0.045, 0.01]} />
-        <meshBasicMaterial color="#ffffff" transparent opacity={0.12} />
+        <meshStandardMaterial
+          color="#ffffff"
+          metalness={0.2}
+          roughness={0.7}
+          emissive="#ffffff"
+          emissiveIntensity={0.08}
+          transparent
+          opacity={0.45}
+        />
       </mesh>
     </group>
   );
@@ -174,43 +264,46 @@ function SeatAnchor({
 export function Table() {
   const surfaceTexture = useMemo(() => createTableSurfaceTexture(), []);
   const backdropTexture = useMemo(() => createBackdropTexture(), []);
+  const feltNormalMap = useMemo(() => createFeltNormalMap(), []);
   const surfaceGeometry = useMemo(() => new THREE.CircleGeometry(7.05, 160), []);
 
   useEffect(() => {
     return () => {
       surfaceTexture.dispose();
       backdropTexture.dispose();
+      feltNormalMap.dispose();
       surfaceGeometry.dispose();
     };
-  }, [surfaceTexture, backdropTexture, surfaceGeometry]);
+  }, [surfaceTexture, backdropTexture, feltNormalMap, surfaceGeometry]);
 
   return (
     <group position={[0, 0, -0.16]}>
       <mesh position={[0, 0, -0.2]}>
         <planeGeometry args={[32, 20]} />
-        <meshBasicMaterial map={backdropTexture} />
+        <meshStandardMaterial map={backdropTexture} roughness={0.85} metalness={0.05} />
       </mesh>
 
       <mesh geometry={surfaceGeometry} scale={[1.18, 0.76, 1]} position={[0, 0, -0.035]}>
-        <meshBasicMaterial color="#05050d" transparent opacity={0.78} />
+        <meshStandardMaterial color="#05050d" roughness={0.5} metalness={0.08} />
       </mesh>
 
       <mesh geometry={surfaceGeometry} scale={[1.09, 0.69, 1]}>
         <meshStandardMaterial
           map={surfaceTexture}
-          roughness={0.9}
-          metalness={0.03}
+          normalMap={feltNormalMap}
+          normalScale={[0.6, 0.6]}
+          roughness={0.92}
+          metalness={0.04}
           emissive="#0f0f1a"
           emissiveIntensity={0.12}
         />
       </mesh>
 
+      {/* Fresnel rim glow edge ring */}
       <mesh position={[0, 0, 0.01]} scale={[1.08, 0.68, 1]}>
         <ringGeometry args={[6.34, 6.46, 160]} />
-        <meshBasicMaterial color="#00e5ff" transparent opacity={0.28} />
+        <primitive object={fresnelRingMaterial} attach="material" />
       </mesh>
-
-      {/* DirectionLane and inner ring removed — non-functional decorative elements */}
 
       <TableTray position={[-1.5, 0, 0.03]} accent="#00e5ff" />
       <TableTray position={[1.5, 0, 0.03]} accent="#9d4edd" />
@@ -219,6 +312,15 @@ export function Table() {
       <SeatAnchor position={[0, 4.36, 0.026]} rotation={Math.PI} />
       <SeatAnchor position={[-6.82, 0, 0.026]} rotation={-Math.PI / 2} />
       <SeatAnchor position={[6.82, 0, 0.026]} rotation={Math.PI / 2} />
+
+      <ContactShadows
+        position={[0, 0, -0.3]}
+        opacity={0.55}
+        scale={20}
+        blur={2.5}
+        far={1.5}
+        color="#000010"
+      />
     </group>
   );
 }
