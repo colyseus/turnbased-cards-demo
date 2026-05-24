@@ -373,16 +373,26 @@ try {
 }
 
 // ── Offline Match Stats Local Storage Helpers ──────────────────────────────
+interface MatchHistoryEntry {
+  id: string;
+  timestamp: number;
+  win: boolean;
+  winnerName: string;
+  cardsPlayed: number;
+  durationSec: number;
+  opponentNames: string[];
+}
 interface GameStats {
   played: number;
   wins: number;
   losses: number;
   cardsPlayed: number;
   botKnockouts: number;
+  history?: MatchHistoryEntry[];
 }
 
 function getStats(): GameStats {
-  const defaults = { played: 0, wins: 0, losses: 0, cardsPlayed: 0, botKnockouts: 0 };
+  const defaults = { played: 0, wins: 0, losses: 0, cardsPlayed: 0, botKnockouts: 0, history: [] };
   try {
     const raw = localStorage.getItem("uno_stats");
     return raw ? { ...defaults, ...JSON.parse(raw) } : defaults;
@@ -391,7 +401,14 @@ function getStats(): GameStats {
   }
 }
 
-function updateStats(win: boolean, cards: number, botKills: number) {
+function updateStats(
+  win: boolean,
+  cards: number,
+  botKills: number,
+  winnerName: string = "Winner",
+  durationSec: number = 0,
+  opponents: string[] = [],
+) {
   try {
     const curr = getStats();
     curr.played += 1;
@@ -399,6 +416,20 @@ function updateStats(win: boolean, cards: number, botKills: number) {
     else curr.losses += 1;
     curr.cardsPlayed += cards;
     curr.botKnockouts += botKills;
+
+    if (!curr.history) curr.history = [];
+    curr.history.unshift({
+      id: `${Date.now()}-${Math.random()}`,
+      timestamp: Date.now(),
+      win,
+      winnerName,
+      cardsPlayed: cards,
+      durationSec,
+      opponentNames: opponents,
+    });
+    if (curr.history.length > 10) {
+      curr.history = curr.history.slice(0, 10);
+    }
     localStorage.setItem("uno_stats", JSON.stringify(curr));
   } catch {
     // Ignored
@@ -1165,6 +1196,101 @@ function StatsDashboard() {
           </strong>
         </div>
       </div>
+
+      {stats.history && stats.history.length > 0 && (
+        <div
+          className="history-section"
+          style={{
+            marginTop: "16px",
+            textAlign: "left",
+            display: "flex",
+            flexDirection: "column",
+            gap: "8px",
+          }}
+        >
+          <h4
+            style={{
+              fontSize: "11px",
+              textTransform: "uppercase",
+              color: "var(--text-muted)",
+              letterSpacing: "0.08em",
+              margin: 0,
+            }}
+          >
+            Recent Matches
+          </h4>
+          <div
+            className="history-list"
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "6px",
+              maxHeight: "180px",
+              overflowY: "auto",
+              paddingRight: "4px",
+            }}
+          >
+            {stats.history.map((entry) => (
+              <div
+                key={entry.id}
+                className="history-row"
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  background: "rgba(255, 255, 255, 0.02)",
+                  border: "1px solid rgba(255, 255, 255, 0.04)",
+                  padding: "8px 12px",
+                  borderRadius: "10px",
+                  fontSize: "12px",
+                }}
+              >
+                <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                  <strong
+                    style={{
+                      color: entry.win ? "var(--gold)" : "var(--card-red)",
+                      fontSize: "12px",
+                    }}
+                  >
+                    {entry.win ? "Victory 🏆" : "Defeat 💀"}
+                  </strong>
+                  <span style={{ color: "var(--text-faint)", fontSize: "10px" }}>
+                    Winner: {parsePlayerName(entry.winnerName).name} •{" "}
+                    {Math.round(entry.durationSec)}s
+                  </span>
+                  {entry.opponentNames && entry.opponentNames.length > 0 && (
+                    <span
+                      style={{
+                        color: "var(--text-muted)",
+                        fontSize: "9px",
+                        textOverflow: "ellipsis",
+                        overflow: "hidden",
+                        whiteSpace: "nowrap",
+                        maxWidth: "180px",
+                      }}
+                    >
+                      VS: {entry.opponentNames.map((name) => parsePlayerName(name).name).join(", ")}
+                    </span>
+                  )}
+                </div>
+                <div
+                  style={{
+                    textAlign: "right",
+                    fontSize: "10px",
+                    color: "var(--text-muted)",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "2px",
+                  }}
+                >
+                  <strong>{entry.cardsPlayed} cards</strong>
+                  <span>{new Date(entry.timestamp).toLocaleDateString()}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1372,24 +1498,104 @@ function HandCardItem({
   playCard,
 }: HandCardItemProps) {
   const [isNew, setIsNew] = useState(true);
+  const [dragY, setDragY] = useState(0);
+  const touchStartY = useRef(0);
+  const touchStartX = useRef(0);
+  const isDragging = useRef(false);
 
   useEffect(() => {
     const timer = setTimeout(() => setIsNew(false), 600);
     return () => clearTimeout(timer);
   }, []);
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartY.current = e.touches[0].clientY;
+    touchStartX.current = e.touches[0].clientX;
+    isDragging.current = true;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging.current) return;
+    const diffY = touchStartY.current - e.touches[0].clientY;
+    // diffY > 0 is upward drag, diffY < 0 is downward drag
+    const offset = diffY > 0 ? Math.min(90, diffY) : Math.max(-40, diffY);
+    setDragY(offset);
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!isDragging.current) return;
+    isDragging.current = false;
+    e.preventDefault(); // Prevents synthesized click event on mobile touch screens!
+
+    // Upward swipe -> Play Card
+    if (dragY > 50) {
+      if (playable) {
+        playCard(card);
+      } else {
+        sfx.playPluck();
+      }
+    }
+    // Downward swipe -> Deselect
+    else if (dragY < -25) {
+      if (isSelected) {
+        setSelectedCardIdx(-1);
+        sfx.playSwish();
+      }
+    }
+    // Short tap -> Toggle selection / play
+    else if (Math.abs(dragY) < 10) {
+      if (isSelected) {
+        if (playable) {
+          playCard(card);
+        } else {
+          sfx.playPluck();
+        }
+      } else {
+        setSelectedCardIdx(idx);
+        sfx.playSwish();
+      }
+    }
+
+    setDragY(0);
+  };
+
   const rotVal = (idx - handMid) * dynamicFanAngle;
   const tyVal = Math.pow(Math.abs(idx - handMid), 1.4) * dynamicFanOffset;
+
+  const isDragged = dragY !== 0;
+  const rot = isSelected && !isDragged ? 0 : rotVal;
+  const scale = isSelected ? 1.14 : isDragged ? 1.05 : 1.0;
+
+  let yOffset = tyVal;
+  if (isSelected) {
+    yOffset -= 32;
+  } else if (playable) {
+    yOffset -= 16;
+  }
+  yOffset -= dragY;
+
+  const inlineStyle = {
+    transform: `rotate(${rot}deg) translateY(${yOffset}px) scale(${scale})`,
+    marginLeft: dynamicMarginValue,
+    zIndex: isSelected || isDragged ? 99 : idx,
+    transition: isDragged
+      ? "none"
+      : "transform 0.28s cubic-bezier(0.25, 0.8, 0.25, 1), margin 0.28s ease",
+  } as React.CSSProperties;
 
   return (
     <div
       className={`hand-card-wrapper ${playable ? "playable" : ""} ${isSelected ? "keyboard-focused" : ""} ${isNew ? "card-deal-in" : ""}`}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
       onMouseMove={(e) => {
+        if (isDragged) return;
         const rect = e.currentTarget.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
-        const rx = (y / rect.height - 0.5) * -24; // Tilt up to ±12deg along X
-        const ry = (x / rect.width - 0.5) * 24; // Tilt up to ±12deg along Y
+        const rx = (y / rect.height - 0.5) * -24;
+        const ry = (x / rect.width - 0.5) * 24;
         e.currentTarget.style.setProperty("--rx", `${rx}deg`);
         e.currentTarget.style.setProperty("--ry", `${ry}deg`);
       }}
@@ -1397,14 +1603,7 @@ function HandCardItem({
         e.currentTarget.style.setProperty("--rx", "0deg");
         e.currentTarget.style.setProperty("--ry", "0deg");
       }}
-      style={
-        {
-          "--rot": `${rotVal}deg`,
-          "--ty": `${tyVal}px`,
-          "--ml": dynamicMarginValue,
-          "--z": idx,
-        } as React.CSSProperties
-      }
+      style={inlineStyle}
     >
       <button
         onClick={(e) => {
@@ -1500,6 +1699,7 @@ function TableRoom({ room, state, onLeave, colorblindMode, onToggleColorblind }:
   const chatMessagesCount = state?.chatMessages?.length ?? 0;
   const lastChatCount = useRef(0);
   const lastIsMyTurn = useRef(false);
+  const matchStartTime = useRef<number | null>(null);
 
   // References to detect state changes for satisfying synthesized sounds!
   const lastDiscardCount = useRef(0);
@@ -1636,7 +1836,23 @@ function TableRoom({ room, state, onLeave, colorblindMode, onToggleColorblind }:
       if (me) {
         const win = me.seatIndex === currentWinner;
         const botKills = players.filter((p) => p.isBot).length;
-        updateStats(win, lastDiscardCount.current, botKills);
+        const winnerPlayer = players.find((p) => p.seatIndex === currentWinner);
+        const winnerName = winnerPlayer ? winnerPlayer.name : "Winner";
+        const durationSec = matchStartTime.current
+          ? (Date.now() - matchStartTime.current) / 1000
+          : 0;
+        const opponentNames = players
+          .filter((p) => p.sessionId !== me.sessionId)
+          .map((p) => p.name);
+
+        updateStats(
+          win,
+          lastDiscardCount.current,
+          botKills,
+          winnerName,
+          durationSec,
+          opponentNames,
+        );
       }
 
       triggerParticles(window.innerWidth / 2, window.innerHeight / 2, 40);
@@ -1682,6 +1898,15 @@ function TableRoom({ room, state, onLeave, colorblindMode, onToggleColorblind }:
     }
     lastChatCount.current = chatMessagesCount;
   }, [chatMessagesCount]);
+
+  // Track match duration
+  useEffect(() => {
+    if (state?.phase === "playing" && matchStartTime.current === null) {
+      matchStartTime.current = Date.now();
+    } else if (state?.phase !== "playing") {
+      matchStartTime.current = null;
+    }
+  }, [state?.phase]);
 
   // Keyboard navigation controller
   useEffect(() => {
