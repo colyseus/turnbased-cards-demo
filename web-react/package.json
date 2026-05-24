@@ -1,14 +1,14 @@
 {
   "name": "react-multiplayer-playing-cards",
-  "private": true,
   "version": "0.0.0",
+  "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "test:atlas": "node scripts/assert-card-atlas.mjs",
-    "lint": "eslint . --max-warnings 0",
-    "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
+    "lint": "oxlint",
+    "format": "oxfmt --write .",
     "preview": "vite preview",
     "analyze": "vite build --mode analyze"
   },
@@ -24,20 +24,13 @@
     "three": "^0.183.2"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.4",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@types/three": "^0.183.1",
-    "@typescript-eslint/eslint-plugin": "^8.59.3",
-    "@typescript-eslint/parser": "^8.59.3",
     "@vitejs/plugin-react": "^5.1.4",
     "babel-plugin-react-compiler": "^1.0.0",
-    "eslint": "^8.57.1",
-    "eslint-config-prettier": "^9.1.2",
-    "eslint-plugin-react": "^7.37.5",
-    "eslint-plugin-react-hooks": "^4.6.2",
-    "eslint-plugin-react-refresh": "^0.4.6",
-    "prettier": "^3.8.3",
+    "oxfmt": "^0.51.0",
+    "oxlint": "^1.66.0",
     "typescript": "^5.2.2",
     "vite": "^7.3.1",
     "vite-bundle-analyzer": "^1.3.8"

@@ -343,6 +343,7 @@ describe("drawCards", () => {
 describe("getPlayableCards", () => {
   it("returns empty when player is not current player", () => {
     const state = createGame();
+    state.currentPlayer = 0;
     expect(getPlayableCards(state, 1)).toHaveLength(0);
   });
 

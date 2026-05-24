@@ -4,15 +4,11 @@ import { UnoRoomState, PlayerSchema, UnoCardSchema } from "./schema/UnoRoomState
 import {
   UnoCard, UnoColor, UnoValue, WildType,
   createUnoDeck, shuffleDeck, canPlay,
-  NUM_PLAYERS, HAND_SIZE,
   pickBestCardSchema, pickBestColorSchema,
 } from "../../shared/uno.ts";
+import { HUMAN_TURN_TIMEOUT_MS, BOT_TURN_DELAY_MS, ACTION_COOLDOWN_MS } from "../../shared/constants.ts";
+import { NUM_PLAYERS, HAND_SIZE } from "../../shared/uno.ts";
 import { logger } from "../logger.ts";
-import {
-  HUMAN_TURN_TIMEOUT_MS,
-  BOT_TURN_DELAY_MS,
-  ACTION_COOLDOWN_MS,
-} from "../../shared/constants.ts";
 
 const VALID_COLORS: readonly UnoColor[] = ["red", "blue", "green", "yellow"];
 
@@ -102,6 +98,10 @@ export class UnoRoom extends Room<{ state: RoomState }> {
       this.onMessage("vote_rematch", (client: Client) => {
         this.handleVoteRematch(client);
       });
+
+      this.onMessage("ping", (client: Client) => {
+        client.send("pong");
+      });
     } catch (err) {
       logger.error("UnoRoom", "onCreate failed", { error: String(err) });
       throw err;
@@ -134,7 +134,25 @@ export class UnoRoom extends Room<{ state: RoomState }> {
 
       // Replace bot with human (keep hand intact)
       botPlayer.sessionId = client.sessionId;
-      botPlayer.name = options?.name || "Player";
+      
+      let name = "Player";
+      if (typeof options?.name === "string") {
+        const trimmed = options.name.trim();
+        const match = trimmed.match(/^\[av-([a-z0-9]+)-([a-z0-9]+)\](.*)$/);
+        if (match) {
+          const symbol = match[1];
+          const theme = match[2];
+          const actualName = match[3].trim();
+          const validSymbol = ["tiger", "dragon", "phoenix", "panda", "wolf", "owl", "fox", "shark"].includes(symbol);
+          const validTheme = ["rose", "sapphire", "aurora", "sol", "nebula"].includes(theme);
+          if (validSymbol && validTheme && actualName.length >= 2 && actualName.length <= 16) {
+            name = trimmed;
+          }
+        } else if (trimmed.length >= 2 && trimmed.length <= 16) {
+          name = trimmed;
+        }
+      }
+      botPlayer.name = name;
       botPlayer.isBot = false;
       botPlayer.connected = true;
 
@@ -153,7 +171,11 @@ export class UnoRoom extends Room<{ state: RoomState }> {
       // abandoned by the current player. A player returning to their own seat
       // (takingAbandonedSeat=true but botPlayer is already the current player)
       // should NOT reset the deadline — their turn continues as-is.
-      if (takingAbandonedSeat && botPlayer.seatIndex !== this.state.currentPlayer) {
+      // Additionally, if anyone takes over the current active turn seat, reset
+      // the timer to the human turn duration so they have full time to act.
+      if (botPlayer.seatIndex === this.state.currentPlayer) {
+        this.scheduleTurn();
+      } else if (takingAbandonedSeat && botPlayer.seatIndex !== this.state.currentPlayer) {
         this.scheduleTurn();
       }
 
@@ -435,6 +457,11 @@ export class UnoRoom extends Room<{ state: RoomState }> {
     }
     player.handCount = player.hand.length;
     this.state.drawPileCount = this.drawPile.length;
+
+    // If the player drew cards and hand size is now > 1, they no longer need to call UNO.
+    if (player.hand.length > 1 && this.state.unoCaller === player.seatIndex) {
+      this.state.unoCaller = -1;
+    }
   }
 
   private executePlayCard(
@@ -552,7 +579,23 @@ export class UnoRoom extends Room<{ state: RoomState }> {
     const topDiscard = this.state.discardPile[this.state.discardPile.length - 1];
     const playable: number[] = [];
     for (let i = 0; i < player.hand.length; i++) {
-      if (canPlay(player.hand[i], topDiscard, this.state.activeColor as UnoColor, this.state.pendingDraw)) {
+      const card = player.hand[i];
+      if (canPlay(card, topDiscard, this.state.activeColor as UnoColor, this.state.pendingDraw)) {
+        // Enforce Wild Draw Four rule for bots as well
+        if (card.cardType === "wild" && card.value === "wild_draw4") {
+          const hasMatchingColor = player.hand.some(
+            (c) => c.cardType === "color" && c.color === this.state.activeColor,
+          );
+          const hasMatchingValue =
+            topDiscard.cardType === "color" &&
+            player.hand.some(
+              (c) => c.cardType === "color" && c.value === topDiscard.value,
+            );
+          const canStack = this.state.pendingDraw >= 4;
+          if ((hasMatchingColor || hasMatchingValue) && !canStack) {
+            continue; // Not a valid play
+          }
+        }
         playable.push(i);
       }
     }
@@ -711,11 +754,19 @@ export class UnoRoom extends Room<{ state: RoomState }> {
   }
 
   private handleChat(client: Client, message: { text?: unknown }) {
+    let senderName = "";
     const player = this.findPlayerBySession(client.sessionId);
-    if (!player) return;
+    if (player) {
+      senderName = player.name;
+    } else if (this.spectators.has(client)) {
+      senderName = `Spectator (${client.sessionId.slice(0, 4)})`;
+    } else {
+      return;
+    }
+
     const text = typeof message.text === "string" ? message.text.trim() : "";
     if (!text || text.length > 200) return;
-    const chatMsg = { sender: player.name, text, timestamp: Date.now() };
+    const chatMsg = { sender: senderName, text, timestamp: Date.now() };
     this.state.chatMessages.push(chatMsg as any);
     // Keep last 50 messages
     if (this.state.chatMessages.length > 50) {

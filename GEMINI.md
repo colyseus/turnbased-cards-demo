@@ -59,6 +59,12 @@ To run both the server and the web client simultaneously:
 - Linting: `npm run lint` in `web-react/`.
 - Formatting: `npm run format` in `web-react/`.
 
+### Browser Automation (REQUIRED RULE)
+**ONLY `agent-browser` is permitted for browser automation.** All other browser automation tools are explicitly forbidden:
+- Chrome DevTools MCP, puppeteer, playwright, chromium, headless Chrome, remote debugging, CDP — all prohibited
+- Any shell command matching `*chrome*`, `*chromium*`, `*headless*`, `*remote-debugging*`, `*devtools*`, `npx chrome*`, `npx puppeteer*`, `npx playwright*` — all prohibited
+- `agent-browser` is the sole allowed tool for smoke tests, UI verification, screenshot capture, and browser-based QA
+
 ### Testing
 - **Server:** Unit tests using Vitest in `server/test/`. Run with `npm test`.
 - **Web Client:** Use `agent-browser` for browser smoke checks and rendered UI verification.

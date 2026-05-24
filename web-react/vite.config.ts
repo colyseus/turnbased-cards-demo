@@ -1,6 +1,6 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import { analyzer } from 'vite-bundle-analyzer'
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import { analyzer } from "vite-bundle-analyzer";
 
 const r3fTimerClockAdapter = `
 class R3FTimerClock {
@@ -37,18 +37,17 @@ class R3FTimerClock {
 
 function r3fTimerClockPlugin() {
   return {
-    name: 'r3f-timer-clock',
-    enforce: 'pre' as const,
+    name: "r3f-timer-clock",
+    enforce: "pre" as const,
     transform(code: string, id: string) {
-      if (!id.includes('@react-three/fiber/dist/') || !code.includes('new THREE.Clock()')) {
+      if (!id.includes("@react-three/fiber/dist/") || !code.includes("new THREE.Clock()")) {
         return null;
       }
 
       return {
-        code: code.replace("var threeTypes =", `${r3fTimerClockAdapter}\nvar threeTypes =`).replaceAll(
-          'new THREE.Clock()',
-          'new R3FTimerClock()',
-        ),
+        code: code
+          .replace("var threeTypes =", `${r3fTimerClockAdapter}\nvar threeTypes =`)
+          .replaceAll("new THREE.Clock()", "new R3FTimerClock()"),
         map: null,
       };
     },
@@ -57,31 +56,31 @@ function r3fTimerClockPlugin() {
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-  base: process.env.BASE_URL || '/',
+  base: process.env.BASE_URL || "/",
   plugins: [
     r3fTimerClockPlugin(),
     react({
       // React compiler disabled for debugging
     }),
-    mode === 'analyze' &&
+    mode === "analyze" &&
       analyzer({
-        analyzerMode: 'server',
+        analyzerMode: "server",
         openAnalyzer: false,
-        reportTitle: 'bundle-stats',
+        reportTitle: "bundle-stats",
       }),
   ],
   build: {
-    target: 'esnext',
-    minify: 'esbuild',
+    target: "esnext",
+    minify: "esbuild",
     chunkSizeWarningLimit: 800,
     rollupOptions: {
       output: {
         manualChunks: {
-          'three-vendor': ['three'],
-          'r3f-vendor': ['@react-three/fiber'],
-          'colyseus-vendor': ['@colyseus/sdk', '@colyseus/react'],
+          "three-vendor": ["three"],
+          "r3f-vendor": ["@react-three/fiber"],
+          "colyseus-vendor": ["@colyseus/sdk", "@colyseus/react"],
         },
       },
     },
   },
-}))
+}));

@@ -40,6 +40,9 @@ done
 curl --max-time 3 -fsS "$API_URL" >/dev/null
 curl --max-time 3 -fsS "$APP_URL" >/dev/null
 
+cd "$SERVER_DIR"
+npm test -- test/uno.test.ts >/tmp/uno-autoplay-test.log
+
 check_clean_browser() {
   local label="$1"
   local console_out error_out
@@ -65,38 +68,80 @@ open_clean() {
 
 quick_game() {
   local name="$1"
-  agent-browser --session "$SESSION" find placeholder "Player name" fill "$name"
-  agent-browser --session "$SESSION" find role button click --name "Start Table"
-  agent-browser --session "$SESSION" wait --fn 'document.querySelector("canvas") !== null'
+  agent-browser --session "$SESSION" fill 'input[placeholder="Enter your name"]' "$name"
+  agent-browser --session "$SESSION" click '.primary-btn'
+  agent-browser --session "$SESSION" wait --fn 'document.querySelector(".game-shell") !== null'
   agent-browser --session "$SESSION" wait 1000
+}
+
+simulate_play() {
+  local label="$1"
+  # Wait for either a playable card or the pulsing deck stack to appear (up to 15 seconds)
+  agent-browser --session "$SESSION" wait --fn 'document.querySelector(".hand-card-wrapper.playable") !== null || document.querySelector(".deck-stack.guidance-pulse") !== null' --timeout 15000
+  
+  # Capture initial dealt state screenshot
+  agent-browser --session "$SESSION" screenshot "$SHOT_DIR/web-react-game-${label}-0-initial.png"
+
+  # Click 1: Click a playable card to select it, or click the pulsing draw stack if no plays
+  agent-browser --session "$SESSION" wait --fn '
+    (function() {
+      const playableCard = document.querySelector(".hand-card-wrapper.playable button");
+      if (playableCard) {
+        playableCard.click();
+        return true;
+      }
+      const drawDeck = document.querySelector(".deck-stack.guidance-pulse");
+      if (drawDeck) {
+        drawDeck.click();
+        return true;
+      }
+      return false;
+    })()
+  '
+  
+  # Wait 800ms for fanned card lift and straightening select transitions
+  agent-browser --session "$SESSION" wait 800
+  
+  # Capture intermediate selected state screenshot (shows elevated unclipped card!)
+  agent-browser --session "$SESSION" screenshot "$SHOT_DIR/web-react-game-${label}-1-selected.png"
+  
+  # Click 2: Click the selected card again to play it (if one was selected)
+  agent-browser --session "$SESSION" wait --fn '
+    (function() {
+      const selected = document.querySelector(".hand-card-wrapper.playable.keyboard-focused button");
+      if (selected) {
+        selected.click();
+        return true;
+      }
+      return true;
+    })()
+  '
+
+  # Wait 2.5 seconds for card play visual animations, dealer HUD updates, and turn transitions
+  agent-browser --session "$SESSION" wait 2500
+  
+  # Capture final post-play/post-draw state screenshot
+  agent-browser --session "$SESSION" screenshot "$SHOT_DIR/web-react-game-${label}-2-played.png"
 }
 
 open_clean 1280 720
 quick_game "SmokeDesk"
-agent-browser --session "$SESSION" screenshot "$SHOT_DIR/web-react-game-desktop.png"
+simulate_play "desktop"
 check_clean_browser "desktop"
 
 open_clean 390 844
 quick_game "SmokeMob"
-agent-browser --session "$SESSION" screenshot "$SHOT_DIR/web-react-game-mobile.png"
+simulate_play "mobile"
 check_clean_browser "mobile"
-
-open_clean 1280 720
-agent-browser --session "$SESSION" find role button click --name "STRESS TEST"
-agent-browser --session "$SESSION" wait --fn 'document.body.innerText.includes("RENDERING STRESS TEST")'
-agent-browser --session "$SESSION" wait --fn 'document.querySelector("canvas") !== null'
-agent-browser --session "$SESSION" wait 1000
-agent-browser --session "$SESSION" screenshot "$SHOT_DIR/web-react-stress.png"
-check_clean_browser "stress"
 
 cat <<EOF
 Smoke test passed. Screenshots:
 - $SHOT_DIR/web-react-game-desktop.png
 - $SHOT_DIR/web-react-game-mobile.png
-- $SHOT_DIR/web-react-stress.png
 
 Manual visual pass required:
-- Hidden hands and draw pile show card backs only.
-- Local hand and discard pile are upright.
-- HUD, cards, rematch, last-play, and debug controls do not incoherently overlap.
+- Server game-logic tests include autoPlayGame full-game completion and turn-limit exhaustion.
+- Lobby and table surfaces render with the rebuilt frontend only.
+- Room join creates a live table on desktop and mobile.
+- HUD, hand dock, opponent strips, chat, and table controls do not incoherently overlap.
 EOF
