@@ -1,18 +1,16 @@
 import { Room, Client } from "@colyseus/core";
 import { StateView, ArraySchema } from "@colyseus/schema";
-import { UnoRoomState, PlayerSchema, UnoCardSchema } from "./schema/UnoRoomState.ts";
+import { UnoRoomState, PlayerSchema, UnoCardSchema, ChatMessageSchema } from "./schema/UnoRoomState.ts";
 import {
   UnoCard, UnoColor, UnoValue, WildType,
   createUnoDeck, shuffleDeck, canPlay,
-  NUM_PLAYERS, HAND_SIZE,
   pickBestCardSchema, pickBestColorSchema,
+  hasWildDrawFourAlternative, isUnoColor,
 } from "../../shared/uno.ts";
+import { HUMAN_TURN_TIMEOUT_MS, BOT_TURN_DELAY_MS, ACTION_COOLDOWN_MS } from "../../shared/constants.ts";
+import { NUM_PLAYERS, HAND_SIZE } from "../../shared/uno.ts";
 import { logger } from "../logger.ts";
-import {
-  HUMAN_TURN_TIMEOUT_MS,
-  BOT_TURN_DELAY_MS,
-  ACTION_COOLDOWN_MS,
-} from "../../shared/constants.ts";
+import DOMPurify from "dompurify";
 
 const VALID_COLORS: readonly UnoColor[] = ["red", "blue", "green", "yellow"];
 
@@ -25,6 +23,8 @@ export class UnoRoom extends Room<{ state: RoomState }> {
   private turnTimeout?: ReturnType<typeof setTimeout>;
   /** Seats that were handed to a bot because the current player disconnected. */
   private seatsHandedToBot = new Set<number>();
+  /** Pending botTurn timeouts keyed by seatIndex — used to cancel on rejoin. */
+  private turnCallbacks = new Map<number, ReturnType<typeof setTimeout>>();
   /** Clients watching as spectators (no seat). */
   private spectators = new Set<Client>();
   /** Guard flag: prevents botTurn from firing during an active human turn action. */
@@ -102,6 +102,10 @@ export class UnoRoom extends Room<{ state: RoomState }> {
       this.onMessage("vote_rematch", (client: Client) => {
         this.handleVoteRematch(client);
       });
+
+      this.onMessage("ping", (client: Client) => {
+        client.send("pong");
+      });
     } catch (err) {
       logger.error("UnoRoom", "onCreate failed", { error: String(err) });
       throw err;
@@ -130,11 +134,35 @@ export class UnoRoom extends Room<{ state: RoomState }> {
       const takingAbandonedSeat = this.seatsHandedToBot.has(botPlayer.seatIndex);
       if (takingAbandonedSeat) {
         this.seatsHandedToBot.delete(botPlayer.seatIndex);
+        // Cancel any pending botTurn for this seat (player beat the timer)
+        const pending = this.turnCallbacks.get(botPlayer.seatIndex);
+        if (pending !== undefined) {
+          clearTimeout(pending);
+          this.turnCallbacks.delete(botPlayer.seatIndex);
+        }
       }
 
       // Replace bot with human (keep hand intact)
       botPlayer.sessionId = client.sessionId;
-      botPlayer.name = options?.name || "Player";
+      
+      let name = "Player";
+      if (typeof options?.name === "string") {
+        const trimmed = options.name.trim();
+        const match = trimmed.match(/^\[av-([a-z0-9]+)-([a-z0-9]+)\](.*)$/);
+        if (match) {
+          const symbol = match[1];
+          const theme = match[2];
+          const actualName = match[3].trim();
+          const validSymbol = ["tiger", "dragon", "phoenix", "panda", "wolf", "owl", "fox", "shark"].includes(symbol);
+          const validTheme = ["rose", "sapphire", "aurora", "sol", "nebula"].includes(theme);
+          if (validSymbol && validTheme && actualName.length >= 2 && actualName.length <= 16) {
+            name = trimmed;
+          }
+        } else if (trimmed.length >= 2 && trimmed.length <= 16) {
+          name = trimmed;
+        }
+      }
+      botPlayer.name = typeof DOMPurify.sanitize === 'function' ? DOMPurify.sanitize(name) : name;
       botPlayer.isBot = false;
       botPlayer.connected = true;
 
@@ -153,7 +181,11 @@ export class UnoRoom extends Room<{ state: RoomState }> {
       // abandoned by the current player. A player returning to their own seat
       // (takingAbandonedSeat=true but botPlayer is already the current player)
       // should NOT reset the deadline — their turn continues as-is.
-      if (takingAbandonedSeat && botPlayer.seatIndex !== this.state.currentPlayer) {
+      // Additionally, if anyone takes over the current active turn seat, reset
+      // the timer to the human turn duration so they have full time to act.
+      if (botPlayer.seatIndex === this.state.currentPlayer) {
+        this.scheduleTurn();
+      } else if (takingAbandonedSeat && botPlayer.seatIndex !== this.state.currentPlayer) {
         this.scheduleTurn();
       }
 
@@ -198,6 +230,10 @@ export class UnoRoom extends Room<{ state: RoomState }> {
       if (wasCurrentPlayer) {
         this.seatsHandedToBot.add(player.seatIndex);
         this.scheduleTurn();
+        // Store timeout so it can be cancelled if the player rejoins before it fires
+        if (this.turnTimeout !== undefined) {
+          this.turnCallbacks.set(player.seatIndex, this.turnTimeout);
+        }
       }
 
       // Clean up StateView to prevent memory leaks
@@ -215,6 +251,10 @@ export class UnoRoom extends Room<{ state: RoomState }> {
 
   onDispose() {
     clearTimeout(this.turnTimeout);
+    for (const timeout of this.turnCallbacks.values()) {
+      clearTimeout(timeout);
+    }
+    this.turnCallbacks.clear();
   }
 
   // ── Helpers ───────────────────────────────────────────────────
@@ -314,12 +354,19 @@ export class UnoRoom extends Room<{ state: RoomState }> {
   }
 
   private playerCanAct(): boolean {
-    if (this.state.pendingDraw > 0) return false;
     const player = this.getPlayerBySeat(this.state.currentPlayer);
     const topDiscard = this.state.discardPile[this.state.discardPile.length - 1];
     if (!topDiscard) return false;
     for (let i = 0; i < player.hand.length; i++) {
-      if (canPlay(player.hand[i], topDiscard, this.state.activeColor as UnoColor, this.state.pendingDraw)) return true;
+      const card = player.hand[i];
+      if (!canPlay(card, topDiscard, this.state.activeColor as UnoColor, this.state.pendingDraw)) continue;
+      // Enforce Wild Draw Four rule: wild_draw4 may only be played if no alternative exists
+      if (card.cardType === "wild" && card.value === "wild_draw4") {
+        if (hasWildDrawFourAlternative(player.hand as unknown as { cardType: string; color: string; value: string }[], topDiscard, this.state.activeColor)) {
+          continue; // Has valid alternative — cannot play wild_draw4
+        }
+      }
+      return true;
     }
     return false;
   }
@@ -435,6 +482,11 @@ export class UnoRoom extends Room<{ state: RoomState }> {
     }
     player.handCount = player.hand.length;
     this.state.drawPileCount = this.drawPile.length;
+
+    // If the player drew cards and hand size is now > 1, they no longer need to call UNO.
+    if (player.hand.length > 1 && this.state.unoCaller === player.seatIndex) {
+      this.state.unoCaller = -1;
+    }
   }
 
   private executePlayCard(
@@ -552,7 +604,14 @@ export class UnoRoom extends Room<{ state: RoomState }> {
     const topDiscard = this.state.discardPile[this.state.discardPile.length - 1];
     const playable: number[] = [];
     for (let i = 0; i < player.hand.length; i++) {
-      if (canPlay(player.hand[i], topDiscard, this.state.activeColor as UnoColor, this.state.pendingDraw)) {
+      const card = player.hand[i];
+      if (canPlay(card, topDiscard, this.state.activeColor as UnoColor, this.state.pendingDraw)) {
+        // Enforce Wild Draw Four rule: wild_draw4 may only be played if no alternative exists
+        if (card.cardType === "wild" && card.value === "wild_draw4") {
+          if (hasWildDrawFourAlternative(player.hand as unknown as { cardType: string; color: string; value: string }[], topDiscard, this.state.activeColor)) {
+            continue; // Has valid alternative — cannot play wild_draw4
+          }
+        }
         playable.push(i);
       }
     }
@@ -612,15 +671,27 @@ export class UnoRoom extends Room<{ state: RoomState }> {
       if (!player) return;
 
       // Rate limit
-      if (this.checkRateLimit(client.sessionId)) return;
+      if (this.checkRateLimit(client.sessionId)) {
+        client.send("error", { message: "Rate limited", code: "RATE_LIMITED" });
+        return;
+      }
 
       // Validate turn
-      if (this.state.currentPlayer !== player.seatIndex) return;
-      if (this.state.winner !== -1) return;
-      if (this.state.pendingDraw > 0) return;
+      if (this.state.currentPlayer !== player.seatIndex) {
+        client.send("error", { message: "Not your turn", code: "NOT_YOUR_TURN" });
+        return;
+      }
+      if (this.state.winner !== -1) {
+        client.send("error", { message: "Game is finished", code: "GAME_FINISHED" });
+        return;
+      }
+
 
       // Validate chosenColor
-      if (chosenColor !== undefined && !VALID_COLORS.includes(chosenColor as UnoColor)) return;
+      if (chosenColor !== undefined && !VALID_COLORS.includes(chosenColor as UnoColor)) {
+        client.send("error", { message: "Invalid color", code: "INVALID_COLOR" });
+        return;
+      }
 
       // Find card in hand
       let cardIndex = -1;
@@ -630,35 +701,32 @@ export class UnoRoom extends Room<{ state: RoomState }> {
           break;
         }
       }
-      if (cardIndex === -1) return;
+      if (cardIndex === -1) {
+        client.send("error", { message: "Card not found in hand", code: "CARD_NOT_FOUND" });
+        return;
+      }
 
       const card = player.hand[cardIndex];
       const topDiscard = this.state.discardPile[this.state.discardPile.length - 1];
 
       // Validate playability
-      if (!canPlay(card, topDiscard, this.state.activeColor as UnoColor, this.state.pendingDraw)) return;
+      if (!canPlay(card, topDiscard, this.state.activeColor as UnoColor, this.state.pendingDraw)) {
+        client.send("error", { message: "Card cannot be played", code: "CANNOT_PLAY" });
+        return;
+      }
 
-      // Wild Draw Four rule: player may only play wild_draw4 if they have NO
-      // other valid options (no color cards matching activeColor, no cards
-      // matching the top card's value, and no stacking option). This must
-      // be enforced server-side.
+      // Wild Draw Four rule: player may only play wild_draw4 if they have NO valid alternatives.
       if (card.cardType === "wild" && card.value === "wild_draw4") {
-        const hasMatchingColor = player.hand.some(
-          (c) => c.cardType === "color" && c.color === this.state.activeColor,
-        );
-        const hasMatchingValue =
-          topDiscard.cardType === "color" &&
-          player.hand.some(
-            (c) => c.cardType === "color" && c.value === topDiscard.value,
-          );
-        // If pendingDraw > 0, draw4 stacking is a valid option
-        const canStack = this.state.pendingDraw >= 4;
-        if ((hasMatchingColor || hasMatchingValue) && !canStack) return;
+        if (this.state.pendingDraw === 0 && hasWildDrawFourAlternative(player.hand as unknown as { cardType: string; color: string; value: string }[], topDiscard, this.state.activeColor)) {
+          client.send("error", { message: "Cannot play Wild Draw 4 — you have a valid alternative", code: "WILDDRAW4_VIOLATION" });
+          return;
+        }
       }
 
       this.executePlayCard(player, cardIndex, chosenColor as UnoColor | undefined);
     } catch (err) {
       logger.error("UnoRoom", "handlePlayCard failed", { error: String(err) });
+      client.send("error", { message: "Internal error", code: "INTERNAL_ERROR" });
     }
   }
 
@@ -668,10 +736,19 @@ export class UnoRoom extends Room<{ state: RoomState }> {
       if (!player) return;
 
       // Rate limit
-      if (this.checkRateLimit(client.sessionId)) return;
+      if (this.checkRateLimit(client.sessionId)) {
+        client.send("error", { message: "Rate limited", code: "RATE_LIMITED" });
+        return;
+      }
 
-      if (this.state.currentPlayer !== player.seatIndex) return;
-      if (this.state.winner !== -1) return;
+      if (this.state.currentPlayer !== player.seatIndex) {
+        client.send("error", { message: "Not your turn", code: "NOT_YOUR_TURN" });
+        return;
+      }
+      if (this.state.winner !== -1) {
+        client.send("error", { message: "Game is finished", code: "GAME_FINISHED" });
+        return;
+      }
 
       const count = this.state.pendingDraw > 0 ? this.state.pendingDraw : 1;
       this.drawCards(player, count);
@@ -680,6 +757,7 @@ export class UnoRoom extends Room<{ state: RoomState }> {
       this.scheduleTurn();
     } catch (err) {
       logger.error("UnoRoom", "handleDrawCard failed", { error: String(err) });
+      client.send("error", { message: "Internal error", code: "INTERNAL_ERROR" });
     }
   }
 
@@ -688,8 +766,11 @@ export class UnoRoom extends Room<{ state: RoomState }> {
     if (!player) return;
     // Only allow restart when game is finished, or during play if all bots (dev mode)
     if (this.state.phase !== "finished") {
-      // During play, only restartable by a connected human
-      if (!player.connected) return;
+      let hasConnectedHuman = false;
+      this.state.players.forEach((p: PlayerInstance) => {
+        if (!p.isBot && p.connected) hasConnectedHuman = true;
+      });
+      if (hasConnectedHuman) return;
     }
 
     clearTimeout(this.turnTimeout);
@@ -711,12 +792,24 @@ export class UnoRoom extends Room<{ state: RoomState }> {
   }
 
   private handleChat(client: Client, message: { text?: unknown }) {
+    let senderName = "";
     const player = this.findPlayerBySession(client.sessionId);
-    if (!player) return;
+    if (player) {
+      senderName = player.name;
+    } else if (this.spectators.has(client)) {
+      senderName = `Spectator (${client.sessionId.slice(0, 4)})`;
+    } else {
+      return;
+    }
+
     const text = typeof message.text === "string" ? message.text.trim() : "";
     if (!text || text.length > 200) return;
-    const chatMsg = { sender: player.name, text, timestamp: Date.now() };
-    this.state.chatMessages.push(chatMsg as any);
+    const sanitized = (raw: string) => typeof DOMPurify.sanitize === 'function' ? DOMPurify.sanitize(raw) : raw;
+    const chatMsg = new ChatMessageSchema();
+    chatMsg.sender = sanitized(senderName);
+    chatMsg.text = sanitized(text);
+    chatMsg.timestamp = Date.now();
+    this.state.chatMessages.push(chatMsg);
     // Keep last 50 messages
     if (this.state.chatMessages.length > 50) {
       this.state.chatMessages.splice(0, this.state.chatMessages.length - 50);
@@ -737,6 +830,7 @@ export class UnoRoom extends Room<{ state: RoomState }> {
     if (!player) return;
     if (this.state.phase !== "finished") return;
     if (player.isBot) return;
+    if (!player.connected) return;
 
     // Add vote if not already present
     const alreadyVoted = this.state.rematchVotes.includes(player.seatIndex);

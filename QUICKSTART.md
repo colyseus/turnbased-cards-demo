@@ -50,4 +50,11 @@ To validate the client renders in a real browser automation session:
 ./scripts/smoke-web-agent-browser.sh
 ```
 
-This starts server + web client, opens the app with `agent-browser`, waits for page load, and saves a screenshot to `.tmp-agent-browser/web-react-home.png`.
+This starts server + web client, runs the server autoplay rule test, opens the app with `agent-browser`, joins a live room in desktop and mobile viewports, attempts a play or draw interaction, checks browser console/page errors, and saves screenshots such as:
+
+- `.tmp-agent-browser/web-react-game-desktop-0-initial.png`
+- `.tmp-agent-browser/web-react-game-desktop-1-selected.png`
+- `.tmp-agent-browser/web-react-game-desktop-2-played.png`
+- `.tmp-agent-browser/web-react-game-mobile-0-initial.png`
+- `.tmp-agent-browser/web-react-game-mobile-1-selected.png`
+- `.tmp-agent-browser/web-react-game-mobile-2-played.png`

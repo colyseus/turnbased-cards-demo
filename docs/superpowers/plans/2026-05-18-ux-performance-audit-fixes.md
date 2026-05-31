@@ -6,7 +6,7 @@
 
 **Architecture:** 13 independent file-level fixes. Each task is self-contained and can be committed separately. No architectural changes — purely correctness, performance, and accessibility improvements. Fixes are ordered by priority (Tier 1 critical → Tier 3 polish).
 
-**Tech Stack:** React 19, Three.js 0.183, React Three Fiber 9, Vite 7, @colyseus/schema, TypeScript 5, Playwright
+**Tech Stack:** React 19, Three.js 0.183, React Three Fiber 9, Vite 7, @colyseus/schema, TypeScript 5, agent-browser
 
 ---
 

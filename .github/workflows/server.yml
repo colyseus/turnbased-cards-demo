@@ -3,10 +3,10 @@ name: Server CI
 on:
   push:
     branches: [main]
-    paths: ["server/**"]
+    paths: ["server/**", "shared/**", ".github/workflows/server.yml"]
   pull_request:
     branches: [main]
-    paths: ["server/**"]
+    paths: ["server/**", "shared/**", ".github/workflows/server.yml"]
 
 jobs:
   test:

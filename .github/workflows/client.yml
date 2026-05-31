@@ -3,10 +3,24 @@ name: Client CI
 on:
   push:
     branches: [main]
-    paths: ["web-react/**", ".github/workflows/client.yml"]
+    paths:
+      [
+        "web-react/**",
+        "server/**",
+        "shared/**",
+        "scripts/smoke-web-agent-browser.sh",
+        ".github/workflows/client.yml",
+      ]
   pull_request:
     branches: [main]
-    paths: ["web-react/**", ".github/workflows/client.yml"]
+    paths:
+      [
+        "web-react/**",
+        "server/**",
+        "shared/**",
+        "scripts/smoke-web-agent-browser.sh",
+        ".github/workflows/client.yml",
+      ]
 
 jobs:
   lint:
@@ -69,10 +83,14 @@ jobs:
         with:
           node-version: "22"
           cache: "npm"
-          cache-dependency-path: web-react/package-lock.json
+          cache-dependency-path: |
+            web-react/package-lock.json
+            server/package-lock.json
       - run: npm ci
       - name: Install server dependencies
+        working-directory: server
+        run: npm ci
+      - name: Run E2E Smoke Test
         run: |
-          cd ../server && npm ci
-      - run: npx playwright install chromium --with-deps
-      - run: npm run test:e2e
+          # Run the approved agent-browser smoke test
+          ../scripts/smoke-web-agent-browser.sh

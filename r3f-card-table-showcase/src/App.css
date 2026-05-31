@@ -1,0 +1,243 @@
+@import url('./showcase-original.css');
+
+/* Desktop remains driven by showcase-original.css. Mobile tweaks live here so
+   the fixed overlay stack can collapse without disturbing the primary layout. */
+
+.scene-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.showcase-header,
+.spec-legend,
+.control-hub,
+.customizer-hud,
+.creator-hud {
+  pointer-events: auto;
+}
+
+.toast {
+  left: 50%;
+  transform: translate(-50%, 10px);
+  pointer-events: none;
+}
+
+.toast.show {
+  transform: translate(-50%, 0);
+}
+
+.creator-hud .mint-submit {
+  width: 100%;
+  margin-top: 4px;
+}
+
+@media (max-width: 900px) {
+  .showcase-header {
+    top: 12px;
+    left: 12px;
+    right: 12px;
+    max-width: none;
+  }
+
+  .showcase-header h1 {
+    font-size: clamp(20px, 6vw, 26px);
+    letter-spacing: 0.75px;
+    line-height: 0.95;
+  }
+
+  .showcase-header p {
+    font-size: 12px;
+    line-height: 1.35;
+    max-width: 34ch;
+  }
+
+  .showcase-tag {
+    letter-spacing: 1.5px;
+  }
+
+  .spec-legend {
+    display: none;
+  }
+
+  .control-hub {
+    top: 118px;
+    left: 12px;
+    right: 12px;
+    gap: 8px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+  }
+
+  .audio-control-hud {
+    grid-column: 1 / -1;
+    width: 100%;
+    justify-content: space-between;
+    box-sizing: border-box;
+  }
+
+  .action-button {
+    width: 100%;
+    padding: 10px 12px;
+    justify-content: center;
+    text-align: center;
+    white-space: normal;
+    line-height: 1.05;
+  }
+
+  .key-badge {
+    margin-left: 6px;
+  }
+
+  .customizer-hud,
+  .creator-hud {
+    top: 286px;
+    width: calc(50vw - 18px);
+    max-width: none;
+    box-sizing: border-box;
+    padding: 12px;
+  }
+
+  .customizer-hud {
+    left: 12px;
+    right: auto;
+  }
+
+  .creator-hud {
+    top: 286px;
+    right: 12px;
+    left: auto;
+  }
+
+  .customizer-options {
+    gap: 10px;
+  }
+
+  .opt-btn {
+    width: 32px;
+    height: 32px;
+  }
+
+  .toast {
+    bottom: 96px;
+    max-width: calc(100vw - 24px);
+    text-align: center;
+  }
+
+  .deck-label {
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 640px) {
+  .showcase-header {
+    top: 10px;
+    left: 10px;
+    right: 10px;
+  }
+
+  .showcase-header h1 {
+    font-size: 18px;
+    letter-spacing: 0.4px;
+  }
+
+  .showcase-header p {
+    display: none;
+  }
+
+  .showcase-tag {
+    font-size: 9px;
+    letter-spacing: 1px;
+    padding: 2px 6px;
+    margin-bottom: 6px;
+  }
+
+  .control-hub {
+    top: 96px;
+    left: 10px;
+    right: 10px;
+    gap: 5px;
+  }
+
+  .action-button {
+    font-size: 11px;
+    padding: 8px 9px;
+    border-radius: 10px;
+  }
+
+  .action-button .key-badge {
+    font-size: 8px;
+    margin-left: 4px;
+  }
+
+  .customizer-hud {
+    top: 248px;
+    left: 10px;
+    right: auto;
+  }
+
+  .creator-hud {
+    top: 640px;
+    left: 10px;
+    right: auto;
+  }
+
+  .audio-control-hud {
+    padding: 4px 8px;
+    gap: 8px;
+  }
+
+  .audio-control-hud .opt-btn {
+    width: 26px;
+    height: 26px;
+  }
+
+  .customizer-hud,
+  .creator-hud {
+    width: calc(100vw - 20px);
+    padding: 10px;
+    background: rgba(20, 24, 20, 0.98);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+  }
+
+  .customizer-header {
+    font-size: 11px;
+    padding-bottom: 4px;
+  }
+
+  .customizer-section {
+    gap: 4px;
+  }
+
+  .customizer-section label {
+    font-size: 10px;
+  }
+
+  .customizer-options {
+    gap: 8px;
+  }
+
+  .opt-btn {
+    width: 28px;
+    height: 28px;
+  }
+
+  .action-select,
+  .action-input {
+    font-size: 12px;
+    padding: 8px 9px;
+  }
+
+  .mint-submit {
+    margin-top: 2px;
+  }
+
+  .toast {
+    bottom: 82px;
+    font-size: 12px;
+    padding: 8px 14px;
+  }
+}

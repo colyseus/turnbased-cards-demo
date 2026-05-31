@@ -6,7 +6,7 @@
 
 **Architecture:** Each feature is independent except rematch voting which touches schema + server + client. Features build in order from simplest to most complex, with frequent commits.
 
-**Tech Stack:** React 19, TypeScript, Vite, Three.js/R3F, Colyseus 0.17, @colyseus/schema 4, Vitest, Playwright
+**Tech Stack:** React 19, TypeScript, Vite, Three.js/R3F, Colyseus 0.17, @colyseus/schema 4, Vitest, agent-browser
 
 ---
 

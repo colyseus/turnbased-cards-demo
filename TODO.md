@@ -109,7 +109,7 @@
 
 - [x] **Verify GitHub Actions pass** — All CI workflows passing (Server CI, Client CI, Deploy).
 
-- [x] **Playwright e2e tests need server running** — Smoke tests validate lobby; full gameplay requires server which is documented.
+- [x] **Browser smoke tests need server running** — agent-browser smoke checks validate lobby; full gameplay requires server which is documented.
 
 ### 🟢 Nice to Have (future enhancements) — ALL DONE
 

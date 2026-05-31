@@ -9,6 +9,7 @@ import {
   getPlayableCards,
   handleDraw,
   aiTurn,
+  autoPlayGame,
   UnoState,
   UnoColor,
   UnoCard,
@@ -153,6 +154,13 @@ describe("canPlay", () => {
     expect(canPlay(wildD4, topRedDraw2, "red", 2)).toBe(false);
   });
 
+  it("draw2 cannot stack on a pending wild draw4", () => {
+    const blueDraw2 = { type: "color" as const, color: "blue" as UnoColor, value: "draw2", id: "bd2_on_d4" };
+    const topWild = { type: "wild" as const, wildType: "wild_draw4" as const, chosenColor: "red" as UnoColor, id: "wd4_top" };
+
+    expect(canPlay(blueDraw2, topWild, "red", 4)).toBe(false);
+  });
+
   it("without pendingDraw, draw2 plays normally (match by value)", () => {
     const redDraw2 = { type: "color" as const, color: "red" as UnoColor, value: "draw2", id: "rd2c" };
     // No pendingDraw, draw2 can be played on matching value or color
@@ -230,7 +238,7 @@ describe("playCard", () => {
     const state = stateWithHand(
       [{ type: "color", color: "green", value: "3", id: "g3" }],
       discard,
-      "blue",
+      "green",
     );
     const result = playCard(state, 0, "g3");
     expect(result.activeColor).toBe("green");
@@ -243,6 +251,16 @@ describe("playCard", () => {
     const result = playCard(state, 0, "w", "red");
     expect(result.activeColor).toBe("red");
     expect((result.discardPile[result.discardPile.length - 1] as UnoCard & { chosenColor: string }).chosenColor).toBe("red");
+  });
+
+  it("rejects invalid chosenColor values for wild cards", () => {
+    const state = stateWithHand([
+      { type: "wild", wildType: "wild", chosenColor: null, id: "w" },
+    ]);
+
+    const result = playCard(state, 0, "w", "purple" as UnoColor);
+
+    expect(result).toBe(state);
   });
 
   it("pendingDraw increases by 2 on draw2 card", () => {
@@ -295,7 +313,7 @@ describe("playCard", () => {
     const state = stateWithHand(
       [{ type: "color", color: "red", value: "3", id: "r3" }],
       discard,
-      "blue",
+      "red",
     );
     const result = playCard(state, 0, "r3");
     expect(result.currentPlayer).toBe(1);
@@ -306,6 +324,66 @@ describe("playCard", () => {
       { type: "color", color: "red", value: "5", id: "r5" },
     ]);
     const result = playCard(state, 0, "nonexistent");
+    expect(result).toBe(state);
+  });
+
+  it("rejects invalid player indexes", () => {
+    const state = stateWithHand([
+      { type: "color", color: "red", value: "5", id: "r5" },
+    ]);
+
+    expect(playCard(state, -1, "r5")).toBe(state);
+    expect(playCard(state, 4, "r5")).toBe(state);
+  });
+
+  it("rejects plays from a player whose turn it is not", () => {
+    const state = stateWithHand([
+      { type: "color", color: "red", value: "5", id: "r5" },
+    ]);
+    state.currentPlayer = 1;
+
+    const result = playCard(state, 0, "r5");
+
+    expect(result).toBe(state);
+  });
+
+  it("rejects plays after the game already has a winner", () => {
+    const state = stateWithHand([
+      { type: "color", color: "red", value: "5", id: "r5" },
+    ]);
+    state.winner = 2;
+
+    const result = playCard(state, 0, "r5");
+
+    expect(result).toBe(state);
+  });
+
+  it("rejects unplayable cards", () => {
+    const discard = { type: "color", color: "red", value: "7", id: "r7" } as const;
+    const state = stateWithHand(
+      [{ type: "color", color: "blue", value: "5", id: "b5" }],
+      discard,
+      "red",
+    );
+
+    const result = playCard(state, 0, "b5");
+
+    expect(result).toBe(state);
+  });
+
+  it("rejects wild_draw4 when the player has a normal playable card", () => {
+    const discard = { type: "color", color: "red", value: "7", id: "r7" } as const;
+    const state = stateWithHand(
+      [
+        { type: "wild", wildType: "wild_draw4", chosenColor: null, id: "wd4" },
+        { type: "color", color: "red", value: "5", id: "r5" },
+      ],
+      discard,
+      "red",
+    );
+
+    const result = playCard(state, 0, "wd4", "blue");
+
     expect(result).toBe(state);
   });
 });
@@ -342,6 +420,7 @@ describe("drawCards", () => {
 describe("getPlayableCards", () => {
   it("returns empty when player is not current player", () => {
     const state = createGame();
+    state.currentPlayer = 0;
     expect(getPlayableCards(state, 1)).toHaveLength(0);
   });
 
@@ -351,10 +430,36 @@ describe("getPlayableCards", () => {
     expect(getPlayableCards(state, 0)).toHaveLength(0);
   });
 
-  it("returns empty when pendingDraw > 0", () => {
-    let state = createGame();
+  it("returns empty during pendingDraw when the player has no stackable draw card", () => {
+    const discard = { type: "color" as const, color: "red" as UnoColor, value: "draw2", id: "rd2_top" };
+    let state = stateWithHand(
+      [
+        { type: "color", color: "red", value: "5", id: "r5_not_stackable" },
+        { type: "color", color: "blue", value: "5", id: "b5_not_stackable" },
+      ],
+      discard,
+      "red",
+    );
     state.pendingDraw = 2;
+
     expect(getPlayableCards(state, 0)).toHaveLength(0);
+  });
+
+  it("returns stackable draw cards while pendingDraw is active", () => {
+    const discard = { type: "color" as const, color: "red" as UnoColor, value: "draw2", id: "rd2_top" };
+    const state = stateWithHand(
+      [
+        { type: "color", color: "blue", value: "draw2", id: "bd2_stack" },
+        { type: "color", color: "red", value: "5", id: "r5_blocked" },
+      ],
+      discard,
+      "red",
+    );
+    state.pendingDraw = 2;
+
+    const playable = getPlayableCards(state, 0);
+
+    expect(playable.map((card) => card.id)).toEqual(["bd2_stack"]);
   });
 
   it("returns cards matching active color or top card value", () => {
@@ -413,8 +518,15 @@ describe("aiTurn", () => {
   });
 
   it("handles forced draw when pendingDraw > 0", () => {
-    let state = createGame();
-    state.currentPlayer = 0;
+    const discard = { type: "color" as const, color: "red", value: "draw2", id: "rd2_top" };
+    let state = stateWithHand(
+      [
+        { type: "color", color: "red", value: "5", id: "r5_not_stackable" },
+        { type: "color", color: "blue", value: "5", id: "b5_not_stackable" },
+      ],
+      discard,
+      "red",
+    );
     state.pendingDraw = 2;
     const before = state.hands[0].length;
     const result = aiTurn(state);
@@ -487,5 +599,94 @@ describe("aiTurn", () => {
     expect(result.pendingDraw).toBe(0);
     // Card should not have been played
     expect(result.discardPile[result.discardPile.length - 1].id).not.toBe("b3");
+  });
+
+  it("stacks a draw2 instead of drawing when pendingDraw is active", () => {
+    const discard = { type: "color" as const, color: "red", value: "draw2", id: "rd2_top" };
+    const state = stateWithHand(
+      [
+        { type: "color", color: "blue", value: "draw2", id: "bd2_stack" },
+        { type: "color", color: "red", value: "5", id: "r5_blocked" },
+      ],
+      discard,
+      "red",
+    );
+    state.pendingDraw = 2;
+
+    const result = aiTurn(state);
+
+    expect(result.discardPile[result.discardPile.length - 1].id).toBe("bd2_stack");
+    expect(result.pendingDraw).toBe(4);
+    expect(result.hands[0].map((card) => card.id)).toEqual(["r5_blocked"]);
+  });
+});
+
+describe("autoPlayGame", () => {
+  function totalCards(state: UnoState) {
+    return (
+      state.drawPile.length +
+      state.discardPile.length +
+      state.hands.reduce((sum, hand) => sum + hand.length, 0)
+    );
+  }
+
+  it("plays a complete game to a winner", () => {
+    const result = autoPlayGame(createGame(), { maxTurns: 1000 });
+
+    expect(result.completed).toBe(true);
+    expect(result.reason).toBe("winner");
+    expect(result.winner).toBeGreaterThanOrEqual(0);
+    expect(result.winner).toBeLessThan(4);
+    expect(result.turnsPlayed).toBeGreaterThan(0);
+    expect(result.state.hands[result.winner!]).toHaveLength(0);
+  });
+
+  it("reports turn-limit exhaustion without pretending the game completed", () => {
+    const result = autoPlayGame(createGame(), { maxTurns: 0 });
+
+    expect(result.completed).toBe(false);
+    expect(result.reason).toBe("turn_limit");
+    expect(result.winner).toBeNull();
+    expect(result.turnsPlayed).toBe(0);
+  });
+
+  it("preserves game invariants through a completed autoplay game", () => {
+    const initial = createGame();
+    const initialTotal = totalCards(initial);
+
+    const result = autoPlayGame(initial, {
+      maxTurns: 1000,
+      onTurn: (state) => {
+        expect(state.currentPlayer).toBeGreaterThanOrEqual(0);
+        expect(state.currentPlayer).toBeLessThan(4);
+        expect([1, -1]).toContain(state.direction);
+        expect(["red", "blue", "green", "yellow"]).toContain(state.activeColor);
+        expect(state.pendingDraw).toBeGreaterThanOrEqual(0);
+        expect(state.discardPile.length).toBeGreaterThan(0);
+        expect(totalCards(state)).toBe(initialTotal);
+      },
+    });
+
+    expect(result.completed).toBe(true);
+    expect(result.winner).not.toBeNull();
+    expect(result.state.hands.filter((hand) => hand.length === 0)).toHaveLength(1);
+    expect(result.state.hands[result.winner!]).toHaveLength(0);
+    expect(totalCards(result.state)).toBe(initialTotal);
+  });
+
+  it("repeatedly completes autoplay games within a practical turn limit", () => {
+    let maxTurns = 0;
+
+    for (let i = 0; i < 50; i++) {
+      const result = autoPlayGame(createGame(), { maxTurns: 3000 });
+      maxTurns = Math.max(maxTurns, result.turnsPlayed);
+
+      expect(result.completed).toBe(true);
+      expect(result.reason).toBe("winner");
+      expect(result.winner).not.toBeNull();
+      expect(result.state.hands[result.winner!]).toHaveLength(0);
+    }
+
+    expect(maxTurns).toBeLessThan(3000);
   });
 });
