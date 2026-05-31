@@ -2,6 +2,58 @@
 
 import type { UnoCard, UnoColor } from './types.ts';
 
+const UNO_COLORS: readonly UnoColor[] = ['red', 'blue', 'green', 'yellow'];
+const UNO_VALUES = new Set(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'skip', 'reverse', 'draw2']);
+const WILD_VALUES = new Set(['wild', 'wild_draw4']);
+
+export function isUnoColor(value: unknown): value is UnoColor {
+  return typeof value === 'string' && UNO_COLORS.includes(value as UnoColor);
+}
+
+function normalizedCardType(card: unknown): string | undefined {
+  if (!card || typeof card !== 'object') return undefined;
+  return (card as { type?: string; cardType?: string }).type ?? (card as { type?: string; cardType?: string }).cardType;
+}
+
+function normalizedCardValue(card: unknown): string | undefined {
+  if (!card || typeof card !== 'object') return undefined;
+  const raw = card as { value?: string; wildType?: string };
+  return raw.wildType ?? raw.value;
+}
+
+function isValidPlayableCard(card: unknown): boolean {
+  if (!card || typeof card !== 'object') return false;
+  const raw = card as { color?: string };
+  const cardType = normalizedCardType(card);
+  const value = normalizedCardValue(card);
+
+  if (cardType === 'color') {
+    return isUnoColor(raw.color) && typeof value === 'string' && UNO_VALUES.has(value);
+  }
+
+  if (cardType === 'wild') {
+    return typeof value === 'string' && WILD_VALUES.has(value);
+  }
+
+  return false;
+}
+
+function isValidTopCard(card: unknown): boolean {
+  if (!card || typeof card !== 'object') return false;
+  const cardType = normalizedCardType(card);
+  const value = normalizedCardValue(card);
+
+  if (cardType === 'color') {
+    return typeof value === 'string' && UNO_VALUES.has(value);
+  }
+
+  if (cardType === 'wild') {
+    return typeof value === 'string' && WILD_VALUES.has(value);
+  }
+
+  return false;
+}
+
 /** The filename (without extension) used to load the card texture */
 export function cardTexture(card: UnoCard): string {
   if (card.type === 'wild') return card.wildType;
@@ -15,7 +67,7 @@ export function canPlay(
   activeColor: UnoColor,
   pendingDraw?: number,
 ): boolean {
-  if (!card || !topCard) return false;
+  if (!isValidPlayableCard(card) || !isValidTopCard(topCard) || !isUnoColor(activeColor)) return false;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const c = card as any;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -24,9 +76,13 @@ export function canPlay(
   const topCardType = t.type ?? t.cardType;
   // Draw-2 stacking: if pendingDraw > 0, only draw2 cards can stack
   if (pendingDraw && pendingDraw > 0) {
-    if (cardType === 'color' && c.value === 'draw2') return true;
-    // Wild draw4 can also stack on pending draw4 (pendingDraw >= 4)
-    if (cardType === 'wild' && (c.wildType ?? c.value) === 'wild_draw4' && pendingDraw >= 4) return true;
+    const topValue = t.wildType ?? t.value;
+    if (topCardType === 'color' && topValue === 'draw2') {
+      return cardType === 'color' && c.value === 'draw2';
+    }
+    if (topCardType === 'wild' && topValue === 'wild_draw4') {
+      return cardType === 'wild' && (c.wildType ?? c.value) === 'wild_draw4' && pendingDraw >= 4;
+    }
     return false;
   }
   if (cardType === 'wild') return true;
@@ -56,13 +112,39 @@ export function canPlaySchema(
   activeColor: string,
   pendingDraw?: number,
 ): boolean {
+  if (!isValidPlayableCard(card) || !isValidTopCard(topCard) || !isUnoColor(activeColor)) return false;
+
   if (pendingDraw && pendingDraw > 0) {
-    if (card.cardType === 'color' && card.value === 'draw2') return true;
-    if (card.cardType === 'wild' && card.value === 'wild_draw4' && pendingDraw >= 4) return true;
+    if (topCard.cardType === 'color' && topCard.value === 'draw2') {
+      return card.cardType === 'color' && card.value === 'draw2';
+    }
+    if (topCard.cardType === 'wild' && topCard.value === 'wild_draw4') {
+      return card.cardType === 'wild' && card.value === 'wild_draw4' && pendingDraw >= 4;
+    }
     return false;
   }
   if (card.cardType === 'wild') return true;
   if (card.color === activeColor) return true;
   if (topCard.cardType === 'color' && card.value === topCard.value) return true;
   return false;
+}
+
+/** Does this hand contain a normal legal option that blocks wild draw four? */
+export function hasWildDrawFourAlternative(
+  hand: Array<UnoCard | { cardType: string; color: string; value: string }>,
+  topCard: UnoCard | { cardType: string; value: string },
+  activeColor: UnoColor | string,
+): boolean {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const top = topCard as any;
+  const topCardType = top.type ?? top.cardType;
+
+  return hand.some((card) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const c = card as any;
+    const cardType = c.type ?? c.cardType;
+    if (cardType !== 'color') return false;
+    if (c.color === activeColor) return true;
+    return topCardType === 'color' && c.value === top.value;
+  });
 }

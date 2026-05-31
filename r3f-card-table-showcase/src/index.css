@@ -1,0 +1,1168 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap');
+
+/* R3F Base Setup */
+body {
+  margin: 0;
+}
+
+#root {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+    /* ==========================================
+       1. TOKENS DESIGN VARIABLES
+       ========================================== */
+
+    :root {
+      /* Brand Typography */
+      --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+      --font-display: "Outfit", "Inter", system-ui, -apple-system, sans-serif;
+
+      /* App Backgrounds */
+      --bg-dark: hsl(260, 15%, 12%);
+      --bg-darker: hsl(260, 18%, 8%);
+      --bg-darkest: hsl(260, 20%, 5%);
+
+      /* Typography Colors */
+      --text-primary: hsl(42, 60%, 94%);
+      --text-muted: hsl(260, 12%, 70%);
+      --text-faint: hsl(260, 10%, 45%);
+
+      /* Card Colors */
+      --card-blue: hsl(208, 75%, 48%);
+      --card-green: hsl(148, 55%, 42%);
+      --card-red: hsl(358, 68%, 52%);
+      --card-yellow: hsl(46, 88%, 50%);
+
+      /* Accents */
+      --gold: hsl(42, 85%, 65%);
+      --wood-rail: hsl(18, 48%, 15%);
+
+      /* Glassmorphism primitives */
+      --glass-bg: rgba(20, 24, 20, 0.95);
+      --glass-bg-solid: hsl(260, 15%, 10%);
+      --glass-border: rgba(255, 255, 255, 0.08);
+      --glass-border-focus: rgba(240, 198, 111, 0.35);
+      --glass-glow: rgba(0, 0, 0, 0.55);
+
+      /* Special Effects */
+      --gold-glow: hsla(42, 85%, 65%, 0.25);
+      --gold-glow-shadow: 0 0 15px var(--gold-glow);
+
+      --card-front-border: rgba(212, 175, 55, 0.16);
+    }
+
+    /* felt themes */
+    .game-board.theme-emerald, .theme-emerald {
+      --felt-color-primary: hsl(158, 55%, 26%);
+      --felt-color-dark: hsl(162, 60%, 12%);
+    }
+    .game-board.theme-sapphire, .theme-sapphire {
+      --felt-color-primary: hsl(215, 50%, 28%);
+      --felt-color-dark: hsl(220, 55%, 13%);
+    }
+    .game-board.theme-ruby, .theme-ruby {
+      --felt-color-primary: hsl(355, 45%, 26%);
+      --felt-color-dark: hsl(358, 50%, 12%);
+    }
+    .game-board.theme-charcoal, .theme-charcoal {
+      --felt-color-primary: hsl(220, 10%, 30%);
+      --felt-color-dark: hsl(220, 12%, 15%);
+    }
+
+    /* ==========================================
+       2. STANDARD GAME TEMPLATE STYLES
+       ========================================== */
+    
+    /* Core Card Game Felt Board */
+    .game-board {
+      width: 100%;
+      min-height: 100vh;
+      background: 
+        radial-gradient(circle at center, rgba(255, 255, 255, 0.12) 0%, transparent 70%),
+        radial-gradient(circle at center, var(--felt-color-primary) 0%, var(--felt-color-dark) 100%);
+      box-sizing: border-box;
+      position: relative;
+      contain: layout style;
+    }
+    
+    .table-view {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+      min-height: 100vh;
+      width: 100%;
+      padding: 24px;
+      box-sizing: border-box;
+      font-family: var(--font-sans);
+      color: var(--text-primary);
+      transition: background 0.5s ease;
+    }
+
+    /* Elegant center logo/crest marking */
+    .game-board::before {
+      content: '';
+      position: absolute;
+      bottom: -150px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 1000px;
+      height: 300px;
+      border-radius: 50%;
+      border: 1.5px dashed rgba(240, 198, 111, 0.12);
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .felt-decorations {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      background: 
+        radial-gradient(circle at 50% 50%, transparent 40%, rgba(240, 198, 111, 0.03) 41%, transparent 42%),
+        radial-gradient(circle at 50% 50%, transparent 60%, rgba(240, 198, 111, 0.015) 61%, transparent 62%);
+      z-index: 1;
+    }
+
+    /* Wood Railing / Outer Border styling */
+    .game-board::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      border: 16px solid var(--wood-rail);
+      pointer-events: none;
+      box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.8);
+      border-radius: 8px;
+      z-index: 2; /* Sits on top of the felt decorations */
+    }
+
+    /* Play Area Felt Center Grid */
+    .play-area {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 32px;
+      width: 100%;
+      max-width: 900px;
+    }
+
+    /* Standard Premium Card Component */
+    .card-component {
+      width: 120px;
+      height: 168px;
+      border-radius: 12px;
+      position: relative;
+      user-select: none;
+      cursor: pointer;
+      transition: transform 0.5s cubic-bezier(0.1, 0.9, 0.2, 1), box-shadow 0.4s ease;
+      transform-style: preserve-3d;
+      box-shadow: 0 6px 15px rgba(0, 0, 0, 0.22), 0 1px 3px rgba(0, 0, 0, 0.12);
+      touch-action: none; /* Prevents touch panning/zoom interruptions during drag */
+    }
+
+    /* Card Face & Back (3D Flip Setup) */
+    .card-component-inner {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      transform-style: preserve-3d;
+      transition: transform 0.6s ease;
+    }
+
+    /* Card Front Face */
+    .card-face-front {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      backface-visibility: hidden;
+      background: radial-gradient(circle at 50% 30%, #ffffff 0%, #fcfbf8 100%);
+      border-radius: 12px;
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      box-sizing: border-box;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      color: hsl(220, 15%, 15%);
+      box-shadow: 
+        inset 0 0 0 1px rgba(255, 255, 255, 0.95),
+        inset 0 0 0 3.5px var(--card-front-border), /* Luxe gold inner frame line */
+        inset 0 0 10px rgba(0, 0, 0, 0.02);
+    }
+
+    /* =============================================
+       CARD BACK — Emerald Monarch
+       Classic premium casino cardstock with gold foil
+       ============================================= */
+    .card-face-back {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      backface-visibility: hidden;
+      transform: rotateY(180deg);
+      border-radius: 12px;
+      box-sizing: border-box;
+      overflow: hidden;
+      transition: box-shadow 0.3s ease;
+
+      /* Premium Ivory Cardstock Edge */
+      background-color: #fcfdf9;
+      border: 1px solid rgba(0,0,0,0.15);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+      
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    /* Emerald Green Inner Rectangle with Gold Foil Border & Mesh */
+    .card-face-back::before {
+      content: '';
+      position: absolute;
+      inset: 6px;
+      border-radius: 6px;
+      pointer-events: none;
+      
+      background-color: hsl(155, 60%, 15%);
+      background-image: 
+        repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(230,190,100,0.1) 5px, rgba(230,190,100,0.1) 6px),
+        repeating-linear-gradient(-45deg, transparent, transparent 5px, rgba(230,190,100,0.1) 5px, rgba(230,190,100,0.1) 6px),
+        radial-gradient(ellipse at center, rgba(255,255,255,0.05) 0%, transparent 70%);
+      
+      box-shadow: 
+        0 0 0 1px hsl(42, 60%, 45%),    /* Inner Gold Line */
+        0 0 0 3px hsl(155, 60%, 10%),   /* Gap */
+        0 0 0 4px hsl(42, 60%, 45%),    /* Outer Gold Line */
+        inset 0 0 20px rgba(0,0,0,0.8);
+      z-index: 1;
+    }
+
+    /* Central Gold Art Deco Diamond */
+    .card-face-back::after {
+      content: '';
+      position: absolute;
+      width: 54px;
+      height: 54px;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%23fae3a6'/%3E%3Cstop offset='50%25' stop-color='%23d4a23b'/%3E%3Cstop offset='100%25' stop-color='%238a6417'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpolygon points='50,5 95,50 50,95 5,50' fill='none' stroke='url(%23g)' stroke-width='4'/%3E%3Cpolygon points='50,15 85,50 50,85 15,50' fill='none' stroke='url(%23g)' stroke-width='2' opacity='0.7'/%3E%3Cpolygon points='50,25 75,50 50,75 25,50' fill='url(%23g)' opacity='0.9'/%3E%3Ccircle cx='50' cy='50' r='6' fill='%231a3a2a'/%3E%3C/svg%3E");
+      background-size: contain;
+      background-repeat: no-repeat;
+      background-position: center;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.8));
+      transition: transform 0.6s cubic-bezier(0.2, 1, 0.3, 1), filter 0.4s ease;
+      z-index: 5;
+    }
+
+    /* Hover effect for medallion */
+    .card-component:hover .card-face-back::after {
+      transform: scale(1.15);
+      filter: drop-shadow(0 4px 8px rgba(0,0,0,0.9)) drop-shadow(0 0 10px hsla(42,80%,50%,0.4));
+    }
+
+    /* Holographic dynamic sheen layer */
+    .card-sheen {
+      position: absolute;
+      /* 300% bounds to allow translating without clipping edges */
+      top: -100%;
+      left: -100%;
+      right: -100%;
+      bottom: -100%;
+      border-radius: 11px;
+      background: linear-gradient(
+        135deg,
+        rgba(255, 0, 0, 0.08) 0%,
+        rgba(255, 127, 0, 0.08) 15%,
+        rgba(255, 255, 0, 0.08) 30%,
+        rgba(0, 255, 0, 0.08) 45%,
+        rgba(0, 0, 255, 0.08) 60%,
+        rgba(75, 0, 130, 0.08) 75%,
+        rgba(148, 0, 211, 0.08) 90%
+      );
+      /* Keep size relative to parent card, not the oversized bounds */
+      background-size: 33.333% 33.333%;
+      background-position: center;
+      transform: translate3d(0, 0, 0);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+      z-index: 5;
+    }
+
+    /* Suit/Rank Typography & Layout */
+    .card-corner {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      font-family: var(--font-display);
+      font-weight: 800;
+      line-height: 1.1;
+    }
+
+    .card-corner span:first-child {
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -1px;
+      text-shadow: 0.5px 0.5px 0px rgba(255, 255, 255, 0.8);
+    }
+    
+    .card-corner span:last-child {
+      font-size: 14px;
+      margin-top: -1px;
+    }
+
+    .card-suit-center {
+      font-size: 46px;
+      display: flex;
+      align-self: center;
+      justify-self: center;
+      filter: drop-shadow(1px 2px 3px rgba(0, 0, 0, 0.15)) drop-shadow(0 0 1px rgba(255, 255, 255, 0.8));
+      transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .card-component:hover .card-suit-center {
+      transform: scale(1.14);
+    }
+
+    /* Red / Black Suits Styling */
+    .card-component.suit-hearts,
+    .card-component.suit-diamonds {
+      color: hsl(354, 85%, 54%);
+    }
+
+    .card-component.suit-spades,
+    .card-component.suit-clubs {
+      color: hsl(220, 15%, 15%);
+    }
+
+    /* Action / Special Cards Styling */
+    .card-component.suit-skip { color: var(--card-blue); }
+    .card-component.suit-reverse { color: var(--card-green); }
+    .card-component.suit-draw2 { color: var(--card-yellow); }
+    .card-component.suit-wild, .card-component.suit-wild4 { color: var(--gold); }
+
+    /* Card Back State Toggle */
+    .card-component.is-face-down .card-component-inner {
+      transform: rotateY(180deg);
+    }
+
+    /* Luxury Deck Container & Stack from Scratch */
+    .luxury-deck-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .luxury-deck-stack {
+      width: 120px;
+      height: 168px;
+      position: relative;
+      cursor: pointer;
+    }
+
+    /* Deck Stack Layer Cards — emerald monarch design */
+    .luxury-deck-layer {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 12px;
+      background-color: #fcfdf9;
+      border: 1px solid rgba(0,0,0,0.15);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      box-sizing: border-box;
+      opacity: 0.85;
+      transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), opacity 0.3s ease;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+    }
+
+    /* Deck layer filigree */
+    .luxury-deck-layer::before {
+      content: '';
+      position: absolute;
+      inset: 6px;
+      border-radius: 6px;
+      pointer-events: none;
+      background-color: hsl(155, 60%, 15%);
+      box-shadow: 0 0 0 1px hsl(42, 60%, 45%);
+      background-image: 
+        repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(230,190,100,0.1) 5px, rgba(230,190,100,0.1) 6px),
+        repeating-linear-gradient(-45deg, transparent, transparent 5px, rgba(230,190,100,0.1) 5px, rgba(230,190,100,0.1) 6px);
+    }
+
+    /* Deck layer small SVG medallion */
+    .luxury-deck-layer::after {
+      content: '';
+      position: absolute;
+      width: 28px;
+      height: 28px;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%23fae3a6'/%3E%3Cstop offset='100%25' stop-color='%238a6417'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpolygon points='50,15 85,50 50,85 15,50' fill='url(%23g)' opacity='0.9'/%3E%3C/svg%3E");
+      background-size: contain;
+      background-repeat: no-repeat;
+      background-position: center;
+      filter: drop-shadow(0 1px 2px rgba(0,0,0,0.8));
+      opacity: 0.8;
+      z-index: 5;
+    }
+
+    /* Staggered offsets for cards in the deck stack up to 6 layers */
+    .luxury-deck-layer.layer-6 { transform: translate(12px, 12px); z-index: 1; }
+    .luxury-deck-layer.layer-5 { transform: translate(10px, 10px); z-index: 2; }
+    .luxury-deck-layer.layer-4 { transform: translate(8px, 8px); z-index: 3; }
+    .luxury-deck-layer.layer-3 { transform: translate(6px, 6px); z-index: 4; }
+    .luxury-deck-layer.layer-2 { transform: translate(4px, 4px); z-index: 5; }
+    .luxury-deck-layer.layer-1 { transform: translate(2px, 2px); z-index: 6; }
+
+    /* Top Card of the Deck — emerald monarch design */
+    .luxury-deck-top-card {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 12px;
+      background-color: #fcfdf9;
+      border: 1px solid rgba(0,0,0,0.15);
+      box-sizing: border-box;
+      z-index: 10;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.35);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.3s ease;
+    }
+
+    /* Compositor-accelerated deck top card hover glow overlay */
+    .luxury-deck-glow-overlay {
+      position: absolute;
+      inset: 0;
+      border-radius: 12px;
+      pointer-events: none;
+      opacity: 0;
+      z-index: 12;
+      box-shadow: inset 0 0 0 3px #ffffff, inset 0 0 20px var(--back-accent-glow), 0 16px 24px rgba(0,0,0,0.5), 0 0 15px var(--back-accent-glow);
+      transition: opacity 0.1s linear;
+      will-change: opacity;
+    }
+
+    /* Top card filigree */
+    .luxury-deck-top-card::before {
+      content: '';
+      position: absolute;
+      inset: 6px;
+      border-radius: 6px;
+      pointer-events: none;
+      
+      background-color: hsl(155, 60%, 15%);
+      background-image: 
+        repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(230,190,100,0.1) 5px, rgba(230,190,100,0.1) 6px),
+        repeating-linear-gradient(-45deg, transparent, transparent 5px, rgba(230,190,100,0.1) 5px, rgba(230,190,100,0.1) 6px),
+        radial-gradient(ellipse at center, rgba(255,255,255,0.05) 0%, transparent 70%);
+      
+      box-shadow: 
+        0 0 0 1px hsl(42, 60%, 45%),
+        0 0 0 3px hsl(155, 60%, 10%),
+        0 0 0 4px hsl(42, 60%, 45%),
+        inset 0 0 20px rgba(0,0,0,0.8);
+      z-index: 1;
+    }
+
+    /* Central SVG medallion (DOM element) */
+    .luxury-card-back-emblem {
+      width: 54px;
+      height: 54px;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%23fae3a6'/%3E%3Cstop offset='50%25' stop-color='%23d4a23b'/%3E%3Cstop offset='100%25' stop-color='%238a6417'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpolygon points='50,5 95,50 50,95 5,50' fill='none' stroke='url(%23g)' stroke-width='4'/%3E%3Cpolygon points='50,15 85,50 50,85 15,50' fill='none' stroke='url(%23g)' stroke-width='2' opacity='0.7'/%3E%3Cpolygon points='50,25 75,50 50,75 25,50' fill='url(%23g)' opacity='0.9'/%3E%3Ccircle cx='50' cy='50' r='6' fill='%231a3a2a'/%3E%3C/svg%3E");
+      background-size: contain;
+      background-repeat: no-repeat;
+      background-position: center;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.8));
+      transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1), filter 0.4s ease;
+      position: relative;
+      z-index: 5;
+    }
+
+    .luxury-deck-stack:hover .luxury-card-back-emblem {
+      transform: scale(1.15);
+      filter: drop-shadow(0 4px 8px rgba(0,0,0,0.9)) drop-shadow(0 0 10px hsla(42,80%,50%,0.4));
+    }
+
+
+    .luxury-deck-stack:hover .luxury-deck-layer.layer-6 { transform: translate(36px, 12px); opacity: 0.4; }
+    .luxury-deck-stack:hover .luxury-deck-layer.layer-5 { transform: translate(30px, 10px); opacity: 0.5; }
+    .luxury-deck-stack:hover .luxury-deck-layer.layer-4 { transform: translate(24px, 8px); opacity: 0.65; }
+    .luxury-deck-stack:hover .luxury-deck-layer.layer-3 { transform: translate(18px, 6px); opacity: 0.75; }
+    .luxury-deck-stack:hover .luxury-deck-layer.layer-2 { transform: translate(12px, 4px); opacity: 0.85; }
+    .luxury-deck-stack:hover .luxury-deck-layer.layer-1 { transform: translate(6px, 2px); opacity: 0.92; }
+
+    /* Overlapping Player Hand Dock */
+    .player-hand-container {
+      display: flex;
+      justify-content: center;
+      align-items: flex-end;
+      padding: 16px 32px;
+      border-radius: 20px;
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      box-shadow: var(--glass-glow);
+      max-width: 80%;
+      gap: -30px;
+      position: relative;
+      z-index: 20; /* Ensure the hand (and dragged cards) always sit above the deck/discard pile on the table */
+      /* CSS Containment: isolates layout recalculation from parent stacking context during card manipulations */
+      contain: layout style;
+    }
+
+    /* Dynamic Fan-out / Hover interaction inside Hand */
+    .player-hand-container .card-component {
+      margin-left: -30px;
+    }
+
+    .player-hand-container .card-component:first-child {
+      margin-left: 0;
+    }
+
+    /* NOTE: No CSS :hover transform here — JS owns all card transforms to prevent conflict */
+
+    /* Button & Interaction Control Panels */
+    .action-button {
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      color: var(--text-primary);
+      font-family: var(--font-display);
+      font-weight: 600;
+      padding: 10px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+    }
+
+    .action-button:hover:not(:disabled) {
+      background: var(--gold);
+      color: var(--bg-darkest);
+      box-shadow: var(--gold-glow-shadow);
+      border-color: var(--gold);
+    }
+
+    .action-button:active:not(:disabled) {
+      transform: scale(0.95);
+      transition: transform 0.1s cubic-bezier(0.25, 0.8, 0.25, 1);
+    }
+
+    .action-button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    /* ==========================================
+       3. SHOWCASE ADDITIONAL STYLES
+       ========================================== */
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: var(--bg-darkest);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      overflow-x: hidden; /* Prevent scrollbar flashing during absolute flyer animations */
+      width: 100%;
+      max-width: 100vw;
+    }
+
+    .showcase-header {
+      position: absolute;
+      top: 32px;
+      left: 32px;
+      z-index: 10;
+      max-width: 400px;
+      pointer-events: none;
+    }
+
+    .showcase-tag {
+      display: inline-block;
+      font-family: var(--font-sans);
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--gold);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      border: 1px solid rgba(240, 198, 111, 0.3);
+      padding: 2px 8px;
+      border-radius: 20px;
+      margin-bottom: 8px;
+      background: rgba(240, 198, 111, 0.05);
+      box-shadow: 0 0 10px rgba(240, 198, 111, 0.1);
+    }
+
+    .showcase-header h1 {
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: 28px;
+      margin: 0 0 6px 0;
+      background: linear-gradient(135deg, var(--text-primary) 0%, var(--gold) 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
+    }
+
+    .showcase-header p {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin: 0;
+    }
+
+    .control-hub {
+      position: absolute;
+      top: 32px;
+      right: 32px;
+      z-index: 10;
+      display: flex;
+      gap: 12px;
+    }
+
+    .spec-legend {
+      position: absolute;
+      top: 156px;
+      left: 32px;
+      z-index: 10;
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 12px;
+      padding: 16px;
+      width: 280px;
+      box-shadow: var(--glass-glow);
+    }
+
+    .spec-legend h3 {
+      font-family: var(--font-display);
+      margin: 0 0 8px 0;
+      font-size: 14px;
+      color: var(--gold);
+      letter-spacing: 0.5px;
+    }
+
+    /* spec-item base styles consolidated below at L735 */
+
+    .spec-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .spec-label {
+      color: var(--text-muted);
+    }
+
+    .spec-val {
+      font-family: monospace;
+      color: var(--text-primary);
+    }
+
+    .deck-label {
+      font-family: var(--font-display);
+      font-size: 12px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      text-align: center;
+      margin-top: 8px;
+      letter-spacing: 0.5px;
+    }
+
+    /* Toast Notification */
+    .toast {
+      position: absolute;
+      bottom: 120px;
+      z-index: 100;
+      background: var(--glass-bg);
+      border: 1px solid var(--gold);
+      border-radius: 8px;
+      padding: 10px 20px;
+      font-family: var(--font-display);
+      font-size: 13px;
+      color: var(--text-primary);
+      box-shadow: var(--gold-glow-shadow);
+      opacity: 0;
+      transform: translateY(10px);
+      transition: background 0.3s ease, border-color 0.3s ease, transform 0.3s ease;
+      pointer-events: none;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Keyboard Keycap Badges */
+    .key-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--glass-border);
+      border-radius: 4px;
+      font-size: 10px;
+      font-family: monospace;
+      padding: 1px 4px;
+      margin-left: 8px;
+      color: var(--text-muted);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+      transition: color 0.2s ease, transform 0.2s ease;
+      vertical-align: middle;
+    }
+    
+    .action-button:hover .key-badge {
+      background: var(--bg-darkest);
+      color: var(--gold);
+      border-color: var(--gold);
+    }
+
+    /* Specs Legend Interactive Copier */
+    .spec-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      margin-bottom: 6px;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 6px;
+      margin-left: -8px;
+      margin-right: -8px;
+      transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+      position: relative;
+    }
+
+    .spec-item:hover {
+      background: rgba(240, 198, 111, 0.08);
+    }
+
+    /* Clipboard Copy tooltip helper */
+    .spec-item::after {
+      content: 'Click to Copy';
+      position: absolute;
+      right: 8px;
+      top: -24px;
+      background: var(--bg-darker);
+      border: 1.5px solid var(--gold);
+      color: var(--text-primary);
+      border-radius: 4px;
+      padding: 2px 6px;
+      font-size: 9px;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(4px);
+      transition: transform 0.2s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+      box-shadow: var(--gold-glow-shadow);
+      z-index: 100;
+    }
+
+    .action-btn:active {
+      transform: scale(0.92);
+      transition: transform 0.1s cubic-bezier(0.25, 0.8, 0.25, 1);
+    }
+
+    .spec-item:hover::after {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Copy Success visual state class */
+    .spec-item.copied::after {
+      content: 'Copied!';
+      background: var(--felt-color-primary, hsl(158, 60%, 14%));
+      border-color: hsl(148, 55%, 42%);
+    }
+
+    /* Sparkle particles removed — not used in current layout */
+
+    /* Premium Theme Customizer HUD styling */
+    .customizer-hud {
+      position: absolute;
+      top: 96px;
+      right: 32px;
+      z-index: 100;
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 16px;
+      padding: 16px;
+      width: 200px;
+      box-shadow: var(--glass-glow);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), opacity 0.3s ease, filter 0.3s ease;
+    }
+
+    .creator-hud {
+      top: 324px;
+      right: 32px;
+    }
+
+    .customizer-header {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--gold);
+      border-bottom: 1px solid var(--glass-border);
+      padding-bottom: 6px;
+    }
+
+    .customizer-section {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .customizer-section label {
+      font-family: var(--font-sans);
+      font-size: 11px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .customizer-options {
+      display: flex;
+      gap: 8px;
+    }
+
+    /* Option circle buttons */
+    .opt-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 1.5px solid var(--glass-border);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 13px;
+      background: transparent;
+      color: var(--text-primary);
+      transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+    }
+
+    .opt-btn:hover {
+      transform: scale(1.1);
+      box-shadow: 0 0 8px rgba(255, 255, 255, 0.15);
+    }
+
+    .opt-btn.active {
+      transform: scale(1.1);
+      border-color: var(--gold);
+      box-shadow: var(--gold-glow-shadow);
+    }
+
+    /* Phase 3 Advanced Animations */
+
+    /* Advanced Interleaved Riffle Shuffle */
+    .luxury-deck-layer.shuffling-left {
+      animation: riffle-shuffle-left-advanced 1.25s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+    }
+    .luxury-deck-layer.shuffling-right {
+      animation: riffle-shuffle-right-advanced 1.25s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+    }
+    @keyframes riffle-shuffle-left-advanced {
+      0% { transform: translate(var(--base-x, 0px), var(--base-y, 0px)) rotate(0deg); }
+      22% { transform: translate(-140px, 10px) rotate(-22deg) scale(1.02); filter: brightness(1.15); z-index: 100; }
+      42% { transform: translate(-140px, 15px) rotate(-25deg) scale(1.02); }
+      /* Cascade back in staggered zipper */
+      62% { transform: translate(-40px, 4px) rotate(-8deg); z-index: var(--zip-z); }
+      82% { transform: translate(var(--base-x, 0px), var(--base-y, 0px)) rotate(0deg); }
+      100% { transform: translate(var(--base-x, 0px), var(--base-y, 0px)) rotate(0deg); }
+    }
+    @keyframes riffle-shuffle-right-advanced {
+      0% { transform: translate(var(--base-x, 0px), var(--base-y, 0px)) rotate(0deg); }
+      22% { transform: translate(140px, 10px) rotate(22deg) scale(1.02); filter: brightness(1.15); z-index: 100; }
+      42% { transform: translate(140px, 15px) rotate(25deg) scale(1.02); }
+      /* Cascade back in staggered zipper */
+      62% { transform: translate(40px, 4px) rotate(8deg); z-index: var(--zip-z); }
+      82% { transform: translate(var(--base-x, 0px), var(--base-y, 0px)) rotate(0deg); }
+      100% { transform: translate(var(--base-x, 0px), var(--base-y, 0px)) rotate(0deg); }
+    }
+    
+    .luxury-deck-top-card.shuffling-top-card {
+      animation: riffle-shuffle-top-card 1.25s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+    }
+    @keyframes riffle-shuffle-top-card {
+      0% { transform: translateY(0px) rotate(0deg); box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
+      35% { transform: translateY(-18px) rotate(-6deg); box-shadow: 0 18px 28px rgba(0,0,0,0.7); }
+      100% { transform: translateY(0px) rotate(0deg); box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
+    }
+
+    /* Deck slam bounce removed — not used in current layout */
+
+    /* Discard Drop Target Visual Focus (When dragging any card) */
+    #discard-pile.is-drag-active:not(.is-active-target) .card-face-front {
+      border-color: rgba(240, 198, 111, 0.5);
+      background: rgba(240, 198, 111, 0.08);
+      box-shadow: 0 0 15px rgba(240, 198, 111, 0.1);
+    }
+
+    /* Active Discard Dropping Highlight Target */
+    #discard-pile.is-active-target {
+      border-color: var(--gold);
+      box-shadow: inset 0 0 0 1.5px var(--gold), 0 0 25px var(--gold-glow-shadow);
+      transform: scale(1.08);
+      transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+
+    /* Casino-Style Water Wave Hand Flip Animations */
+    .card-component.wave-flip-down {
+      animation: casino-wave-flip-to-back 0.75s cubic-bezier(0.25, 0.8, 0.25, 1.15) forwards;
+      pointer-events: none; /* prevent click/drag interruptions mid-wave */
+    }
+
+    .card-component.wave-flip-up {
+      animation: casino-wave-flip-to-front 0.75s cubic-bezier(0.25, 0.8, 0.25, 1.15) forwards;
+      pointer-events: none; /* prevent click/drag interruptions mid-wave */
+    }
+
+    @keyframes casino-wave-flip-to-back {
+      0% {
+        transform: translateY(0) scale(1) rotateX(0deg) rotateY(0deg) rotateZ(0deg);
+      }
+      25% {
+        transform: translateY(-44px) scale(1.06) rotateX(-18deg) rotateY(45deg) rotateZ(-3deg);
+      }
+      50% {
+        transform: translateY(-50px) scale(1.08) rotateX(-8deg) rotateY(90deg) rotateZ(-4deg);
+      }
+      75% {
+        transform: translateY(-16px) scale(1.02) rotateX(8deg) rotateY(180deg) rotateZ(2deg);
+      }
+      90% {
+        transform: translateY(-4px) scale(1.01) rotateX(-3deg) rotateY(180deg) rotateZ(-0.5deg);
+      }
+      100% {
+        transform: translateY(0) scale(1) rotateX(0deg) rotateY(180deg) rotateZ(0deg);
+      }
+    }
+
+    @keyframes casino-wave-flip-to-front {
+      0% {
+        transform: translateY(0) scale(1) rotateX(0deg) rotateY(180deg) rotateZ(0deg);
+      }
+      25% {
+        transform: translateY(-44px) scale(1.06) rotateX(-18deg) rotateY(135deg) rotateZ(3deg);
+      }
+      50% {
+        transform: translateY(-50px) scale(1.08) rotateX(-8deg) rotateY(90deg) rotateZ(4deg);
+      }
+      75% {
+        transform: translateY(-16px) scale(1.02) rotateX(8deg) rotateY(0deg) rotateZ(-2deg);
+      }
+      90% {
+        transform: translateY(-4px) scale(1.01) rotateX(-3deg) rotateY(0deg) rotateZ(0.5deg);
+      }
+      100% {
+        transform: translateY(0) scale(1) rotateX(0deg) rotateY(0deg) rotateZ(0deg);
+      }
+    }
+
+    /* Shockwave pulse removed — not used in current layout */
+
+    /* Impact slam container shake (Migrated to JS Web Animations API for layout-thrashing avoidance) */
+
+    /* .card-component.is-breathing — animation removed; it fought JS tilt on the transform property */
+
+    /* Glassmorphic Audio Control HUD */
+    .audio-control-hud {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      padding: 6px 12px;
+      border-radius: 8px;
+      box-shadow: var(--glass-glow);
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      cursor: default;
+    }
+    
+    .audio-control-hud:hover {
+      border-color: rgba(240, 198, 111, 0.25);
+      box-shadow: 0 0 12px rgba(240, 198, 111, 0.1);
+    }
+
+    .audio-slider-container {
+      display: flex;
+      align-items: center;
+      width: 0;
+      overflow: hidden;
+      transition: width 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    }
+    
+    .audio-control-hud:hover .audio-slider-container {
+      width: 70px;
+    }
+
+    #audio-vol-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 4px;
+      border-radius: 2px;
+      background: rgba(255, 255, 255, 0.15);
+      outline: none;
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+
+    #audio-vol-slider:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    #audio-vol-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--gold);
+      box-shadow: 0 0 6px var(--gold-glow);
+      transition: transform 0.1s ease;
+    }
+
+    #audio-vol-slider::-webkit-slider-thumb:hover {
+      transform: scale(1.3);
+    }
+
+    .sound-wave-visualizer {
+      display: flex;
+      align-items: flex-end;
+      gap: 2px;
+      height: 12px;
+      width: 12px;
+    }
+    
+    .sound-wave-bar {
+      width: 2px;
+      background: var(--gold);
+      opacity: 0.45;
+      height: 3px;
+      border-radius: 1px;
+      transition: opacity 0.1s ease;
+    }
+    
+    .sound-wave-bar:nth-child(1) { height: 4px; }
+    .sound-wave-bar:nth-child(2) { height: 8px; }
+    .sound-wave-bar:nth-child(3) { height: 6px; }
+    
+    .audio-control-hud.is-muted .sound-wave-lines {
+      opacity: 0.15;
+    }
+    
+    .audio-control-hud.is-muted .sound-wave-bar {
+      height: 2px;
+      opacity: 0.15;
+    }
+
+    /* Ambient particles removed — not used in current layout */
+
+
+    /* Special Action Card Styles */
+    .card-component.suit-wild {
+      color: var(--gold);
+    }
+    
+    .card-component.suit-skip {
+      color: var(--card-blue);
+    }
+    
+    .card-component.suit-reverse {
+      color: var(--card-green);
+    }
+    
+    .card-component.suit-draw2 {
+      color: var(--card-yellow);
+    }
+    
+    .card-corner span.action-label {
+      font-size: 11px;
+      letter-spacing: -0.5px;
+      text-transform: uppercase;
+      font-weight: 800;
+    }
+
+    .card-suit-center.wild-wheel {
+      width: 54px;
+      height: 54px;
+      border-radius: 50%;
+      background: conic-gradient(
+        var(--card-red) 0% 25%,
+        var(--card-blue) 25% 50%,
+        var(--card-green) 50% 75%,
+        var(--card-yellow) 75% 100%
+      );
+      box-shadow: 
+        0 4px 12px rgba(0, 0, 0, 0.35), 
+        inset 0 0 0 2px rgba(255, 255, 255, 0.45),
+        inset 0 0 6px rgba(0, 0, 0, 0.4);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-family: var(--font-display);
+      font-size: 26px;
+      font-weight: 900;
+      color: #ffffff;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.55);
+      border: 3.5px solid var(--gold); /* Rich golden outer ring */
+      transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .card-component:hover .wild-wheel {
+      transform: scale(1.15) rotate(45deg);
+    }
+
+    /* High-fidelity Keyboard focus outlines */
+    *:focus-visible {
+      outline: 2.5px solid var(--gold);
+      outline-offset: 3px;
+      box-shadow: 0 0 15px var(--gold-glow);
+    }
+    
+    .card-component:focus-visible {
+      transform: translateY(-30px) scale(1.05) rotate(1deg);
+      z-index: 100;
+      box-shadow: 0 15px 25px rgba(0, 0, 0, 0.6), var(--gold-glow-shadow);
+    }
+
+    /* Creator Select and Input styling */
+    .action-select, .action-input {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--glass-border);
+      color: var(--text-primary);
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-family: var(--font-sans);
+      font-size: 12px;
+      outline: none;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      box-sizing: border-box;
+      width: 100%;
+    }
+    
+    .action-select:focus, .action-input:focus {
+      border-color: var(--gold);
+      box-shadow: 0 0 8px var(--gold-glow);
+      background: rgba(255, 255, 255, 0.15);
+    }
+    
+    .action-select option {
+      background: var(--bg-darker);
+      color: var(--text-primary);
+    }
+    
+    /* Catalog section removed — not used in current layout */
+  

@@ -1,0 +1,590 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Wild Table Visual Review</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #09090d;
+        --panel: #111116;
+        --panel-raised: #18181f;
+        --line: rgba(255, 255, 255, 0.1);
+        --line-strong: rgba(255, 255, 255, 0.18);
+        --text: #f4f1e8;
+        --muted: #a7a4ac;
+        --faint: #73717a;
+        --gold: #f0c66f;
+        --green: #67b887;
+        --red: #e26a5f;
+        --focus: #ffe0a0;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        background: var(--bg);
+      }
+
+      body {
+        min-height: 100vh;
+        margin: 0;
+        color: var(--text);
+        background:
+          linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+          var(--bg);
+        background-size: 28px 28px;
+        font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+      }
+
+      button,
+      input {
+        font: inherit;
+      }
+
+      button {
+        color: inherit;
+        cursor: pointer;
+      }
+
+      button:focus-visible,
+      input:focus-visible {
+        outline: 3px solid var(--focus);
+        outline-offset: 3px;
+      }
+
+      .shell {
+        width: min(1560px, 100%);
+        margin: 0 auto;
+        padding: 24px;
+      }
+
+      .masthead {
+        display: flex;
+        gap: 24px;
+        align-items: end;
+        justify-content: space-between;
+        padding: 18px 0 20px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .eyebrow,
+      .label {
+        color: var(--gold);
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 8px 0 0;
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: clamp(30px, 5vw, 56px);
+        font-weight: 500;
+        letter-spacing: 0;
+        line-height: 0.98;
+      }
+
+      .summary {
+        display: flex;
+        gap: 18px;
+        flex-wrap: wrap;
+        justify-content: end;
+      }
+
+      .metric {
+        min-width: 72px;
+        text-align: right;
+      }
+
+      .metric strong {
+        display: block;
+        color: var(--text);
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 24px;
+        font-weight: 500;
+      }
+
+      .metric span {
+        color: var(--faint);
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .toolbar {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 0;
+        background: rgba(9, 9, 13, 0.94);
+        backdrop-filter: blur(18px);
+      }
+
+      .filters {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .filter,
+      .icon-button {
+        min-height: 42px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: var(--panel);
+      }
+
+      .filter {
+        padding: 0 13px;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .filter:hover,
+      .filter.active,
+      .icon-button:hover {
+        border-color: var(--gold);
+        color: var(--gold);
+        background: rgba(240, 198, 111, 0.08);
+      }
+
+      .search {
+        width: min(260px, 100%);
+        min-height: 42px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: var(--panel);
+        color: var(--text);
+        padding: 0 12px;
+      }
+
+      .search::placeholder {
+        color: var(--faint);
+      }
+
+      .gallery {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(min(100%, 270px), 1fr));
+        gap: 14px;
+      }
+
+      .shot {
+        min-width: 0;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--panel);
+        transition:
+          border-color 160ms ease,
+          transform 160ms ease,
+          background 160ms ease;
+      }
+
+      .shot:hover {
+        border-color: var(--line-strong);
+        background: var(--panel-raised);
+        transform: translateY(-2px);
+      }
+
+      .preview-button {
+        display: block;
+        width: 100%;
+        padding: 0;
+        border: 0;
+        background: #060608;
+        text-align: left;
+      }
+
+      .preview {
+        display: block;
+        width: 100%;
+        height: 250px;
+        object-fit: contain;
+        background:
+          linear-gradient(45deg, rgba(255, 255, 255, 0.035) 25%, transparent 25%),
+          linear-gradient(-45deg, rgba(255, 255, 255, 0.035) 25%, transparent 25%),
+          #08080b;
+        background-position: 0 0, 8px 8px;
+        background-size: 16px 16px;
+      }
+
+      .shot-body {
+        padding: 12px;
+      }
+
+      .shot-topline {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .shot h2 {
+        overflow: hidden;
+        margin: 0;
+        color: var(--text);
+        font-size: 14px;
+        font-weight: 750;
+        letter-spacing: 0;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .status {
+        flex: 0 0 auto;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--green);
+        box-shadow: 0 0 12px rgba(103, 184, 135, 0.7);
+      }
+
+      .status.review {
+        background: var(--gold);
+        box-shadow: 0 0 12px rgba(240, 198, 111, 0.65);
+      }
+
+      .shot-meta {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        margin-top: 10px;
+      }
+
+      .tag {
+        padding: 4px 6px;
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        color: var(--faint);
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .empty {
+        display: none;
+        padding: 56px 20px;
+        border: 1px dashed var(--line);
+        color: var(--muted);
+        text-align: center;
+      }
+
+      .empty.visible {
+        display: block;
+      }
+
+      dialog {
+        width: min(96vw, 1500px);
+        max-width: none;
+        height: min(94vh, 1000px);
+        max-height: none;
+        padding: 0;
+        overflow: hidden;
+        border: 1px solid var(--line-strong);
+        border-radius: 8px;
+        background: #08080b;
+        color: var(--text);
+        box-shadow: 0 30px 90px rgba(0, 0, 0, 0.75);
+      }
+
+      dialog::backdrop {
+        background: rgba(0, 0, 0, 0.82);
+        backdrop-filter: blur(8px);
+      }
+
+      .lightbox {
+        display: grid;
+        height: 100%;
+        grid-template-rows: auto minmax(0, 1fr);
+      }
+
+      .lightbox-bar {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--line);
+        background: var(--panel);
+      }
+
+      .lightbox-title {
+        min-width: 0;
+      }
+
+      .lightbox-title strong,
+      .lightbox-title span {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .lightbox-title strong {
+        font-size: 14px;
+      }
+
+      .lightbox-title span {
+        margin-top: 3px;
+        color: var(--faint);
+        font-size: 11px;
+      }
+
+      .lightbox-actions {
+        display: flex;
+        gap: 8px;
+      }
+
+      .icon-button {
+        display: grid;
+        width: 42px;
+        padding: 0;
+        place-items: center;
+        color: var(--muted);
+        font-size: 20px;
+      }
+
+      .lightbox-stage {
+        display: grid;
+        min-height: 0;
+        overflow: auto;
+        place-items: center;
+        padding: 16px;
+      }
+
+      .lightbox-image {
+        display: block;
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+      }
+
+      @media (max-width: 720px) {
+        .shell {
+          padding: 14px;
+        }
+
+        .masthead {
+          display: block;
+          padding-top: 12px;
+        }
+
+        .summary {
+          justify-content: start;
+          margin-top: 18px;
+        }
+
+        .metric {
+          min-width: 58px;
+          text-align: left;
+        }
+
+        .toolbar {
+          display: block;
+          padding: 10px 0;
+        }
+
+        .filters {
+          flex-wrap: nowrap;
+          overflow-x: auto;
+          padding-bottom: 8px;
+          scrollbar-width: thin;
+        }
+
+        .filter {
+          flex: 0 0 auto;
+        }
+
+        .search {
+          width: 100%;
+        }
+
+        .gallery {
+          grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+        }
+
+        .preview {
+          height: 220px;
+        }
+
+        dialog {
+          width: calc(100vw - 16px);
+          height: calc(100dvh - 16px);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <header class="masthead">
+        <div>
+          <div class="eyebrow">Wild Table / Visual QA</div>
+          <h1>Screenshot Results</h1>
+        </div>
+        <div class="summary" aria-label="Screenshot summary">
+          <div class="metric"><strong id="visibleCount">0</strong><span>Visible</span></div>
+          <div class="metric"><strong id="totalCount">0</strong><span>Total</span></div>
+          <div class="metric"><strong id="groupCount">0</strong><span>Groups</span></div>
+        </div>
+      </header>
+
+      <section class="toolbar" aria-label="Screenshot controls">
+        <div class="filters" id="filters"></div>
+        <input class="search" id="search" type="search" placeholder="Filter screenshots" />
+      </section>
+
+      <section class="gallery" id="gallery" aria-live="polite"></section>
+      <p class="empty" id="empty">No screenshots match the current filter.</p>
+    </main>
+
+    <dialog id="viewer">
+      <div class="lightbox">
+        <header class="lightbox-bar">
+          <div class="lightbox-title">
+            <strong id="viewerTitle"></strong>
+            <span id="viewerMeta"></span>
+          </div>
+          <div class="lightbox-actions">
+            <button class="icon-button" id="previous" type="button" aria-label="Previous screenshot" title="Previous screenshot">&larr;</button>
+            <button class="icon-button" id="next" type="button" aria-label="Next screenshot" title="Next screenshot">&rarr;</button>
+            <button class="icon-button" id="close" type="button" aria-label="Close preview" title="Close preview">&times;</button>
+          </div>
+        </header>
+        <div class="lightbox-stage">
+          <img class="lightbox-image" id="viewerImage" alt="" />
+        </div>
+      </div>
+    </dialog>
+
+    <script>
+      // Add screenshots here. Paths are relative to this file in .stitch/.
+      const screenshots = [
+        { src: "../.tmp-agent-browser/web-react-home.png", title: "Lobby", group: "Lobby", viewport: "Desktop", status: "verified" },
+        { src: "../.tmp-agent-browser/lobby-custom.png", title: "Lobby customization", group: "Lobby", viewport: "Desktop", status: "verified" },
+        { src: "../.tmp-agent-browser/web-react-game-desktop-0-initial.png", title: "Game table / initial", group: "Desktop", viewport: "Desktop", status: "verified" },
+        { src: "../.tmp-agent-browser/web-react-game-desktop-1-selected.png", title: "Game table / selected card", group: "Desktop", viewport: "Desktop", status: "verified" },
+        { src: "../.tmp-agent-browser/web-react-game-desktop-2-played.png", title: "Game table / played card", group: "Desktop", viewport: "Desktop", status: "verified" },
+        { src: "../.tmp-agent-browser/web-react-game-mobile-0-initial.png", title: "Mobile table / initial", group: "Mobile", viewport: "390 x 844", status: "verified" },
+        { src: "../.tmp-agent-browser/web-react-game-mobile-1-selected.png", title: "Mobile table / selected card", group: "Mobile", viewport: "390 x 844", status: "verified" },
+        { src: "../.tmp-agent-browser/web-react-game-mobile-2-played.png", title: "Mobile table / played card", group: "Mobile", viewport: "390 x 844", status: "verified" },
+        { src: "../r3f_showcase_final40.png", title: "R3F showcase / latest", group: "Showcase", viewport: "Desktop", status: "review" },
+        { src: "../r3f_showcase_hand.png", title: "R3F showcase / hand", group: "Showcase", viewport: "Desktop", status: "review" },
+        { src: "../r3f_showcase_discard.png", title: "R3F showcase / discard", group: "Showcase", viewport: "Desktop", status: "review" },
+        { src: "./showcase_screenshot.png", title: "Static design extraction", group: "Showcase", viewport: "Desktop", status: "verified" }
+      ];
+
+      const gallery = document.querySelector("#gallery");
+      const filters = document.querySelector("#filters");
+      const search = document.querySelector("#search");
+      const empty = document.querySelector("#empty");
+      const viewer = document.querySelector("#viewer");
+      const viewerImage = document.querySelector("#viewerImage");
+      const viewerTitle = document.querySelector("#viewerTitle");
+      const viewerMeta = document.querySelector("#viewerMeta");
+      const groups = ["All", ...new Set(screenshots.map((shot) => shot.group))];
+      let activeGroup = "All";
+      let activeShots = screenshots;
+      let activeIndex = 0;
+
+      function createFilter(group) {
+        const button = document.createElement("button");
+        button.className = `filter${group === activeGroup ? " active" : ""}`;
+        button.type = "button";
+        button.textContent = group;
+        button.addEventListener("click", () => {
+          activeGroup = group;
+          render();
+        });
+        return button;
+      }
+
+      function createShot(shot, index) {
+        const article = document.createElement("article");
+        article.className = "shot";
+        article.innerHTML = `
+          <button class="preview-button" type="button" aria-label="Open ${shot.title}">
+            <img class="preview" src="${shot.src}" alt="${shot.title}" loading="lazy" />
+          </button>
+          <div class="shot-body">
+            <div class="shot-topline">
+              <h2 title="${shot.title}">${shot.title}</h2>
+              <span class="status ${shot.status === "review" ? "review" : ""}" title="${shot.status}"></span>
+            </div>
+            <div class="shot-meta">
+              <span class="tag">${shot.group}</span>
+              <span class="tag">${shot.viewport}</span>
+            </div>
+          </div>
+        `;
+        article.querySelector(".preview-button").addEventListener("click", () => openViewer(index));
+        return article;
+      }
+
+      function render() {
+        const query = search.value.trim().toLowerCase();
+        activeShots = screenshots.filter((shot) => {
+          const inGroup = activeGroup === "All" || shot.group === activeGroup;
+          const matchesQuery = `${shot.title} ${shot.group} ${shot.viewport}`.toLowerCase().includes(query);
+          return inGroup && matchesQuery;
+        });
+        filters.replaceChildren(...groups.map(createFilter));
+        gallery.replaceChildren(...activeShots.map(createShot));
+        empty.classList.toggle("visible", activeShots.length === 0);
+        document.querySelector("#visibleCount").textContent = activeShots.length;
+        document.querySelector("#totalCount").textContent = screenshots.length;
+        document.querySelector("#groupCount").textContent = groups.length - 1;
+      }
+
+      function openViewer(index) {
+        activeIndex = index;
+        updateViewer();
+        viewer.showModal();
+      }
+
+      function updateViewer() {
+        const shot = activeShots[activeIndex];
+        if (!shot) return;
+        viewerImage.src = shot.src;
+        viewerImage.alt = shot.title;
+        viewerTitle.textContent = shot.title;
+        viewerMeta.textContent = `${shot.group} / ${shot.viewport} / ${activeIndex + 1} of ${activeShots.length}`;
+      }
+
+      function step(direction) {
+        if (!activeShots.length) return;
+        activeIndex = (activeIndex + direction + activeShots.length) % activeShots.length;
+        updateViewer();
+      }
+
+      search.addEventListener("input", render);
+      document.querySelector("#previous").addEventListener("click", () => step(-1));
+      document.querySelector("#next").addEventListener("click", () => step(1));
+      document.querySelector("#close").addEventListener("click", () => viewer.close());
+      viewer.addEventListener("click", (event) => {
+        if (event.target === viewer) viewer.close();
+      });
+      window.addEventListener("keydown", (event) => {
+        if (!viewer.open) return;
+        if (event.key === "ArrowLeft") step(-1);
+        if (event.key === "ArrowRight") step(1);
+      });
+
+      render();
+    </script>
+  </body>
+</html>

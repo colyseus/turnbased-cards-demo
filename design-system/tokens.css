@@ -1,0 +1,48 @@
+/**
+ * Wild Table Design Tokens
+ * Automatically extracted from the live application game view.
+ * Ref: http://localhost:5173/
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap');
+
+:root {
+  /* Brand Typography */
+  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+  --font-display: "Outfit", "Inter", system-ui, -apple-system, sans-serif;
+
+  /* App Backgrounds */
+  --bg-dark: hsl(260, 15%, 12%);
+  --bg-darker: hsl(260, 18%, 8%);
+  --bg-darkest: hsl(260, 20%, 5%);
+
+  /* Typography Colors */
+  --text-primary: hsl(42, 60%, 94%);
+  --text-muted: hsl(260, 12%, 70%);
+  --text-faint: hsl(260, 10%, 45%);
+
+  /* Game Felt Colors */
+  --felt-green: hsl(158, 60%, 14%);
+  --felt-dark: hsl(162, 70%, 7%);
+
+  /* Card Colors */
+  --card-blue: hsl(208, 75%, 48%);
+  --card-green: hsl(148, 55%, 42%);
+  --card-red: hsl(358, 68%, 52%);
+  --card-yellow: hsl(46, 88%, 50%);
+
+  /* Accents */
+  --gold: hsl(42, 85%, 65%);
+  --wood-rail: hsl(18, 48%, 15%);
+
+  /* Glassmorphism primitives */
+  --glass-bg: rgba(16, 14, 22, 0.65);
+  --glass-bg-solid: hsl(260, 15%, 10%);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-border-focus: rgba(240, 198, 111, 0.35);
+  --glass-glow: rgba(0, 0, 0, 0.55);
+
+  /* Special Effects */
+  --gold-glow: hsla(42, 85%, 65%, 0.25);
+  --gold-glow-shadow: 0 0 15px var(--gold-glow);
+}

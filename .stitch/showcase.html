@@ -1,0 +1,2687 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&amp;family=Outfit:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="description" content="A premium, immersive real-time multiplayer UNO card game experience built with Colyseus.">
+    <meta name="theme-color" content="#0d0b12">
+    <meta property="og:title" content="Wild Table — Ultimate Multiplayer UNO">
+    <meta property="og:description" content="A gorgeous, fast, real-time multiplayer UNO card game with active spectators, turn visualizer, and custom soundscapes.">
+    <meta property="og:type" content="website">
+    <title>Wild Table — Premium Multiplayer UNO</title>
+  <style type="text/css">/* ==========================================================================
+   WILD TABLE — Premium Design System & Stylesheet
+   Rebuilt from the ground up with HSL tokens, glassmorphism, texture atlases,
+   fanned hand layout, and immersive micro-animations.
+   ========================================================================== */
+
+:root {
+  color-scheme: dark;
+
+  /* Core Fonts */
+  --font-display: "Outfit", "Inter", system-ui, -apple-system, sans-serif;
+  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+
+  /*harmonious HSL Color Palette */
+  --bg-darkest: hsl(260, 20%, 5%);
+  --bg-darker: hsl(260, 18%, 8%);
+  --bg-dark: hsl(260, 15%, 12%);
+  --text-primary: hsl(42, 60%, 94%);
+  --text-muted: hsl(260, 12%, 70%);
+  --text-faint: hsl(260, 10%, 45%);
+
+  --gold: hsl(42, 85%, 65%);
+  --gold-glow: hsla(42, 85%, 65%, 0.25);
+
+  /* Harmonious Card Colors (Not harsh primaries) */
+  --card-red: hsl(358, 68%, 52%);
+  --card-blue: hsl(208, 75%, 48%);
+  --card-green: hsl(148, 55%, 42%);
+  --card-yellow: hsl(46, 88%, 50%);
+
+  /* Table Felt Colors */
+  --felt-green: hsl(158, 60%, 14%);
+  --felt-dark: hsl(162, 70%, 7%);
+  --wood-rail: hsl(18, 48%, 15%);
+
+  /* Glassmorphic UI settings */
+  --glass-bg: rgba(16, 14, 22, 0.65);
+  --glass-bg-solid: hsl(260, 15%, 10%);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-border-focus: rgba(240, 198, 111, 0.35);
+  --glass-glow: rgba(0, 0, 0, 0.55);
+}
+
+/* ── Base Reset & Scrollbar ─────────────────────────────────────────────── */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background:
+    radial-gradient(circle at 10% 20%, hsla(358, 68%, 52%, 0.06), transparent 40rem),
+    radial-gradient(circle at 90% 80%, hsla(208, 75%, 48%, 0.06), transparent 40rem),
+    var(--bg-darkest);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+button,
+input {
+  font-family: inherit;
+  font-weight: 500;
+  outline: none;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  background: none;
+  transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+/* Custom Premium Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 99px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 99px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--gold);
+}
+
+/* ── Lobby UI (Glassmorphic & Floating Sculpture) ───────────────────────── */
+
+.lobby-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1.25fr 1fr;
+  gap: clamp(24px, 6vw, 96px);
+  align-items: center;
+  padding: clamp(24px, 5vw, 80px);
+  max-width: 1440px;
+  margin: 0 auto;
+}
+
+.brand-panel {
+  position: relative;
+  height: min(720px, 75vh);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.brand-copy h1 {
+  font-family: var(--font-display);
+  font-size: clamp(52px, 8vw, 110px);
+  font-weight: 900;
+  line-height: 0.95;
+  letter-spacing: -0.04em;
+  background: linear-gradient(135deg, var(--text-primary) 30%, var(--gold) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 16px;
+}
+
+.brand-copy p {
+  font-size: clamp(15px, 2vw, 18px);
+  color: var(--text-muted);
+  max-width: 480px;
+  line-height: 1.6;
+}
+
+/* Floating table sculpture */
+.table-sculpture {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  animation: floatSculpture 8s ease-in-out infinite alternate;
+}
+
+.table-rail,
+.table-felt-mini {
+  position: absolute;
+  width: min(50vw, 540px);
+  aspect-ratio: 1.4;
+  border-radius: 50%;
+  transform: rotate(-10deg) rotateX(40deg);
+  transform-style: preserve-3d;
+}
+
+.table-rail {
+  background:
+    radial-gradient(
+      ellipse at center,
+      transparent 0 58%,
+      var(--wood-rail) 59% 68%,
+      transparent 69%
+    ),
+    conic-gradient(
+      from 180deg,
+      var(--card-red),
+      var(--card-yellow),
+      var(--card-green),
+      var(--card-blue),
+      var(--card-red)
+    );
+  box-shadow:
+    0 30px 60px rgba(0, 0, 0, 0.65),
+    inset 0 4px 20px rgba(255, 255, 255, 0.1);
+  filter: drop-shadow(0 20px 40px rgba(0, 0, 0, 0.5));
+}
+
+.table-felt-mini {
+  width: min(44vw, 470px);
+  background:
+    radial-gradient(ellipse at center, rgba(255, 255, 255, 0.08), transparent 40%),
+    linear-gradient(145deg, var(--felt-green), var(--felt-dark));
+  box-shadow: inset 0 0 50px rgba(0, 0, 0, 0.45);
+}
+
+.lobby-hero-hand {
+  position: absolute;
+  bottom: 24%;
+  left: 50%;
+  transform: translate3d(-50%, 0, 20px);
+  display: flex;
+}
+
+.lobby-hero-card {
+  --i: 0;
+  width: 68px;
+  aspect-ratio: 0.64;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow:
+    0 15px 30px rgba(0, 0, 0, 0.4),
+    inset 0 0 12px rgba(255, 255, 255, 0.05);
+  background-size: cover;
+  position: absolute;
+  left: calc(var(--i) * 26px - 60px);
+  bottom: calc(-1 * abs(var(--i) - 2) * 5px);
+  transform: rotate(calc((var(--i) - 2) * 8deg));
+  animation: fanPulse 6s ease-in-out infinite alternate;
+  animation-delay: calc(var(--i) * 0.2s);
+}
+
+/* Glassmorphic Join Panel */
+.join-panel {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: 20px;
+  padding: 40px;
+  box-shadow:
+    0 30px 70px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  display: grid;
+  gap: 22px;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  border-bottom: 1px solid var(--glass-border);
+  padding-bottom: 16px;
+}
+
+.panel-header span {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.panel-header strong {
+  font-family: var(--font-display);
+  font-size: 20px;
+  color: var(--text-primary);
+}
+
+.field {
+  display: grid;
+  gap: 8px;
+}
+
+.field span {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.field input {
+  height: 52px;
+  width: 100%;
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+  padding: 0 18px;
+  font-size: 15px;
+  transition: all 0.25s ease;
+}
+
+.field input:focus {
+  border-color: var(--gold);
+  background: rgba(255, 255, 255, 0.07);
+  box-shadow: 0 0 0 4px var(--gold-glow);
+}
+
+.control-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.chip {
+  height: 44px;
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.chip:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+}
+
+.chip.active {
+  border-color: var(--gold);
+  background: rgba(240, 198, 111, 0.12);
+  color: var(--gold);
+  box-shadow: inset 0 0 10px rgba(240, 198, 111, 0.1);
+}
+
+.primary-btn {
+  height: 56px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--gold), hsl(30, 85%, 55%));
+  color: hsl(260, 30%, 4%);
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  box-shadow:
+    0 15px 30px rgba(240, 198, 111, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.primary-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  filter: brightness(1.1);
+  box-shadow:
+    0 20px 40px rgba(240, 198, 111, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+.primary-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.join-grid {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.secondary-btn {
+  height: 52px;
+  padding: 0 20px;
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.secondary-btn:hover:not(:disabled) {
+  border-color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.form-error {
+  color: var(--card-red);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  background: rgba(212, 84, 68, 0.12);
+  border: 1px solid rgba(212, 84, 68, 0.25);
+  padding: 10px;
+  border-radius: 10px;
+  animation: pulseError 2s infinite;
+}
+
+/* ── Texture Atlas Card Layout ──────────────────────────────────────────── */
+
+.card-sprite {
+  background-image: url("/cards/atlas.webp");
+  background-size: 1000% 600%;
+  background-position: calc(var(--col) / 9 * 100%) calc(var(--row) / 5 * 100%);
+  background-repeat: no-repeat;
+  aspect-ratio: 0.64;
+  border-radius: 10px;
+  box-shadow:
+    0 10px 24px rgba(0, 0, 0, 0.35),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Back overlay glare effect */
+.card-sprite::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.12) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+/* Revamped holographic crimson card back styling */
+.card-sprite.card-back {
+  box-shadow:
+    0 12px 28px rgba(0, 0, 0, 0.45),
+    0 0 14px hsla(358, 68%, 52%, 0.45),
+    inset 0 0 0 2px hsla(358, 68%, 52%, 0.7);
+  border: 1px solid hsla(358, 68%, 52%, 0.85);
+}
+
+.card-sprite.card-back::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.3) 0%,
+    rgba(255, 0, 128, 0.2) 20%,
+    rgba(0, 255, 255, 0.15) 45%,
+    rgba(255, 255, 0, 0.15) 70%,
+    transparent 100%
+  );
+  opacity: 0.9;
+  pointer-events: none;
+  mix-blend-mode: overlay;
+  z-index: 2;
+}
+
+/* ── Game Shell & Layout ────────────────────────────────────────────────── */
+
+.game-shell {
+  width: 100vw;
+  height: 100vh;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 16px;
+  padding: 16px;
+  background-size: cover;
+}
+
+/* Glassmorphic Topbar */
+.topbar {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 24px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+}
+
+.topbar-info {
+  display: flex;
+  gap: 24px;
+}
+
+.topbar-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.topbar-stat span {
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.topbar-stat strong {
+  font-size: 15px;
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.ghost-btn {
+  height: 40px;
+  padding: 0 16px;
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ghost-btn:hover {
+  border-color: var(--card-red);
+  background: rgba(212, 84, 68, 0.12);
+  color: var(--text-primary);
+}
+
+/* ── Table Board Felt ───────────────────────────────────────────────────── */
+
+.table-board {
+  grid-column: 1 / 2;
+  grid-row: 2 / 3;
+  position: relative;
+  min-height: 0;
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at center, hsla(158, 60%, 14%, 0.6) 0%, var(--felt-dark) 85%),
+    linear-gradient(135deg, var(--felt-green), var(--felt-dark));
+  box-shadow:
+    inset 0 0 120px rgba(0, 0, 0, 0.9),
+    inset 0 0 0 16px var(--wood-rail),
+    inset 0 0 0 18px rgba(255, 255, 255, 0.04);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+/* Dynamic Active Color Glow overlay */
+.table-board::before {
+  content: "";
+  position: absolute;
+  inset: 18px;
+  border-radius: 22px;
+  pointer-events: none;
+  border: 2px dashed transparent;
+  transition: all 0.8s cubic-bezier(0.25, 0.8, 0.25, 1);
+  box-shadow: inset 0 0 40px transparent;
+}
+
+.table-board.active-red::before {
+  border-color: rgba(212, 84, 68, 0.2);
+  box-shadow: inset 0 0 60px rgba(212, 84, 68, 0.18);
+}
+.table-board.active-blue::before {
+  border-color: rgba(55, 140, 198, 0.2);
+  box-shadow: inset 0 0 60px rgba(55, 140, 198, 0.18);
+}
+.table-board.active-green::before {
+  border-color: rgba(77, 166, 109, 0.2);
+  box-shadow: inset 0 0 60px rgba(77, 166, 109, 0.18);
+}
+.table-board.active-yellow::before {
+  border-color: rgba(237, 200, 78, 0.2);
+  box-shadow: inset 0 0 60px rgba(237, 200, 78, 0.18);
+}
+
+/* Opponent pill strip positioned at the top of the table */
+.player-band {
+  position: absolute;
+  top: 36px;
+  left: 36px;
+  right: 36px;
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  z-index: 10;
+}
+
+.player-pill {
+  min-width: 148px;
+  padding: 12px 16px;
+  background: rgba(13, 11, 18, 0.75);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  position: relative;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.player-pill span {
+  font-family: var(--font-display);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.player-pill.is-bot span {
+  color: var(--gold);
+}
+
+.player-pill strong {
+  font-size: 14px;
+  color: var(--text-primary);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.player-pill small {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.player-pill.active {
+  border-color: var(--gold);
+  box-shadow:
+    0 0 20px var(--gold-glow),
+    inset 0 0 10px var(--gold-glow);
+  transform: translateY(-4px);
+}
+
+.player-pill.active::after {
+  content: "TURN";
+  position: absolute;
+  bottom: -9px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--gold);
+  color: var(--bg-darkest);
+  font-family: var(--font-display);
+  font-size: 8px;
+  font-weight: 900;
+  padding: 2px 8px;
+  border-radius: 4px;
+  letter-spacing: 0.05em;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Center Table Stack Grid */
+.center-table {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 40px;
+  position: relative;
+}
+
+.direction-ring-container {
+  position: absolute;
+  width: 320px;
+  height: 320px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.active-color-badge {
+  position: absolute;
+  top: -85px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.color-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+.color-dot.color-red {
+  background: var(--card-red);
+  box-shadow: 0 0 10px var(--card-red);
+}
+.color-dot.color-blue {
+  background: var(--card-blue);
+  box-shadow: 0 0 10px var(--card-blue);
+}
+.color-dot.color-green {
+  background: var(--card-green);
+  box-shadow: 0 0 10px var(--card-green);
+}
+.color-dot.color-yellow {
+  background: var(--card-yellow);
+  box-shadow: 0 0 10px var(--card-yellow);
+}
+
+/* Play Pile / Discard Pile Stack */
+.pile-container {
+  width: 120px;
+  aspect-ratio: 0.64;
+  position: relative;
+  z-index: 5;
+}
+
+.discard-card {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.table-empty-state {
+  width: 220px;
+  padding: 24px;
+  border-radius: 16px;
+  background: rgba(13, 11, 18, 0.85);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.45);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.table-empty-state span {
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.table-empty-state strong {
+  font-size: 18px;
+  color: var(--text-primary);
+}
+
+.table-empty-state small {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+/* Tangible face-down Draw Stack */
+.deck-stack {
+  width: 120px;
+  aspect-ratio: 0.64;
+  position: relative;
+  z-index: 5;
+  transition: transform 0.2s ease;
+}
+
+.deck-stack:hover:not(:disabled) {
+  transform: translateY(-4px) scale(1.03);
+}
+
+.deck-stack:disabled {
+  opacity: 0.65;
+}
+
+/* Layered depth lines mimicking thick deck of cards */
+.deck-shadow-layer {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background: hsl(260, 15%, 8%);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+/* Draw deck count overlay HUD */
+.deck-count-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.deck-count-overlay span {
+  background: rgba(0, 0, 0, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 900;
+  padding: 6px 14px;
+  border-radius: 12px;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+}
+
+/* pending draw overlay badge (+2, +4, etc.) */
+.pending-draw-badge {
+  position: absolute;
+  bottom: -48px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, var(--card-red), hsl(358, 80%, 40%));
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 900;
+  padding: 6px 16px;
+  border-radius: 30px;
+  box-shadow:
+    0 10px 25px rgba(212, 84, 68, 0.45),
+    0 0 0 3px rgba(212, 84, 68, 0.2);
+  animation: pulseError 1.5s infinite;
+  white-space: nowrap;
+}
+
+/* ── Right Panel Side widgets ───────────────────────────────────────────── */
+
+.side-panel {
+  grid-column: 2 / 3;
+  grid-row: 2 / 3;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.status-card,
+.roster-card,
+.winner-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+.status-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.status-card span {
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.status-card strong {
+  font-size: 18px;
+  color: var(--text-primary);
+}
+
+.status-card small {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Opponent list roster side panel */
+.roster-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+  min-height: 0;
+}
+
+.roster-card > span {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--glass-border);
+  padding-bottom: 8px;
+}
+
+.roster-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.roster-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  padding: 10px 14px;
+  transition: all 0.2s ease;
+}
+
+.roster-row:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.roster-row-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.roster-row-info strong {
+  font-size: 14px;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.roster-row-info span {
+  font-size: 10px;
+  color: var(--text-faint);
+  font-weight: 600;
+}
+
+.roster-card-count {
+  display: grid;
+  place-items: center;
+  min-width: 32px;
+  height: 26px;
+  border-radius: 8px;
+  background: rgba(240, 198, 111, 0.12);
+  border: 1px solid rgba(240, 198, 111, 0.2);
+  color: var(--gold);
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+/* Rematch winner banner overlay */
+.winner-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  text-align: center;
+  align-items: center;
+  background: linear-gradient(180deg, rgba(240, 198, 111, 0.15) 0%, rgba(13, 11, 18, 0.9) 100%);
+  border-color: var(--gold);
+  animation: pulseRematch 2.5s infinite;
+}
+
+.winner-card strong {
+  font-family: var(--font-display);
+  font-size: 22px;
+  color: var(--gold);
+  font-weight: 900;
+  text-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+}
+
+.winner-card button {
+  height: 44px;
+  width: 100%;
+  border-radius: 10px;
+  background: var(--gold);
+  color: var(--bg-darkest);
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 14px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.winner-card button:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+/* ── Your Hand bottom Dock ──────────────────────────────────────────────── */
+
+.hand-dock {
+  grid-column: 1 / 2;
+  grid-row: 3 / 4;
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: 20px;
+  padding: 16px 24px;
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.hand-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding-bottom: 8px;
+}
+
+.hand-header span {
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.uno-btn {
+  height: 36px;
+  padding: 0 18px;
+  border-radius: 30px;
+  background: linear-gradient(135deg, var(--card-red), hsl(358, 85%, 45%));
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  box-shadow:
+    0 6px 15px rgba(212, 84, 68, 0.3),
+    0 0 0 3px rgba(212, 84, 68, 0.15);
+  animation: pulseError 1.2s infinite;
+}
+
+.uno-btn:hover {
+  filter: brightness(1.2);
+  transform: scale(1.05);
+}
+
+/* Scrolling, fanned container for player cards */
+.hand-scroll-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end; /* Align all fanned card bottoms perfectly */
+  min-height: 230px; /* Increased from 180px to accommodate larger top padding and prevent card clipping */
+  padding: 70px 20px 10px; /* Increased top padding from 24px to 70px so fanned cards do not clip on hover/selection */
+  position: relative;
+  overflow-x: auto;
+  overflow-y: hidden; /* Prevent any vertical scrollbars */
+  scrollbar-width: thin;
+}
+
+.hand-scroll-wrapper .empty-hand {
+  align-self: center;
+  color: var(--text-faint);
+  font-size: 14px;
+}
+
+/* Beautiful curved card fan structure */
+.hand-card-wrapper {
+  position: relative;
+  width: 104px;
+  height: 162px;
+  flex: 0 0 auto;
+  margin-left: var(--ml, -52px);
+  transform: rotate(var(--rot)) translateY(var(--ty));
+  transform-origin: bottom center; /* Rock-solid symmetric fanning origin */
+  transition:
+    transform 0.28s cubic-bezier(0.25, 0.8, 0.25, 1),
+    margin 0.28s ease,
+    z-index 0.2s ease;
+  z-index: var(--z);
+  perspective: 1000px;
+  transform-style: preserve-3d;
+}
+
+.hand-card-wrapper:first-of-type {
+  margin-left: 0 !important;
+}
+
+.hand-card-wrapper .card-sprite {
+  width: 100%;
+  height: 100%;
+  border: none;
+  transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+  transition:
+    transform 0.12s cubic-bezier(0.25, 0.8, 0.25, 1),
+    box-shadow 0.2s ease;
+}
+
+/* Override generic button:disabled to fix washed out card transparency bug */
+.hand-card-wrapper button:disabled {
+  opacity: 1 !important;
+}
+
+/* Non-playable cards in turn display slightly translucent */
+.hand-card-wrapper:not(.playable) .card-sprite {
+  filter: brightness(0.65) saturate(0.85);
+  cursor: not-allowed;
+}
+
+.hand-card-wrapper.playable .card-sprite {
+  cursor: pointer;
+  box-shadow:
+    0 5px 15px rgba(0, 0, 0, 0.35),
+    0 0 10px hsla(42, 85%, 65%, 0.4),
+    inset 0 0 0 2px var(--gold);
+  animation: pulsePlayableCard 2s infinite ease-in-out;
+}
+
+/* Playable cards resting state - pop up out of the hand by 16px along the fanning vector */
+.hand-card-wrapper.playable {
+  transform: rotate(var(--rot)) translateY(calc(var(--ty, 0px) - 16px));
+}
+
+/* Hover highlights for active playable cards */
+.hand-card-wrapper.playable:hover {
+  transform: translateY(-38px) scale(1.16) rotate(0deg) !important;
+  z-index: 99 !important;
+}
+
+.hand-card-wrapper.playable:hover .card-sprite {
+  box-shadow:
+    0 15px 35px rgba(240, 198, 111, 0.45),
+    0 0 20px hsla(42, 85%, 65%, 0.6),
+    0 0 0 3px var(--gold) !important;
+  animation: none !important;
+}
+
+/* Keyboard selection / focus highlights */
+.hand-card-wrapper.keyboard-focused {
+  transform: translateY(-32px) scale(1.14) rotate(0deg) !important;
+  z-index: 90 !important;
+}
+
+.hand-card-wrapper.keyboard-focused .card-sprite {
+  box-shadow:
+    0 12px 30px rgba(240, 198, 111, 0.35),
+    0 0 0 3px var(--gold) !important;
+  animation: none !important;
+}
+
+/* Glowing active turn hand dock */
+.hand-dock.my-turn {
+  border-color: var(--gold) !important;
+  box-shadow:
+    0 -10px 40px rgba(240, 198, 111, 0.18),
+    0 0 0 2px rgba(240, 198, 111, 0.05),
+    inset 0 0 20px rgba(240, 198, 111, 0.04);
+  animation: pulseDockGlow 3s infinite alternate;
+}
+
+@keyframes pulseDockGlow {
+  0% {
+    box-shadow:
+      0 -10px 40px rgba(240, 198, 111, 0.12),
+      0 0 0 1px rgba(240, 198, 111, 0.03),
+      inset 0 0 15px rgba(240, 198, 111, 0.02);
+  }
+  100% {
+    box-shadow:
+      0 -10px 50px rgba(240, 198, 111, 0.22),
+      0 0 0 3px rgba(240, 198, 111, 0.08),
+      inset 0 0 25px rgba(240, 198, 111, 0.06);
+  }
+}
+
+@keyframes pulsePlayableCard {
+  0%,
+  100% {
+    box-shadow:
+      0 5px 15px rgba(0, 0, 0, 0.35),
+      0 0 8px hsla(42, 85%, 65%, 0.35),
+      inset 0 0 0 2px hsla(42, 85%, 65%, 0.7);
+  }
+  50% {
+    box-shadow:
+      0 8px 20px rgba(0, 0, 0, 0.35),
+      0 0 16px hsla(42, 85%, 65%, 0.7),
+      inset 0 0 0 2px hsla(42, 85%, 65%, 0.95);
+  }
+}
+
+/* ── Sliding Glass Chat Panel ───────────────────────────────────────────── */
+
+.chat-panel {
+  grid-column: 2 / 3;
+  grid-row: 3 / 4;
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: 20px;
+  padding: 16px;
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+
+.chat-log {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-right: 4px;
+}
+
+.chat-log p {
+  font-size: 13px;
+  line-height: 1.4;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  padding: 6px 10px;
+  border-radius: 8px;
+  word-break: break-word;
+}
+
+.chat-log strong {
+  font-family: var(--font-display);
+  font-size: 11px;
+  color: var(--gold);
+  display: block;
+  margin-bottom: 2px;
+}
+
+.chat-panel form {
+  display: flex;
+  gap: 8px;
+}
+
+.chat-panel input {
+  flex: 1;
+  height: 42px;
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+.chat-panel input:focus {
+  border-color: var(--gold);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.chat-panel button {
+  height: 42px;
+  padding: 0 16px;
+  border-radius: 8px;
+  background: var(--gold);
+  color: var(--bg-darkest);
+  font-family: var(--font-display);
+  font-weight: 850;
+  font-size: 13px;
+}
+
+.chat-panel button:hover {
+  filter: brightness(1.15);
+}
+
+/* ── Wild Color Select Modal ────────────────────────────────────────────── */
+
+.color-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(6, 4, 8, 0.85);
+  backdrop-filter: blur(12px);
+  display: grid;
+  place-items: center;
+  animation: fadeIn 0.3s ease;
+}
+
+.color-modal-box {
+  width: min(440px, 92vw);
+  background: var(--bg-darker);
+  border: 1px solid var(--glass-border);
+  border-radius: 24px;
+  padding: 32px;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.color-modal-box h2 {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.color-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.color-pick {
+  height: 80px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-primary);
+}
+
+.color-pick:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+}
+
+.color-pick:active {
+  transform: translateY(0);
+}
+
+.color-pick.color-red {
+  background: linear-gradient(135deg, var(--card-red), hsl(358, 60%, 35%));
+}
+.color-pick.color-red:hover {
+  box-shadow: 0 10px 24px rgba(212, 84, 68, 0.4);
+  border-color: hsl(358, 80%, 75%);
+}
+
+.color-pick.color-blue {
+  background: linear-gradient(135deg, var(--card-blue), hsl(208, 65%, 32%));
+}
+.color-pick.color-blue:hover {
+  box-shadow: 0 10px 24px rgba(55, 140, 198, 0.4);
+  border-color: hsl(208, 80%, 75%);
+}
+
+.color-pick.color-green {
+  background: linear-gradient(135deg, var(--card-green), hsl(148, 50%, 26%));
+}
+.color-pick.color-green:hover {
+  box-shadow: 0 10px 24px rgba(77, 166, 109, 0.4);
+  border-color: hsl(148, 70%, 75%);
+}
+
+.color-pick.color-yellow {
+  background: linear-gradient(135deg, var(--card-yellow), hsl(46, 80%, 32%));
+  color: var(--bg-darkest);
+}
+.color-pick.color-yellow:hover {
+  box-shadow: 0 10px 24px rgba(237, 200, 78, 0.45);
+  border-color: hsl(46, 95%, 75%);
+  color: var(--text-primary);
+}
+
+/* ── React Crash Error Boundary ─────────────────────────────────────────── */
+
+.crash-screen {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background: var(--bg-darkest);
+  padding: 24px;
+}
+
+.crash-screen section {
+  width: min(520px, 92vw);
+  background: var(--glass-bg-solid);
+  border: 1px solid var(--glass-border);
+  border-radius: 20px;
+  padding: 36px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.crash-screen h1 {
+  font-family: var(--font-display);
+  font-size: 24px;
+  color: var(--card-red);
+}
+
+.crash-screen p {
+  font-size: 15px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.crash-screen button {
+  height: 48px;
+  border-radius: 10px;
+  background: var(--gold);
+  color: var(--bg-darkest);
+  font-weight: 800;
+}
+
+/* ── Keyframe Animations ────────────────────────────────────────────────── */
+
+@keyframes floatSculpture {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(-16px);
+  }
+}
+
+@keyframes fanPulse {
+  0% {
+    filter: brightness(1) drop-shadow(0 15px 30px rgba(0, 0, 0, 0.4));
+  }
+  100% {
+    filter: brightness(1.15) drop-shadow(0 15px 35px var(--gold-glow));
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes pulseError {
+  0% {
+    box-shadow: 0 0 0 0 rgba(212, 84, 68, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(212, 84, 68, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(212, 84, 68, 0);
+  }
+}
+
+@keyframes pulseRematch {
+  0% {
+    border-color: rgba(240, 198, 111, 0.3);
+  }
+  50% {
+    border-color: rgba(240, 198, 111, 0.95);
+    box-shadow: 0 0 30px rgba(240, 198, 111, 0.25);
+  }
+  100% {
+    border-color: rgba(240, 198, 111, 0.3);
+  }
+}
+
+/* ── Responsive media adjustments ────────────────────────────────────────── */
+
+@media (max-width: 1024px) {
+  body {
+    overflow-y: auto;
+  }
+
+  .lobby-shell {
+    grid-template-columns: 1fr;
+    gap: 40px;
+    padding: 30px;
+  }
+
+  .brand-panel {
+    height: 45vh;
+  }
+
+  .table-rail,
+  .table-felt-mini {
+    width: min(85vw, 440px);
+  }
+
+  .game-shell {
+    height: auto;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .side-panel {
+    grid-column: 1 / 2;
+    grid-row: auto;
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .status-card {
+    grid-column: 1 / 2;
+  }
+
+  .roster-card {
+    grid-column: 1 / -1;
+  }
+
+  .hand-dock,
+  .chat-panel {
+    grid-column: 1 / 2;
+    grid-row: auto;
+  }
+
+  .table-board {
+    min-height: 520px;
+  }
+}
+
+@media (max-width: 640px) {
+  .brand-panel {
+    display: none;
+  }
+
+  .lobby-shell {
+    grid-template-columns: 1fr;
+    padding: 16px;
+  }
+
+  .brand-copy h1 {
+    font-size: 44px;
+  }
+
+  .join-panel {
+    padding: 24px;
+  }
+
+  .join-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .control-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .topbar {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 14px;
+    gap: 12px;
+  }
+
+  .topbar-info {
+    justify-content: space-around;
+  }
+
+  .side-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .table-board {
+    min-height: 440px;
+    box-shadow:
+      inset 0 0 80px rgba(0, 0, 0, 0.95),
+      inset 0 0 0 10px var(--wood-rail);
+  }
+
+  .player-band {
+    top: 16px;
+    left: 16px;
+    right: 16px;
+    gap: 8px;
+  }
+
+  .player-pill {
+    min-width: 100px;
+    padding: 6px 10px;
+  }
+
+  .player-pill strong {
+    font-size: 12px;
+  }
+
+  .center-table {
+    scale: 0.8;
+  }
+
+  /* Mobile fanning hand cards downscaling */
+  .hand-card-wrapper {
+    width: 78px;
+    height: 120px;
+    margin-left: calc(var(--ml, -52px) * 0.75);
+    transform: rotate(var(--rot)) translateY(calc(var(--ty, 0px) * 0.75));
+    transform-origin: bottom center;
+  }
+
+  /* Mobile resting playable cards pop up 12px along fanning vector */
+  .hand-card-wrapper.playable {
+    transform: rotate(var(--rot)) translateY(calc(calc(var(--ty, 0px) * 0.75) - 12px));
+  }
+
+  .hand-card-wrapper.playable:hover {
+    transform: translateY(-28px) scale(1.16) rotate(0deg) !important;
+    z-index: 99 !important;
+  }
+
+  .hand-card-wrapper.keyboard-focused {
+    transform: translateY(-24px) scale(1.14) rotate(0deg) !important;
+  }
+
+  .hand-card-wrapper.playable .card-sprite {
+    box-shadow:
+      0 4px 10px rgba(0, 0, 0, 0.35),
+      0 0 8px hsla(42, 85%, 65%, 0.35),
+      inset 0 0 0 1.5px var(--gold);
+    animation: pulsePlayableCardMobile 2s infinite ease-in-out;
+  }
+
+  @keyframes pulsePlayableCardMobile {
+    0%,
+    100% {
+      box-shadow:
+        0 4px 10px rgba(0, 0, 0, 0.35),
+        0 0 6px hsla(42, 85%, 65%, 0.3),
+        inset 0 0 0 1.5px hsla(42, 85%, 65%, 0.7);
+    }
+    50% {
+      box-shadow:
+        0 6px 14px rgba(0, 0, 0, 0.35),
+        0 0 12px hsla(42, 85%, 65%, 0.6),
+        inset 0 0 0 1.5px hsla(42, 85%, 65%, 0.95);
+    }
+  }
+}
+
+/* ==========================================================================
+   WILD TABLE — Premium UX Enhancements Styles
+   ========================================================================== */
+
+/* ── Premium Avatar Styling ────────────────────────────────────────────── */
+.avatar-circle {
+  position: relative;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.15), transparent), var(--bg-dark);
+  border: 2px solid var(--avatar-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  overflow: visible;
+  user-select: none;
+}
+
+.avatar-glow {
+  box-shadow: 0 0 16px var(--avatar-primary);
+}
+
+.avatar-background {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--avatar-primary) 0%, var(--avatar-secondary) 100%);
+  opacity: 0.15;
+  transition: opacity 0.3s ease;
+}
+
+.avatar-emoji {
+  z-index: 2;
+  transition: transform 0.3s ease;
+}
+
+.avatar-circle:hover .avatar-emoji {
+  transform: scale(1.18) rotate(5deg);
+}
+
+.avatar-ring {
+  position: absolute;
+  inset: -4px;
+  width: calc(100% + 8px);
+  height: calc(100% + 8px);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.avatar-ring circle {
+  transition: stroke-dashoffset 0.1s linear;
+}
+
+/* ── Interactive Avatar Selector in Lobby ──────────────────────────────── */
+.avatar-creator-panel {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 14px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.avatar-grid-picker {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 8px;
+}
+
+.avatar-picker-btn {
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.04);
+  border: 2px solid transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+}
+
+.avatar-picker-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateY(-2px);
+}
+
+.avatar-picker-btn.active {
+  background: var(--gold-glow);
+  border-color: var(--gold);
+}
+
+.theme-grid-picker {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+}
+
+.theme-picker-btn {
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: var(--text-primary);
+  font-weight: 700;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+.theme-picker-btn.active {
+  border-color: var(--theme-color-highlight);
+  box-shadow: 0 0 12px var(--theme-color-highlight);
+}
+
+/* ── Audio Settings & Controls Panel ───────────────────────────────────── */
+.audio-controls-panel {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+}
+
+.audio-btn-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 14px;
+}
+
+.audio-btn-toggle:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.volume-slider-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.volume-slider-container span {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.volume-slider {
+  flex: 1;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  -webkit-appearance: none;
+  appearance: none;
+  outline: none;
+}
+
+.volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--gold);
+  cursor: pointer;
+  box-shadow: 0 0 8px var(--gold-glow);
+}
+
+/* ── Latency Ping Visualizer ───────────────────────────────────────────── */
+.ping-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.ping-indicator.excellent {
+  color: #4da66d;
+}
+.ping-indicator.good {
+  color: #edc84e;
+}
+.ping-indicator.poor {
+  color: #d45444;
+}
+
+.ping-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 12px;
+}
+
+.ping-bar {
+  width: 3px;
+  border-radius: 1px;
+  background: rgba(255, 255, 255, 0.15);
+  transition:
+    height 0.3s ease,
+    background-color 0.3s ease;
+}
+
+.ping-bar:nth-child(1) {
+  height: 4px;
+}
+.ping-bar:nth-child(2) {
+  height: 7px;
+}
+.ping-bar:nth-child(3) {
+  height: 10px;
+}
+
+.ping-indicator.excellent .ping-bar {
+  background-color: #4da66d;
+}
+.ping-indicator.good .ping-bar:nth-child(-n + 2) {
+  background-color: #edc84e;
+}
+.ping-indicator.poor .ping-bar:nth-child(1) {
+  background-color: #d45444;
+}
+
+/* ── Dynamic Direction Ring and Particle Engine ────────────────────────── */
+.direction-ring-arrows {
+  position: absolute;
+  inset: 0;
+  animation: spinArrows 15s linear infinite;
+}
+
+@keyframes spinArrows {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.particle-canvas {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+.particle {
+  position: absolute;
+  font-size: 20px;
+  pointer-events: none;
+  animation: particleFly 1.2s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
+}
+
+@keyframes particleFly {
+  0% {
+    transform: translate(0, 0) scale(0.5) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--tx), var(--ty)) scale(1.2) rotate(var(--tr));
+    opacity: 0;
+  }
+}
+
+/* ── Cinematic Card Alerts ────────────────────────────────────────────── */
+.card-alert-overlay {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  z-index: 1001;
+  pointer-events: none;
+}
+
+.card-alert-banner {
+  background: linear-gradient(90deg, transparent, rgba(13, 11, 18, 0.92) 20% 80%, transparent);
+  border-top: 1px solid var(--gold);
+  border-bottom: 1px solid var(--gold);
+  width: 100vw;
+  padding: 30px 0;
+  text-align: center;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+  animation: slideAlert 1.6s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+  opacity: 0;
+}
+
+.card-alert-banner h2 {
+  font-family: var(--font-display);
+  font-size: clamp(32px, 6vw, 64px);
+  font-weight: 900;
+  color: var(--gold);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-shadow: 0 0 20px var(--gold-glow);
+}
+
+@keyframes slideAlert {
+  0% {
+    transform: scaleY(0);
+    opacity: 0;
+  }
+  15% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+  85% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scaleY(0);
+    opacity: 0;
+  }
+}
+
+/* ── Hand Sorting and Scroll Indicators ────────────────────────────────── */
+.sort-row {
+  display: flex;
+  gap: 8px;
+}
+
+.sort-btn {
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.sort-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+  border-color: var(--gold);
+}
+
+.sort-btn.active {
+  background: rgba(240, 198, 111, 0.12);
+  border-color: var(--gold);
+  color: var(--gold);
+  box-shadow: inset 0 0 8px rgba(240, 198, 111, 0.08);
+}
+
+.scroll-indicator-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(13, 11, 18, 0.85);
+  border: 1px solid var(--glass-border);
+  color: var(--gold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+}
+
+.scroll-indicator-btn:hover {
+  background: var(--gold);
+  color: var(--bg-darkest);
+}
+
+.scroll-indicator-btn.left {
+  left: 8px;
+}
+.scroll-indicator-btn.right {
+  right: 8px;
+}
+
+/* ── Sliding Side Drawer overlay ────────────────────────────────────────── */
+.drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 2000;
+  animation: fadeIn 0.25s ease;
+}
+
+.drawer-content {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(440px, 90vw);
+  background: var(--bg-darker);
+  border-left: 1px solid var(--glass-border);
+  box-shadow: -10px 0 40px rgba(0, 0, 0, 0.5);
+  padding: 32px;
+  overflow-y: auto;
+  z-index: 2001;
+  animation: slideInRight 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.drawer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 16px;
+  margin-bottom: 20px;
+}
+
+.drawer-header h2 {
+  font-family: var(--font-display);
+  font-size: 22px;
+  color: var(--gold);
+}
+
+/* ── Stats Dashboard in Lobby ─────────────────────────────────────────── */
+.stats-dashboard {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  padding: 20px;
+}
+
+.stats-dashboard h3 {
+  font-family: var(--font-display);
+  font-size: 14px;
+  color: var(--gold);
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.stat-badge {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 10px;
+  padding: 12px 8px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-badge span {
+  font-size: 9px;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.stat-badge strong {
+  font-size: 18px;
+  color: var(--gold);
+}
+
+/* ── Winner Podium Overlay Screen ───────────────────────────────────────── */
+.winner-podium-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(6, 4, 8, 0.95);
+  backdrop-filter: blur(12px);
+  z-index: 1050;
+  display: grid;
+  place-items: center;
+  animation: fadeIn 0.4s ease;
+}
+
+.winner-podium-box {
+  width: min(540px, 92vw);
+  background: var(--bg-darker);
+  border: 1px solid var(--gold);
+  box-shadow: 0 0 40px var(--gold-glow);
+  border-radius: 24px;
+  padding: 40px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+}
+
+.podium-pedestal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 10px 0;
+}
+
+.podium-crown {
+  font-size: 40px;
+  animation: bounceCrown 2s ease-in-out infinite alternate;
+}
+
+@keyframes bounceCrown {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(-8px);
+  }
+}
+
+.rematch-voters-list {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.rematch-voter-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+}
+
+.rematch-voter-row span {
+  color: var(--text-muted);
+}
+
+.rematch-voter-row strong {
+  color: var(--gold);
+}
+
+/* ==========================================================================
+   WILD TABLE — Dealer Guidance & Tooltip Styles (Round 7)
+   ========================================================================== */
+
+.hand-guidance-text {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  transition: all 0.25s ease;
+  letter-spacing: -0.01em;
+}
+
+.hand-guidance-text.error {
+  color: var(--card-red) !important;
+  text-shadow: 0 0 8px rgba(212, 84, 68, 0.25);
+  animation: pulseErrorText 1.5s infinite;
+}
+
+.hand-guidance-text.warning {
+  color: var(--gold) !important;
+  text-shadow: 0 0 8px rgba(240, 198, 111, 0.25);
+}
+
+@keyframes pulseErrorText {
+  0% {
+    opacity: 0.85;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* Pulsing draw deck stack when player has no valid cards */
+.deck-stack.guidance-pulse {
+  animation: pulseDrawGlow 1.5s ease-in-out infinite alternate !important;
+  position: relative;
+}
+
+@keyframes pulseDrawGlow {
+  0% {
+    box-shadow:
+      0 0 10px rgba(240, 198, 111, 0.2),
+      0 10px 24px rgba(0, 0, 0, 0.35),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    box-shadow:
+      0 0 25px rgba(240, 198, 111, 0.65),
+      0 15px 35px rgba(240, 198, 111, 0.15),
+      inset 0 0 0 2px var(--gold);
+    transform: translateY(-4px) scale(1.04);
+  }
+}
+
+/* Bouncing guidance tooltip overlay */
+.draw-guidance-tooltip {
+  position: absolute;
+  top: -42px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, var(--gold), hsl(35, 90%, 50%));
+  color: var(--bg-darkest);
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 5px 12px;
+  border-radius: 6px;
+  box-shadow:
+    0 10px 25px rgba(240, 198, 111, 0.35),
+    0 4px 10px rgba(0, 0, 0, 0.3);
+  white-space: nowrap;
+  animation: bounceTooltip 1.2s ease-in-out infinite alternate;
+  pointer-events: none;
+  z-index: 99;
+}
+
+.draw-guidance-tooltip::after {
+  content: "";
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%) rotate(45deg);
+  width: 8px;
+  height: 8px;
+  background: hsl(35, 90%, 50%);
+  box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+@keyframes bounceTooltip {
+  0% {
+    transform: translate(-50%, 0);
+  }
+  100% {
+    transform: translate(-50%, -6px);
+  }
+}
+
+/* ── Colorblind Accessibility Overlays ─────────────────────────────────── */
+.card-colorblind-overlay {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(6, 4, 8, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(4px);
+  border-radius: 5px;
+  padding: 1px 4px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-family: var(--font-display);
+  z-index: 20;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+  line-height: 1;
+}
+
+.card-colorblind-overlay .cb-symbol {
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.card-colorblind-overlay .cb-label {
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+}
+
+.card-colorblind-overlay.red,
+.card-colorblind-overlay.RED {
+  color: var(--card-red);
+  border-color: rgba(212, 84, 68, 0.4);
+}
+.card-colorblind-overlay.blue,
+.card-colorblind-overlay.BLUE {
+  color: var(--card-blue);
+  border-color: rgba(55, 140, 198, 0.4);
+}
+.card-colorblind-overlay.green,
+.card-colorblind-overlay.GREEN {
+  color: var(--card-green);
+  border-color: rgba(77, 166, 109, 0.4);
+}
+.card-colorblind-overlay.yellow,
+.card-colorblind-overlay.YELLOW {
+  color: var(--card-yellow);
+  border-color: rgba(237, 200, 78, 0.4);
+}
+.card-colorblind-overlay.wild,
+.card-colorblind-overlay.WILD {
+  color: var(--gold);
+  border-color: rgba(240, 198, 111, 0.4);
+}
+
+.ghost-btn.active-acc {
+  background: rgba(240, 198, 111, 0.15) !important;
+  color: var(--gold) !important;
+  border-color: var(--gold) !important;
+  box-shadow: 0 0 10px rgba(240, 198, 111, 0.15);
+}
+
+/* ── Ambient Stardust Background Particles ───────────────────────────────── */
+.ambient-stardust-container {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 1; /* Floats behind slots/discard (z: 5) */
+  opacity: 0.75;
+}
+
+.stardust-particle {
+  position: absolute;
+  bottom: -15px;
+  border-radius: 50%;
+  animation: floatUpStardust linear infinite;
+  will-change: transform, opacity;
+}
+
+@keyframes floatUpStardust {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.85;
+  }
+  85% {
+    opacity: 0.85;
+  }
+  100% {
+    transform: translateY(-460px) scale(0.6);
+    opacity: 0;
+  }
+}
+
+/* ── Enriched 3D Card Flip & Deal Animations ────────────────────────────── */
+.hand-card-wrapper.card-deal-in {
+  animation: cardDealIn 0.58s cubic-bezier(0.175, 0.885, 0.32, 1.15) both;
+}
+
+@keyframes cardDealIn {
+  0% {
+    transform: translate3d(var(--ml, -52px), -150px, 0) rotate(100deg) rotateY(180deg);
+    opacity: 0;
+  }
+  100% {
+    transform: rotate(var(--rot)) translateY(var(--ty)) rotateY(0deg);
+    opacity: 1;
+  }
+}
+/* ── Cinematic Splash Alert Customizations ─────────────────────────────── */
+.card-alert-banner.warning {
+  border-top-color: var(--card-red) !important;
+  border-bottom-color: var(--card-red) !important;
+  box-shadow: 0 10px 50px rgba(212, 84, 68, 0.25);
+}
+.card-alert-banner.warning h2 {
+  color: var(--card-red) !important;
+  text-shadow: 0 0 25px rgba(212, 84, 68, 0.7) !important;
+}
+
+.card-alert-banner.success {
+  border-top-color: var(--card-green) !important;
+  border-bottom-color: var(--card-green) !important;
+  box-shadow: 0 10px 50px rgba(77, 166, 109, 0.25);
+}
+.card-alert-banner.success h2 {
+  color: var(--card-green) !important;
+  text-shadow: 0 0 25px rgba(77, 166, 109, 0.7) !important;
+}
+
+/* ==========================================================================
+   WILD TABLE — Deep UX Polish Round (Recursive Improvements)
+   ========================================================================== */
+
+/* ── Connecting / Joining Spinner ────────────────────────────────────────── */
+.connecting-spinner {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.connecting-spinner .spinner-ring {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2.5px solid rgba(240, 198, 111, 0.15);
+  border-top-color: var(--gold);
+  animation: spinnerRotate 0.8s linear infinite;
+}
+
+@keyframes spinnerRotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── Player Pill Horizontal Layout Fix ───────────────────────────────────── */
+.player-pill {
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 12px !important;
+}
+
+.avatar-wrapper-pill {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.turn-timer-svg {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.turn-timer-svg.critical {
+  animation: timerPulse 0.6s ease-in-out infinite alternate;
+}
+
+@keyframes timerPulse {
+  0% {
+    filter: drop-shadow(0 0 2px transparent);
+  }
+  100% {
+    filter: drop-shadow(0 0 8px rgba(212, 84, 68, 0.6));
+  }
+}
+
+/* ── Chat Auto-scroll Indicator ──────────────────────────────────────────── */
+.chat-log {
+  scroll-behavior: smooth;
+}
+
+.chat-panel form button[type="submit"] {
+  min-width: 60px;
+  transition: all 0.2s ease;
+}
+
+.chat-panel form button[type="submit"]:active {
+  transform: scale(0.96);
+}
+
+/* ── Mode Transition Fade ────────────────────────────────────────────────── */
+.lobby-shell,
+.game-shell {
+  animation: modeTransitionIn 0.4s cubic-bezier(0.25, 0.8, 0.25, 1) both;
+}
+
+@keyframes modeTransitionIn {
+  from {
+    opacity: 0;
+    transform: scale(0.98) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* ── Enhanced Lobby Brand Pulse Animation ──────────────────────────────── */
+.brand-copy h1 {
+  position: relative;
+}
+
+.brand-copy h1::after {
+  content: "";
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  width: 80px;
+  height: 3px;
+  background: linear-gradient(90deg, var(--gold), transparent);
+  border-radius: 2px;
+}
+
+/* ── Primary Button Loading State ───────────────────────────────────────── */
+.primary-btn:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.primary-btn.loading {
+  position: relative;
+  color: transparent;
+}
+
+.primary-btn.loading::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 22px;
+  height: 22px;
+  margin: -11px 0 0 -11px;
+  border-radius: 50%;
+  border: 3px solid rgba(0, 0, 0, 0.15);
+  border-top-color: var(--bg-darkest);
+  animation: spinnerRotate 0.7s linear infinite;
+}
+
+/* ── Enhanced Topbar Responsive ─────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .topbar > div:last-child {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .audio-controls-panel {
+    flex-wrap: wrap;
+    justify-content: center;
+    padding: 6px 10px;
+  }
+
+  .ghost-btn {
+    height: 34px;
+    padding: 0 10px;
+    font-size: 11px;
+  }
+}
+
+/* ── Winner Podium Confetti Background ─────────────────────────────────── */
+.winner-podium-overlay::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 20% 30%, hsla(42, 85%, 65%, 0.08), transparent 40%),
+    radial-gradient(circle at 80% 70%, hsla(280, 75%, 55%, 0.08), transparent 40%),
+    radial-gradient(circle at 50% 10%, hsla(358, 68%, 52%, 0.06), transparent 35%);
+  pointer-events: none;
+  animation: podiumAmbient 6s ease-in-out infinite alternate;
+}
+
+@keyframes podiumAmbient {
+  0% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* ── Refined Roster Row Active Highlight ─────────────────────────────────── */
+.roster-row:has(+ .roster-row) {
+  border-bottom-color: transparent;
+}
+
+/* ── Tooltip for Deck Count ──────────────────────────────────────────────── */
+.deck-stack:hover .deck-count-overlay span {
+  background: rgba(0, 0, 0, 0.85);
+  box-shadow:
+    0 10px 25px rgba(0, 0, 0, 0.6),
+    0 0 12px var(--gold-glow);
+  border-color: var(--gold);
+  transform: scale(1.08);
+  transition: all 0.2s ease;
+}
+
+/* ── Enhanced Wild Color Modal ────────────────────────────────────────── */
+.color-modal-box {
+  animation: modalPopIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+}
+
+@keyframes modalPopIn {
+  from {
+    opacity: 0;
+    transform: scale(0.85) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* ── Improved Keyboard Focus Visibility ──────────────────────────────── */
+*:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+input:focus-visible,
+.field input:focus-visible {
+  outline: none;
+}
+
+/* ── Avatar Creator Panel Label ─────────────────────────────────────────── */
+.avatar-creator-panel > span {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* ── Accessibility Toggle Button ──────────────────────────────────────── */
+.accessibility-toggle-btn {
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 800;
+  font-family: var(--font-display);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.accessibility-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+}
+
+.accessibility-toggle-btn.active {
+  background: rgba(240, 198, 111, 0.15);
+  border-color: var(--gold);
+  color: var(--gold);
+  box-shadow: 0 0 10px rgba(240, 198, 111, 0.1);
+}
+</style></head>
+  <body>
+    <div id="root"><main class="lobby-shell"><section class="brand-panel" aria-label="Wild Table preview"><div class="table-sculpture"><div class="table-rail"></div><div class="table-felt-mini"></div><div class="lobby-hero-hand"><div class="lobby-hero-card card-sprite" style="--i: 0; --col: 5; --row: 0;"></div><div class="lobby-hero-card card-sprite" style="--i: 1; --col: 8; --row: 1;"></div><div class="lobby-hero-card card-sprite" style="--i: 2; --col: 4; --row: 4;"></div><div class="lobby-hero-card card-sprite" style="--i: 3; --col: 1; --row: 3;"></div><div class="lobby-hero-card card-sprite" style="--i: 4; --col: 2; --row: 5;"></div></div></div><div class="brand-copy" style="z-index: 10;"><h1>Wild Table</h1><p>An elegant, high-fidelity real-time card table. Seamless turns, live spectators, and smooth glassmorphic interfaces.</p></div></section><section class="join-panel" aria-label="Join game"><div class="panel-header"><span>Multiplayer Table</span><strong>Ready</strong></div><label class="field"><span>Player nickname</span><input placeholder="Enter your name" maxlength="16" value=""></label><div class="avatar-creator-panel"><span>Customize Avatar</span><div style="display: flex; gap: 16px; align-items: center;"><div class="avatar-circle avatar-glow" style="width: 64px; height: 64px; --avatar-primary: hsl(358, 75%, 55%); --avatar-secondary: hsl(340, 75%, 45%);"><div class="avatar-background"></div><span class="avatar-emoji" style="font-size: 32px;">🐯</span><svg class="avatar-ring" viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="none" stroke="url(#grad-rose)" stroke-width="4"></circle><defs><linearGradient id="grad-rose" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="hsl(358, 75%, 55%)"></stop><stop offset="100%" stop-color="hsl(340, 75%, 45%)"></stop></linearGradient></defs></svg></div><div style="display: flex; flex-direction: column; gap: 8px; flex: 1 1 0%;"><div class="avatar-grid-picker"><button class="avatar-picker-btn active" type="button" title="Neon Tiger">🐯</button><button class="avatar-picker-btn " type="button" title="Cosmic Dragon">🐲</button><button class="avatar-picker-btn " type="button" title="Golden Phoenix">🦅</button><button class="avatar-picker-btn " type="button" title="Shadow Panda">🐼</button><button class="avatar-picker-btn " type="button" title="Alpha Wolf">🐺</button><button class="avatar-picker-btn " type="button" title="Cyber Owl">🦉</button><button class="avatar-picker-btn " type="button" title="Spectral Fox">🦊</button><button class="avatar-picker-btn " type="button" title="Deep Shark">🦈</button></div><div class="theme-grid-picker"><button class="theme-picker-btn active" type="button" style="--theme-color-highlight: hsl(358, 75%, 55%);">Rose</button><button class="theme-picker-btn " type="button" style="--theme-color-highlight: hsl(208, 85%, 52%);">Sapphire</button><button class="theme-picker-btn " type="button" style="--theme-color-highlight: hsl(148, 65%, 45%);">Aurora</button><button class="theme-picker-btn " type="button" style="--theme-color-highlight: hsl(46, 95%, 55%);">Sol</button><button class="theme-picker-btn " type="button" style="--theme-color-highlight: hsl(280, 75%, 55%);">Nebula</button></div></div></div></div><div class="field"><span>Match options</span><div class="control-row"><button class="chip" type="button">Private: Off</button><button class="chip" type="button">easy</button><button class="chip active" type="button">medium</button><button class="chip" type="button">hard</button></div></div><button class="primary-btn " disabled="" type="button">Create Table</button><div class="join-grid"><label class="field compact"><span>Invite code</span><input placeholder="Room Code" value=""></label><button class="secondary-btn" disabled="" type="button">Enter</button><button class="secondary-btn" disabled="" type="button">Watch</button></div><div style="margin-top: 8px;"></div><div style="display: flex; justify-content: center; align-items: center; gap: 16px; margin-top: 6px; flex-wrap: wrap;"><div class="audio-controls-panel"><button class="audio-btn-toggle" type="button" aria-label="Toggle Mute">🔊</button><div class="volume-slider-container"><input min="0" max="1" step="0.05" class="volume-slider" aria-label="Volume level" type="range" value="0.5"><span>50%</span></div><button class="ghost-btn" type="button" style="height: 32px; font-size: 11px; padding: 0px 8px;">Test Sound</button></div><button class="accessibility-toggle-btn " type="button">♿ Colorblind Mode: Off</button></div></section></main></div>
+  </body>
+</html>

@@ -1,0 +1,363 @@
+/**
+ * Standard Card Game Styling Template
+ * Built on top of the Wild Table Design System.
+ * Intended for classic card games (Poker, Solitaire, Blackjack, etc.).
+ */
+
+@import url('./tokens.css');
+
+/* Core Card Game Felt Board */
+.game-board {
+  width: 100%;
+  height: 100vh;
+  min-height: 600px;
+  background: radial-gradient(circle at center, var(--felt-green) 0%, var(--felt-dark) 100%);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px;
+  box-sizing: border-box;
+  overflow: hidden;
+  position: relative;
+  font-family: var(--font-sans);
+  color: var(--text-primary);
+}
+
+/* Wood Railing / Outer Border styling */
+.game-board::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border: 16px solid var(--wood-rail);
+  pointer-events: none;
+  box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.8);
+  border-radius: 8px;
+}
+
+/* Play Area Felt Center Grid */
+.play-area {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 32px;
+  width: 100%;
+  max-width: 900px;
+}
+
+/* Standard Premium Card Component */
+.card-component {
+  width: 120px;
+  height: 168px;
+  border-radius: 12px;
+  position: relative;
+  user-select: none;
+  cursor: pointer;
+  transition: transform 0.25s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.25s ease;
+  transform-style: preserve-3d;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+}
+
+/* Card Face & Back (3D Flip Setup) */
+.card-component-inner {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  transform-style: preserve-3d;
+  transition: transform 0.6s ease;
+}
+
+/* Card Front Face */
+.card-face-front {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  background: hsl(0, 0%, 100%);
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  box-sizing: border-box;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  color: hsl(220, 15%, 15%);
+}
+
+/* Card Back Face */
+.card-face-back {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  transform: rotateY(180deg);
+  border-radius: 12px;
+  border: 1px solid var(--glass-border);
+  box-sizing: border-box;
+  
+  /* Layered Luxury Background: Dot Grid Mesh + Radial dark felt gradient */
+  background: 
+    radial-gradient(rgba(240, 198, 111, 0.1) 1.5px, transparent 1.5px),
+    radial-gradient(rgba(240, 198, 111, 0.1) 1.5px, transparent 1.5px),
+    radial-gradient(circle at center, var(--bg-dark) 0%, var(--bg-darkest) 100%);
+  background-size: 16px 16px, 16px 16px, auto;
+  background-position: 0 0, 8px 8px, 0 0;
+  
+  box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.95);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+}
+
+/* Luxury gold border inset */
+.card-face-back::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  border: 1.5px solid var(--gold);
+  border-radius: 8px;
+  opacity: 0.75;
+  box-shadow: 0 0 10px rgba(240, 198, 111, 0.2);
+  pointer-events: none;
+}
+
+/* Central Royal Medallion Emblem */
+.card-face-back::after {
+  content: '♦'; /* Stylized playing card shape or emblem */
+  color: var(--gold);
+  font-family: var(--font-sans);
+  font-weight: 900;
+  font-size: 26px;
+  text-shadow: 0 0 8px rgba(240, 198, 111, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--bg-darker);
+  border: 1.5px solid var(--gold);
+  box-shadow: 
+    0 4px 10px rgba(0, 0, 0, 0.6), 
+    inset 0 0 8px rgba(0, 0, 0, 0.8);
+  transform: rotate(45deg); /* Rotates the diamond character and circle slightly for an intricate dynamic compass look! */
+}
+
+/* Suit/Rank Typography & Layout */
+.card-corner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 20px;
+  line-height: 1.1;
+}
+
+.card-suit-center {
+  font-size: 40px;
+  display: flex;
+  align-self: center;
+  justify-self: center;
+}
+
+/* Red / Black Suits Styling */
+.card-component.suit-hearts,
+.card-component.suit-diamonds {
+  color: hsl(354, 85%, 54%);
+}
+
+.card-component.suit-spades,
+.card-component.suit-clubs {
+  color: hsl(220, 15%, 15%);
+}
+
+/* Card Back State Toggle */
+.card-component.is-face-down .card-component-inner {
+  transform: rotateY(180deg);
+}
+
+/* Luxury Deck Container & Stack from Scratch */
+.luxury-deck-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.luxury-deck-stack {
+  width: 120px;
+  height: 168px;
+  position: relative;
+  cursor: pointer;
+}
+
+/* Stack Layers Underneath */
+.luxury-deck-layer {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+  border: 1.5px solid var(--gold);
+  background: radial-gradient(circle at center, var(--bg-darker) 0%, var(--bg-darkest) 100%);
+  box-shadow: 
+    inset 0 0 15px rgba(0, 0, 0, 0.9),
+    0 4px 10px rgba(0, 0, 0, 0.5);
+  box-sizing: border-box;
+  filter: brightness(0.65);
+  transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), filter 0.3s ease;
+}
+
+/* Staggered offsets for cards in the deck stack */
+.luxury-deck-layer.layer-3 {
+  transform: translate(6px, 6px);
+  z-index: 1;
+}
+.luxury-deck-layer.layer-2 {
+  transform: translate(4px, 4px);
+  z-index: 2;
+}
+.luxury-deck-layer.layer-1 {
+  transform: translate(2px, 2px);
+  z-index: 3;
+}
+
+/* Top Card of the Deck */
+.luxury-deck-top-card {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+  border: 1px solid var(--glass-border);
+  box-sizing: border-box;
+  z-index: 4;
+  
+  /* Luxury radial gradient with luxury gold grid */
+  background: 
+    radial-gradient(rgba(240, 198, 111, 0.08) 1.5px, transparent 1.5px),
+    radial-gradient(rgba(240, 198, 111, 0.08) 1.5px, transparent 1.5px),
+    radial-gradient(circle at center, var(--bg-dark) 0%, var(--bg-darkest) 100%);
+  background-size: 16px 16px, 16px 16px, auto;
+  background-position: 0 0, 8px 8px, 0 0;
+  
+  box-shadow: 
+    inset 0 0 0 8px var(--bg-dark),
+    inset 0 0 0 9.5px var(--gold),
+    inset 0 0 25px rgba(0, 0, 0, 0.95),
+    0 4px 12px rgba(0, 0, 0, 0.6);
+  
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.3s ease;
+}
+
+/* Central Gold Medallion Emblem */
+.luxury-card-back-emblem {
+  color: var(--gold);
+  font-family: var(--font-sans);
+  font-weight: 900;
+  font-size: 26px;
+  text-shadow: 0 0 8px rgba(240, 198, 111, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--bg-darker);
+  border: 1.5px solid var(--gold);
+  box-shadow: 
+    0 4px 10px rgba(0, 0, 0, 0.6), 
+    inset 0 0 8px rgba(0, 0, 0, 0.8);
+  transform: rotate(45deg);
+}
+
+/* INTERACTION: Staggered Deck Hover Fan-Out Effect */
+.luxury-deck-stack:hover .luxury-deck-top-card {
+  transform: translateY(-8px) scale(1.02);
+  box-shadow: 
+    inset 0 0 0 8px var(--bg-dark),
+    inset 0 0 0 9.5px var(--gold),
+    inset 0 0 25px rgba(0, 0, 0, 0.95),
+    0 12px 20px rgba(0, 0, 0, 0.7),
+    var(--gold-glow-shadow);
+}
+
+.luxury-deck-stack:hover .luxury-deck-layer.layer-1 {
+  transform: translate(6px, 2px);
+  filter: brightness(0.75);
+}
+
+.luxury-deck-stack:hover .luxury-deck-layer.layer-2 {
+  transform: translate(12px, 4px);
+  filter: brightness(0.85);
+}
+
+.luxury-deck-stack:hover .luxury-deck-layer.layer-3 {
+  transform: translate(18px, 6px);
+  filter: brightness(0.95);
+}
+
+/* Overlapping Player Hand Dock */
+.player-hand-container {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  padding: 16px 32px;
+  border-radius: 20px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-glow);
+  max-width: 80%;
+  gap: -30px; /* Standard negative overlap margin */
+}
+
+/* Dynamic Fan-out / Hover interaction inside Hand */
+.player-hand-container .card-component {
+  margin-left: -30px;
+}
+
+.player-hand-container .card-component:first-child {
+  margin-left: 0;
+}
+
+.player-hand-container .card-component:hover {
+  transform: translateY(-25px) scale(1.05) rotate(1deg);
+  box-shadow: 0 15px 25px rgba(0, 0, 0, 0.6), var(--gold-glow-shadow);
+  z-index: 100 !important;
+}
+
+/* Button & Interaction Control Panels */
+.action-button {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  font-weight: 600;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.action-button:hover:not(:disabled) {
+  background: var(--gold);
+  color: var(--bg-darkest);
+  box-shadow: var(--gold-glow-shadow);
+  border-color: var(--gold);
+}
+
+.action-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

@@ -1,0 +1,44 @@
+{
+  "colors": {
+    "background": {
+      "dark": "hsl(260, 15%, 12%)",
+      "darker": "hsl(260, 18%, 8%)",
+      "darkest": "hsl(260, 20%, 5%)"
+    },
+    "text": {
+      "primary": "hsl(42, 60%, 94%)",
+      "muted": "hsl(260, 12%, 70%)",
+      "faint": "hsl(260, 10%, 45%)"
+    },
+    "card": {
+      "blue": "hsl(208, 75%, 48%)",
+      "green": "hsl(148, 55%, 42%)",
+      "red": "hsl(358, 68%, 52%)",
+      "yellow": "hsl(46, 88%, 50%)"
+    },
+    "felt": {
+      "dark": "hsl(162, 70%, 7%)",
+      "green": "hsl(158, 60%, 14%)"
+    },
+    "accent": {
+      "gold": "hsl(42, 85%, 65%)",
+      "wood": "hsl(18, 48%, 15%)"
+    }
+  },
+  "typography": {
+    "fontFamily": {
+      "sans": "\"Inter\", system-ui, -apple-system, sans-serif",
+      "display": "\"Outfit\", \"Inter\", system-ui, -apple-system, sans-serif"
+    }
+  },
+  "glass": {
+    "background": "rgba(16, 14, 22, 0.65)",
+    "solid": "hsl(260, 15%, 10%)",
+    "border": "rgba(255, 255, 255, 0.08)",
+    "borderFocus": "rgba(240, 198, 111, 0.35)",
+    "glow": "rgba(0, 0, 0, 0.55)"
+  },
+  "effects": {
+    "goldGlow": "hsla(42, 85%, 65%, 0.25)"
+  }
+}

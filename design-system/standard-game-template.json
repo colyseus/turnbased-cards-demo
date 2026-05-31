@@ -1,0 +1,22 @@
+{
+  "card_dimensions": {
+    "width": { "value": "120px", "type": "dimension", "description": "Standard width of a playing card" },
+    "height": { "value": "168px", "type": "dimension", "description": "Standard height of a playing card (1.4 aspect ratio)" },
+    "radius": { "value": "12px", "type": "dimension", "description": "Corner radius for smooth card borders" }
+  },
+  "colors": {
+    "red_suit": { "value": "hsl(354, 85%, 54%)", "type": "color", "description": "Color for Hearts and Diamonds suits" },
+    "black_suit": { "value": "hsl(220, 15%, 15%)", "type": "color", "description": "Color for Spades and Clubs suits" },
+    "card_bg": { "value": "hsl(0, 0%, 100%)", "type": "color", "description": "Standard playing card face background" },
+    "card_back_glow": { "value": "rgba(240, 198, 111, 0.4)", "type": "color", "description": "Glow color for card backs" }
+  },
+  "layout": {
+    "overlap": { "value": "-40px", "type": "dimension", "description": "Negative margin for overlapping hand cards" },
+    "hover_shift": { "value": "-25px", "type": "dimension", "description": "Upward translation when hovering a hand card" },
+    "felt_pattern": { "value": "radial-gradient(circle at center, var(--felt-green) 0%, var(--felt-dark) 100%)", "type": "background", "description": "Radial gradient for premium 3D felt board representation" }
+  },
+  "deck_structure": {
+    "suits": ["hearts", "diamonds", "clubs", "spades"],
+    "ranks": ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"]
+  }
+}

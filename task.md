@@ -4,6 +4,13 @@
 - [x] **Visual Card Transparency Fix**
     - [x] Add `.hand-card-wrapper button:disabled` override in `index.css` to prevent `button:disabled` default opacity washing out cards
     - [x] Ensure non-playable cards are fully solid, only using `filter: brightness(0.65) saturate(0.85)` for inactive display
+    - [x] Rewrite `.luxury-deck-layer` styles to use bright backgrounds, soft gold shadows, and light brightness filters
+    - [x] Rewrite `.card-face-back` and `.luxury-deck-top-card` styles to remove dark inset shadows and implement white halos
+    - [x] Rewrite outline borders (`::before`) to remove black outlines and implement clean gold/white boundaries
+    - [x] Raise z-index and style crisp gold borders on center shield shapes (`::after`)
+    - [x] Reorder deck stack layers z-index hierarchy so the top card with emblem sits properly on top of underlying cards
+    - [x] Apply premium inner outline (`::before`) and central gold/color emblem (`::after`) to all `.luxury-deck-layer` elements so shuffling cards are rendered perfectly
+    - [x] Verify the stunning bright white-gold fanned deck, shuffle animations, and crisp geometric center shields using `agent-browser`
 - [x] **Mobile-first Tactile Selection & Play Flow**
     - [x] Remove `disabled={!playable}` from card buttons in `main.tsx` to enable clicking and event bubbling for any card
     - [x] Program tactile click-to-select: first click selects a card (`selectedCardIdx`), playing a soft card rustle sound (`sfx.playSwish()`)
@@ -43,15 +50,14 @@
     - [x] Add global `*:focus-visible` gold outline for keyboard navigation
     - [x] Add styled label for `.avatar-creator-panel > span`
 - [x] **Mobile Responsive Enhancements**
-    - [x] Add topbar button wrapping on 640px breakpoint
-    - [x] Add audio controls panel wrapping
-    - [x] Reduce ghost-btn size on mobile
-- [x] **Deck Hover Polish**
-    - [x] Enhanced deck count overlay scaling on hover
-- [x] **Brand Enhancement**
-    - [x] Add gold underline accent to `.brand-copy h1::after`
-
-## Verification & Validation
+    - [x] Implement Motion (Framer Motion) into Showcase Physics
+- [x] **Execute Advanced Performance Sweep**
+- [x] **Execute Phase 3 Micro-Performance Audit**
+- [x] **Execute Phase 4 Mathematical FLIP Engine**
+    - [x] Implement Purely Mathematical FLIP Hand Layout in `updateHandLayout`
+    - [x] Implement Purely Mathematical Sibling Reordering in `finalizeReorder`
+    - [x] Implement Purely Mathematical Drag Drop Spring-Back in `onPointerUp`
+- [x] **Run QA verification tests via Browser Automation**
 - [x] Run `npm run lint` in `web-react/` — 0 errors, 0 warnings ✅
 - [x] Run `npm test` in `server/` — 58/58 tests passing ✅
 - [x] Visual audit: Lobby, Table, Winner Podium all rendering correctly ✅

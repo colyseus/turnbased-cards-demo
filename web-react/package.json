@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "test:atlas": "node scripts/assert-card-atlas.mjs",
+    "test:unit": "node --test tests/*.test.ts",
+    "test:smoke": "../scripts/smoke-web-agent-browser.sh",
     "lint": "oxlint",
     "format": "oxfmt --write .",
     "preview": "vite preview",
@@ -15,18 +16,12 @@
   "dependencies": {
     "@colyseus/react": "^0.1.14",
     "@colyseus/sdk": "^0.17.0",
-    "@react-three/drei": "^9.122.0",
-    "@react-three/fiber": "^9.6.1",
-    "@react-three/postprocessing": "^3.0.4",
-    "postprocessing": "^6.39.1",
     "react": "^19.2.4",
-    "react-dom": "^19.2.4",
-    "three": "^0.183.2"
+    "react-dom": "^19.2.4"
   },
   "devDependencies": {
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "@types/three": "^0.183.1",
     "@vitejs/plugin-react": "^5.1.4",
     "babel-plugin-react-compiler": "^1.0.0",
     "oxfmt": "^0.51.0",

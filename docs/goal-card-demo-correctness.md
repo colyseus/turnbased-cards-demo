@@ -1,24 +1,28 @@
-# Card Demo Correctness Goal
+# Card Demo Correctness Baseline
 
-Make the turn-based cards demo fully correct, robust, and working across all currently present and intended gameplay/UI functionality.
+This file records the current correctness baseline for the maintained web demo.
 
-Use the pasted context as the functional baseline and audit the app end-to-end. Do not treat current behavior as correct unless verified.
+## Current Architecture
 
-Known issues:
-- `GameScene.tsx:134` logs `THREE.Clock: This module has been deprecated. Please use THREE.Timer instead.`
-- Face-down cards need proper backs. They currently render as the red 4 card.
-- Cards in my hand, and possibly the center pile, appear mirrored/flipped incorrectly.
+- The maintained frontend is `web-react/`, a React DOM/CSS client.
+- The authoritative multiplayer server is `server/`, powered by Colyseus.
+- Shared rule helpers live in `shared/` and `server/shared/`.
+- The old R3F/Three.js frontend issues are retired because the current frontend no longer uses Three.js.
 
-Expected outcome:
-- All present and intended game functionality works correctly.
-- Face-down cards consistently show card backs, never leaked face art.
-- Player hand and center pile cards render with correct orientation.
-- The Three.js deprecation warning is removed using the recommended API.
-- No relevant runtime console errors or warnings remain.
-- Add or update tests where practical to prevent regressions.
-- Verify with formatting, type checks/tests, and a browser smoke test.
+## Acceptance Gates
 
-Report:
-- Files changed.
-- Verification commands run.
-- Any remaining risks or follow-up items.
+- Server game-logic tests pass, including full-game autoplay completion and turn-limit exhaustion.
+- Room-level tests pass for bot turns and repeated game completion.
+- Invalid/malformed card inputs are rejected by shared play validation.
+- The React client builds and lints.
+- The browser smoke test starts the server and client, joins a live table on desktop and mobile, attempts a real play/draw action, captures screenshots, and fails on relevant browser console/page errors.
+
+## Verification Commands
+
+```bash
+cd server && npm test
+cd server && npm run build
+cd web-react && npm run lint
+cd web-react && npm run build
+./scripts/smoke-web-agent-browser.sh
+```
