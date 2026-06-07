@@ -100,13 +100,13 @@ export function TableRulesDrawer({
             <p style={{ fontSize: "13px", lineHeight: "1.6", color: "var(--text-muted)" }}>
               Match the top card of the discard pile by color or rank. When you have exactly one
               card left in hand, you MUST click the <strong>UNO!</strong> button (or press{" "}
-              <kbd>U</kbd>) before playing your second-to-last card. Failing to do so triggers a{" "}
+              <kbd>U</kbd>) before playing your next-to-last card. Failing to do so triggers a{" "}
               <strong>2-card draw penalty</strong>!
             </p>
             <p style={{ fontSize: "13px", lineHeight: "1.6", color: "var(--text-muted)", marginTop: "8px" }}>
-              <strong>Draw Stacking:</strong> Draw-2 and Wild Draw-4 cards accumulate pending
-              draw values. Draw stack triggers must be drawn unless stacked further with another
-              matching draw card.
+              <strong>Draw Penalties:</strong> Draw-2 and Wild Draw-4 cards force the next player
+              to draw the stated number of cards and lose their turn. Wild Draw-4 can be
+              challenged if the player had a matching color in hand.
             </p>
           </section>
 

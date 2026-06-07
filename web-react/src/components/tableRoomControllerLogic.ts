@@ -121,12 +121,10 @@ export function buildGuidanceState(params: {
   mustCallUno: boolean;
   isMyTurn: boolean;
   pendingDraw: number;
-  hasPlayableCards: boolean;
   selectedCard: CardSchema | null;
   isSelectedPlayable: boolean;
 }): GuidanceState {
-  const { mustCallUno, isMyTurn, pendingDraw, hasPlayableCards, selectedCard, isSelectedPlayable } =
-    params;
+  const { mustCallUno, isMyTurn, pendingDraw, selectedCard, isSelectedPlayable } = params;
 
   if (mustCallUno) {
     return {
@@ -141,15 +139,10 @@ export function buildGuidanceState(params: {
     };
   }
   if (pendingDraw > 0) {
-    return hasPlayableCards
-      ? {
-          guidanceText: `Draw penalty: +${pendingDraw}. Play a glowing draw card to stack it, or tap the deck to take ${pendingDraw} cards.`,
-          guidanceStatus: "warning",
-        }
-      : {
-          guidanceText: `Draw penalty: +${pendingDraw}. You cannot stack it. Tap the glowing deck to take ${pendingDraw} cards.`,
-          guidanceStatus: "warning",
-        };
+    return {
+      guidanceText: `Draw penalty: +${pendingDraw}. Tap the glowing deck to take ${pendingDraw} cards.`,
+      guidanceStatus: "warning",
+    };
   }
   if (selectedCard && !isSelectedPlayable) {
     return {
@@ -157,9 +150,9 @@ export function buildGuidanceState(params: {
       guidanceStatus: "error",
     };
   }
-  if (!hasPlayableCards) {
+  if (pendingDraw === 0) {
     return {
-      guidanceText: "No playable cards in hand! Click the glowing Deck Stack to Draw.",
+      guidanceText: "No playable cards in hand! Click the glowing draw pile to draw.",
       guidanceStatus: "warning",
     };
   }
@@ -173,9 +166,8 @@ export function buildActionCallout(params: {
   mustCallUno: boolean;
   isMyTurn: boolean;
   pendingDraw: number;
-  hasPlayableCards: boolean;
 }): ActionCallout {
-  const { mustCallUno, isMyTurn, pendingDraw, hasPlayableCards } = params;
+  const { mustCallUno, isMyTurn, pendingDraw } = params;
   if (mustCallUno) {
     return {
       kind: "uno",
@@ -186,10 +178,8 @@ export function buildActionCallout(params: {
   if (isMyTurn && pendingDraw > 0) {
     return {
       kind: "penalty",
-      title: `Take or stack +${pendingDraw}`,
-      text: hasPlayableCards
-        ? "Play a glowing draw card to pass the penalty on, or tap the deck to take the cards."
-        : "No stacking card available. Tap the glowing deck to take the cards.",
+      title: `Take +${pendingDraw}`,
+      text: "Tap the glowing deck to take the cards.",
     };
   }
   return null;

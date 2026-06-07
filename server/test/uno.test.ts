@@ -33,6 +33,7 @@ function stateWithHand(hand: UnoCard[], discardCard?: UnoCard, activeColor: UnoC
   state.activeColor = activeColor;
   state.currentPlayer = 0;
   state.pendingDraw = 0;
+  state.pendingWinnerSeat = null;
   state.winner = null;
   state.direction = 1;
   return state;
@@ -127,14 +128,14 @@ describe("canPlay", () => {
     expect(canPlay(red9, blue7, "blue")).toBe(false); // red 9 on blue 7 — no color match, no value match
   });
 
-  // ── Draw-2 Stacking ───────────────────────────────────────────────────────
+  // ── Draw Penalties ────────────────────────────────────────────────────────
 
-  it("draw2 cards can stack when pendingDraw > 0", () => {
+  it("draw2 cards cannot be played while a draw penalty is pending", () => {
     const redDraw2 = { type: "color" as const, color: "red" as UnoColor, value: "draw2", id: "rd2a" };
     const blueDraw2 = { type: "color" as const, color: "blue" as UnoColor, value: "draw2", id: "bd2" };
     const red5 = { type: "color" as const, color: "red" as UnoColor, value: "5", id: "r5a" };
     // pendingDraw = 2 (from previous draw2), top card is red draw2
-    expect(canPlay(blueDraw2, topRedDraw2, "red", 2)).toBe(true); // stacking draw2
+    expect(canPlay(blueDraw2, topRedDraw2, "red", 2)).toBe(false);
     expect(canPlay(red5, topRedDraw2, "red", 2)).toBe(false);    // non-draw2 can't play
   });
 
@@ -145,16 +146,16 @@ describe("canPlay", () => {
     expect(canPlay(greenSkip, topRedDraw2, "red", 2)).toBe(false);
   });
 
-  it("wild draw4 can stack on pending draw4 (pendingDraw >= 4)", () => {
+  it("wild draw4 cannot be played while a draw penalty is pending", () => {
     const wildD4 = { type: "wild" as const, wildType: "wild_draw4" as const, chosenColor: null, id: "wd4s" };
     const topWild = { type: "wild" as const, value: "wild_draw4" as const, id: "tw" };
     // pendingDraw = 4 (from previous draw4), top card is wild draw4
-    expect(canPlay(wildD4, topWild, "red", 4)).toBe(true);
-    // pendingDraw = 2 (from draw2 only), can't stack draw4
+    expect(canPlay(wildD4, topWild, "red", 4)).toBe(false);
+    // pendingDraw = 2 (from draw2 only), draw4 is still blocked
     expect(canPlay(wildD4, topRedDraw2, "red", 2)).toBe(false);
   });
 
-  it("draw2 cannot stack on a pending wild draw4", () => {
+  it("draw2 cannot be played on a pending wild draw4", () => {
     const blueDraw2 = { type: "color" as const, color: "blue" as UnoColor, value: "draw2", id: "bd2_on_d4" };
     const topWild = { type: "wild" as const, wildType: "wild_draw4" as const, chosenColor: "red" as UnoColor, id: "wd4_top" };
 
@@ -285,10 +286,49 @@ describe("playCard", () => {
     expect(result.pendingDraw).toBe(4);
   });
 
+  it("defers the win when the final card is draw2", () => {
+    const discard = { type: "color", color: "red", value: "7", id: "r7" };
+    const state = stateWithHand(
+      [{ type: "color", color: "red", value: "draw2", id: "rd2_final" }],
+      discard,
+      "red",
+    );
+    const result = playCard(state, 0, "rd2_final");
+    expect(result.winner).toBeNull();
+    expect(result.pendingWinnerSeat).toBe(0);
+    expect(result.pendingDraw).toBe(2);
+    expect(result.currentPlayer).toBe(1);
+
+    const afterPenalty = handleDraw(result);
+    expect(afterPenalty.winner).toBe(0);
+    expect(afterPenalty.pendingWinnerSeat).toBeNull();
+  });
+
+  it("defers the win when the final card is wild_draw4", () => {
+    const discard = { type: "color", color: "blue", value: "7", id: "b7" };
+    const state = stateWithHand(
+      [{ type: "wild", wildType: "wild_draw4", chosenColor: null, id: "wd4_final" }],
+      discard,
+      "blue",
+    );
+    const result = playCard(state, 0, "wd4_final", "red");
+    expect(result.winner).toBeNull();
+    expect(result.pendingWinnerSeat).toBe(0);
+    expect(result.pendingDraw).toBe(4);
+    expect(result.currentPlayer).toBe(1);
+
+    const afterPenalty = handleDraw(result);
+    expect(afterPenalty.winner).toBe(0);
+    expect(afterPenalty.pendingWinnerSeat).toBeNull();
+  });
+
   it("skip advances currentPlayer by 2", () => {
     const discard = { type: "color", color: "blue", value: "7", id: "b7" };
     const state = stateWithHand(
-      [{ type: "color", color: "blue", value: "skip", id: "bs" }],
+      [
+        { type: "color", color: "blue", value: "skip", id: "bs" },
+        { type: "color", color: "yellow", value: "1", id: "y1" },
+      ],
       discard,
       "blue",
     );
@@ -299,7 +339,10 @@ describe("playCard", () => {
   it("reverse flips direction and advances by 1", () => {
     const discard = { type: "color", color: "green", value: "7", id: "g7" };
     const state = stateWithHand(
-      [{ type: "color", color: "green", value: "reverse", id: "gr" }],
+      [
+        { type: "color", color: "green", value: "reverse", id: "gr" },
+        { type: "color", color: "yellow", value: "1", id: "y1" },
+      ],
       discard,
       "green",
     );
@@ -311,7 +354,10 @@ describe("playCard", () => {
   it("number card advances currentPlayer by 1", () => {
     const discard = { type: "color", color: "blue", value: "7", id: "b7" };
     const state = stateWithHand(
-      [{ type: "color", color: "red", value: "3", id: "r3" }],
+      [
+        { type: "color", color: "red", value: "3", id: "r3" },
+        { type: "color", color: "yellow", value: "1", id: "y1" },
+      ],
       discard,
       "red",
     );
@@ -371,7 +417,7 @@ describe("playCard", () => {
     expect(result).toBe(state);
   });
 
-  it("rejects wild_draw4 when the player has a normal playable card", () => {
+  it("allows wild_draw4 even when the player has a normal playable card", () => {
     const discard = { type: "color", color: "red", value: "7", id: "r7" } as const;
     const state = stateWithHand(
       [
@@ -384,7 +430,11 @@ describe("playCard", () => {
 
     const result = playCard(state, 0, "wd4", "blue");
 
-    expect(result).toBe(state);
+    expect(result).not.toBe(state);
+    expect(result.discardPile[result.discardPile.length - 1].id).toBe("wd4");
+    expect(result.activeColor).toBe("blue");
+    expect(result.pendingDraw).toBe(4);
+    expect(result.currentPlayer).toBe(1);
   });
 });
 
@@ -430,7 +480,7 @@ describe("getPlayableCards", () => {
     expect(getPlayableCards(state, 0)).toHaveLength(0);
   });
 
-  it("returns empty during pendingDraw when the player has no stackable draw card", () => {
+  it("returns empty during pendingDraw when the player has no playable card", () => {
     const discard = { type: "color" as const, color: "red" as UnoColor, value: "draw2", id: "rd2_top" };
     let state = stateWithHand(
       [
@@ -445,7 +495,7 @@ describe("getPlayableCards", () => {
     expect(getPlayableCards(state, 0)).toHaveLength(0);
   });
 
-  it("returns stackable draw cards while pendingDraw is active", () => {
+  it("returns no cards while pendingDraw is active", () => {
     const discard = { type: "color" as const, color: "red" as UnoColor, value: "draw2", id: "rd2_top" };
     const state = stateWithHand(
       [
@@ -459,7 +509,7 @@ describe("getPlayableCards", () => {
 
     const playable = getPlayableCards(state, 0);
 
-    expect(playable.map((card) => card.id)).toEqual(["bd2_stack"]);
+    expect(playable).toHaveLength(0);
   });
 
   it("returns cards matching active color or top card value", () => {
@@ -548,9 +598,7 @@ describe("aiTurn", () => {
     );
     const before = state.hands[0].length;
     const result = aiTurn(state);
-    // Bot has no playable cards, so it draws 1 (hand grows by 1)
-    expect(result.hands[0].length).toBe(before + 1);
-    // Turn should have advanced to player 1
+    expect([before, before + 1]).toContain(result.hands[0].length);
     expect(result.currentPlayer).toBe(1);
   });
 
@@ -579,8 +627,8 @@ describe("aiTurn", () => {
     );
     const before = state.hands[0].length;
     const result = aiTurn(state);
-    // Bot has no playable cards, so should have drawn (hand count increased)
-    expect(result.hands[0].length).toBeGreaterThan(before);
+    expect([before, before + 1]).toContain(result.hands[0].length);
+    expect(result.currentPlayer).toBe(1);
   });
 
   it("respects pendingDraw — draws instead of playing", () => {
@@ -601,7 +649,7 @@ describe("aiTurn", () => {
     expect(result.discardPile[result.discardPile.length - 1].id).not.toBe("b3");
   });
 
-  it("stacks a draw2 instead of drawing when pendingDraw is active", () => {
+  it("draws the pending cards instead of playing when pendingDraw is active", () => {
     const discard = { type: "color" as const, color: "red", value: "draw2", id: "rd2_top" };
     const state = stateWithHand(
       [
@@ -615,9 +663,10 @@ describe("aiTurn", () => {
 
     const result = aiTurn(state);
 
-    expect(result.discardPile[result.discardPile.length - 1].id).toBe("bd2_stack");
-    expect(result.pendingDraw).toBe(4);
-    expect(result.hands[0].map((card) => card.id)).toEqual(["r5_blocked"]);
+    expect(result.hands[0].length).toBe(state.hands[0].length + 2);
+    expect(result.pendingDraw).toBe(0);
+    expect(result.currentPlayer).toBe(1);
+    expect(result.discardPile[result.discardPile.length - 1].id).toBe("rd2_top");
   });
 });
 

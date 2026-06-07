@@ -81,7 +81,7 @@ export function TableHandDock({
           data-action-kind={actionCallout.kind}
           role="status"
         >
-          <span>{actionCallout.kind === "uno" ? "Action required" : "Draw stack active"}</span>
+          <span>{actionCallout.kind === "uno" ? "Action required" : "Draw penalty active"}</span>
           <strong>{actionCallout.title}</strong>
           <small>{actionCallout.text}</small>
         </div>
@@ -138,7 +138,7 @@ export function TableHandDock({
             <p className="empty-hand">{state ? "Dealing initial cards..." : "Spectating Table"}</p>
           ) : (
             hand.map((card, idx) => {
-              const playable = isMyTurn && isPlayable(card, state, hand);
+              const playable = isMyTurn && isPlayable(card, state);
               const isSelected = idx === selectedCardIdx;
               return (
                 <HandCardItem

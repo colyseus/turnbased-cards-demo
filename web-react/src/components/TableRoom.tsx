@@ -155,8 +155,8 @@ export function TableRoom(props: TableRoomProps) {
           )}
 
           <button
-            id="deck-stack-anchor"
-            className={`deck-stack ${shouldDrawHint ? "guidance-pulse" : ""}`}
+            id="draw-pile-anchor"
+            className={`draw-pile ${shouldDrawHint ? "guidance-pulse" : ""}`}
             disabled={!isMyTurn || !tableReady}
             onClick={() => room?.send("draw_card")}
             type="button"
@@ -227,7 +227,7 @@ export function TableRoom(props: TableRoomProps) {
           )}
 
           {Boolean(state?.pendingDraw) && (
-            <div className="pending-draw-badge">+{state?.pendingDraw} Draw Stacked!</div>
+            <div className="pending-draw-badge">+{state?.pendingDraw} Draw Penalty Active</div>
           )}
         </div>
       </TableBoardStage>

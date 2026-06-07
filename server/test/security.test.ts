@@ -1,11 +1,5 @@
-import { describe, it, expect, afterEach, vi } from "vitest";
+import { describe, it, expect, afterEach } from "vitest";
 import { UnoRoom } from "../src/rooms/UnoRoom.ts";
-
-vi.mock("dompurify", () => ({
-  default: {
-    sanitize: (str: string) => typeof str === "string" ? str.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '').replace(/onerror\s*=\s*['"][^'"]*['"]/gi, '').replace(/javascript:/gi, '') : str
-  }
-}));
 import { UnoCardSchema } from "../src/rooms/schema/UnoRoomState.ts";
 import { canPlay, canPlaySchema } from "../shared/uno.ts";
 
@@ -53,6 +47,18 @@ function createRoomWithHuman(seatIndex = 0, name = "TestPlayer"): { room: UnoRoo
   // Give the human some useful cards and set them as current player
   room.state.currentPlayer = seatIndex;
   player.hand.splice(0, player.hand.length);
+  room.state.phase = "playing";
+  room.state.winner = -1;
+  room.state.direction = 1;
+  room.state.pendingDraw = 0;
+  room.state.unoCaller = -1;
+  room.state.lastDrawnCardId = "";
+  room.state.pendingWinnerSeat = -1;
+  room.state.wildDraw4ChallengePending = false;
+  room.state.wildDraw4Illegal = false;
+  room.state.wildDraw4OffenderSeat = -1;
+  room["lastActionTime"].clear();
+  clearTimeout(room["turnTimeout"]);
 
   return { room, client, playerIndex: seatIndex };
 }
@@ -261,52 +267,105 @@ describe("Security: handlePlayCard", () => {
       expect(cardInHand).toBe(false);
       expect(room.state.activeColor).toBe("blue");
     });
+
+    it("rejects play with missing chosenColor for wild card", () => {
+      const { room, client } = createRoomWithHuman();
+      afterEach(() => room.onDispose());
+
+      const player = room.state.players.get("0")!;
+      player.hand.push(makeWildCard("wild_card", "wild"));
+      room.state.discardPile.push(makeSchemaCard("discard_red_3", "red", "3"));
+
+      room["handlePlayCard"](client, { cardId: "wild_card" });
+
+      const cardStillInHand = player.hand.some((c) => c.id === "wild_card");
+      expect(cardStillInHand).toBe(true);
+    });
   });
 
-  describe("wild_draw4 with valid alternatives", () => {
-    it("rejects wild_draw4 when player has a valid color alternative", () => {
+  describe("wild_draw4 challenge flow", () => {
+    it("accepts wild_draw4 even when player has a valid color alternative and opens a challenge window", () => {
       const { room, client } = createRoomWithHuman();
       afterEach(() => room.onDispose());
 
       const player = room.state.players.get("0")!;
       // Player has a color card matching the active color (valid alternative to wild_draw4)
       player.hand.push(makeSchemaCard("red_5", "red", "5"));
+      player.hand.push(makeSchemaCard("yellow_9", "yellow", "9"));
       player.hand.push(makeWildCard("wild_draw4", "wild_draw4"));
       room.state.activeColor = "red";
       room.state.discardPile.push(makeSchemaCard("discard_blue_3", "blue", "3"));
-      room.state.pendingDraw = 0;
 
       room["handlePlayCard"](client, { cardId: "wild_draw4", chosenColor: "blue" });
 
-      // wild_draw4 should not be played - still in hand
       const cardStillInHand = player.hand.some((c) => c.id === "wild_draw4");
-      expect(cardStillInHand).toBe(true);
-    });
-
-    it("accepts wild_draw4 when no valid alternatives exist", () => {
-      const { room, client } = createRoomWithHuman();
-      afterEach(() => room.onDispose());
-
-      const player = room.state.players.get("0")!;
-      room.state.currentPlayer = 0;
-      player.hand.splice(0, player.hand.length);
-      // Give them an extra card so playing wild_draw4 doesn't trigger win
-      player.hand.push(makeSchemaCard("dummy_card", "yellow", "1"));
-      // Player only has wild_draw4, no matching color cards
-      player.hand.push(makeWildCard("wild_draw4", "wild_draw4"));
-      room.state.activeColor = "blue";
-      room.state.discardPile.push(makeSchemaCard("discard_red_7", "red", "7"));
-      room.state.pendingDraw = 0;
-
-      const oldSend = client.send; client.send = (...args) => console.log("CLIENT.SEND:", args); room["handlePlayCard"](client, { cardId: "wild_draw4", chosenColor: "green" });
-
-      const cardPlayed = !player.hand.some((c) => c.id === "wild_draw4");
-      expect(cardPlayed).toBe(true);
-      expect(room.state.activeColor).toBe("green");
+      expect(cardStillInHand).toBe(false);
+      expect(room.state.currentPlayer).toBe(1);
+      expect(room.state.wildDraw4ChallengePending).toBe(true);
+      expect(room.state.wildDraw4Illegal).toBe(true);
+      expect(room.state.wildDraw4OffenderSeat).toBe(0);
       expect(room.state.pendingDraw).toBe(4);
     });
 
-    it("allows wild_draw4 stacking when pendingDraw >= 4", () => {
+    it("lets the next player challenge successfully when the offender had a matching color", () => {
+      const { room, client } = createRoomWithHuman();
+      afterEach(() => room.onDispose());
+
+      const offender = room.state.players.get("0")!;
+      offender.hand.push(makeSchemaCard("red_5", "red", "5"));
+      offender.hand.push(makeSchemaCard("yellow_9", "yellow", "9"));
+      offender.hand.push(makeWildCard("wild_draw4", "wild_draw4"));
+      room.state.activeColor = "red";
+      room.state.discardPile.push(makeSchemaCard("discard_blue_3", "blue", "3"));
+
+      room["handlePlayCard"](client, { cardId: "wild_draw4", chosenColor: "blue" });
+      room["lastActionTime"].clear();
+
+      const challenger = room.state.players.get("1")!;
+      challenger.sessionId = "human-1";
+      challenger.isBot = false;
+      challenger.connected = true;
+
+      room["handleChallengeWildDraw4"]({ sessionId: "human-1", send: () => {} } as never);
+
+      expect(room.state.wildDraw4ChallengePending).toBe(false);
+      expect(room.state.pendingDraw).toBe(0);
+      expect(room.state.currentPlayer).toBe(1);
+      expect(room.state.phase).toBe("playing");
+      expect(offender.hand.length).toBe(6);
+      expect(room.state.winner).toBe(-1);
+    });
+
+    it("gives the challenger six cards and awards the round when the offender was innocent", () => {
+      const { room, client } = createRoomWithHuman();
+      afterEach(() => room.onDispose());
+
+      const player = room.state.players.get("0")!;
+      room.state.currentPlayer = 0;
+      player.hand.splice(0, player.hand.length);
+      player.hand.push(makeWildCard("wild_draw4", "wild_draw4"));
+      room.state.activeColor = "blue";
+      room.state.discardPile.push(makeSchemaCard("discard_red_7", "red", "7"));
+
+      room["handlePlayCard"](client, { cardId: "wild_draw4", chosenColor: "green" });
+      room["lastActionTime"].clear();
+
+      const challenger = room.state.players.get("1")!;
+      challenger.sessionId = "human-1";
+      challenger.isBot = false;
+      challenger.connected = true;
+
+      room["handleChallengeWildDraw4"]({ sessionId: "human-1", send: () => {} } as never);
+
+      expect(room.state.wildDraw4ChallengePending).toBe(false);
+      expect(room.state.pendingDraw).toBe(0);
+      expect(room.state.phase).toBe("finished");
+      expect(room.state.winner).toBe(0);
+      expect(challenger.hand.length).toBe(13);
+      expect(player.hand.length).toBe(0);
+    });
+
+    it("rejects wild_draw4 while a draw penalty is pending", () => {
       const { room, client } = createRoomWithHuman();
       afterEach(() => room.onDispose());
 
@@ -315,20 +374,19 @@ describe("Security: handlePlayCard", () => {
       player.hand.splice(0, player.hand.length);
       // Give them an extra card so playing wild_draw4 doesn't trigger win
       player.hand.push(makeSchemaCard("dummy_card", "yellow", "1"));
-      // Player has a color card matching the active color BUT pendingDraw is >= 4 so stacking is allowed
+      // Player has a color card matching the active color, but draw penalties are not stackable.
       player.hand.push(makeSchemaCard("red_5", "red", "5"));
       player.hand.push(makeWildCard("wild_draw4", "wild_draw4"));
       room.state.activeColor = "red";
       room.state.discardPile.splice(0, room.state.discardPile.length);
       room.state.discardPile.push(makeWildCard("top_wild_draw4", "wild_draw4"));
-      room.state.pendingDraw = 4; // Stackable
+      room.state.pendingDraw = 4;
 
       room["handlePlayCard"](client, { cardId: "wild_draw4", chosenColor: "blue" });
 
-      // wild_draw4 stacking should be allowed
       const cardPlayed = !player.hand.some((c) => c.id === "wild_draw4");
-      expect(cardPlayed).toBe(true);
-      expect(room.state.pendingDraw).toBe(8); // 4 + 4
+      expect(cardPlayed).toBe(false);
+      expect(room.state.pendingDraw).toBe(4);
     });
   });
 
@@ -858,7 +916,7 @@ describe("Security: handlePlayCard edge cases", () => {
     expect(cardStillInHand).toBe(true);
   });
 
-  it("accepts undefined chosenColor for wild card (defaults to red)", () => {
+  it("rejects missing chosenColor for wild card", () => {
     const { room, client } = createRoomWithHuman();
     afterEach(() => room.onDispose());
 
@@ -866,12 +924,12 @@ describe("Security: handlePlayCard edge cases", () => {
     player.hand.push(makeWildCard("wild_card", "wild"));
     room.state.discardPile.push(makeSchemaCard("discard_red_3", "red", "3"));
 
-    // Pass undefined as chosenColor - this is valid (will default to red)
+    // Missing chosenColor should be rejected
     room["handlePlayCard"](client, { cardId: "wild_card", chosenColor: undefined });
 
-    // Card should be played (undefined chosenColor defaults to red)
+    // Card should remain in hand
     const cardInHand = player.hand.some((c) => c.id === "wild_card");
-    expect(cardInHand).toBe(false);
+    expect(cardInHand).toBe(true);
   });
 });
 

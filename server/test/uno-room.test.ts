@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { UnoRoom } from "../src/rooms/UnoRoom.ts";
 import { UnoCardSchema } from "../src/rooms/schema/UnoRoomState.ts";
-import { canPlay, hasWildDrawFourAlternative } from "../shared/uno.ts";
+import { canPlay } from "../shared/uno.ts";
 
 function makeSchemaCard(
   id: string,
@@ -18,7 +18,7 @@ function makeSchemaCard(
 }
 
 describe("UnoRoom turn scheduling logic", () => {
-  it("treats a stackable draw card as an actionable human turn", () => {
+  it("does not treat draw2 as actionable while a draw penalty is pending", () => {
     const room = new UnoRoom();
     room.onCreate();
 
@@ -34,12 +34,35 @@ describe("UnoRoom turn scheduling logic", () => {
     room.state.activeColor = "red";
     room.state.pendingDraw = 2;
 
-    expect(room["playerCanAct"]()).toBe(true);
+    expect(room["playerCanAct"]()).toBe(false);
 
     room.onDispose();
   });
 
-  it("does not treat pending draw as actionable without a stackable card", () => {
+  it("forces the next player to draw 2 when UNO was not called in time", () => {
+    const room = new UnoRoom();
+    room.onCreate();
+    clearTimeout(room["turnTimeout"]);
+
+    const missedUnoSeat = room.state.currentPlayer;
+    const penalizedSeat = (missedUnoSeat + 1) % 4;
+    const penalizedPlayer = room.state.players.get(String(penalizedSeat))!;
+    const beforeHandCount = penalizedPlayer.hand.length;
+    const expectedNextSeat = ((penalizedSeat + room.state.direction) % 4 + 4) % 4;
+
+    room.state.unoCaller = missedUnoSeat;
+    room.state.currentPlayer = penalizedSeat;
+
+    room["scheduleTurn"]();
+
+    expect(room.state.unoCaller).toBe(-1);
+    expect(room.state.currentPlayer).toBe(expectedNextSeat);
+    expect(penalizedPlayer.hand.length).toBe(beforeHandCount + 2);
+
+    room.onDispose();
+  });
+
+  it("does not treat pending draw as actionable without a playable card", () => {
     const room = new UnoRoom();
     room.onCreate();
 
@@ -56,6 +79,94 @@ describe("UnoRoom turn scheduling logic", () => {
     room.state.pendingDraw = 2;
 
     expect(room["playerCanAct"]()).toBe(false);
+
+    room.onDispose();
+  });
+
+  it("lets a player play the card they just drew, but not another card", () => {
+    const room = new UnoRoom();
+    room.onCreate();
+    clearTimeout(room["turnTimeout"]);
+
+    const player = room.state.players.get("0")!;
+    player.sessionId = "human-0";
+    player.isBot = false;
+    player.connected = true;
+    player.hand.splice(0, player.hand.length);
+    player.hand.push(makeSchemaCard("red_5_existing", "red", "5"));
+    player.hand.push(makeSchemaCard("green_9_existing", "green", "9"));
+    room.state.currentPlayer = 0;
+    room.state.discardPile.splice(0, room.state.discardPile.length);
+    room.state.discardPile.push(makeSchemaCard("red_7_top", "red", "7"));
+    room.state.activeColor = "red";
+    room.state.direction = 1;
+    (room as any).drawPile = [{ type: "color", color: "red", value: "2", id: "red_2_drawn" }];
+
+    const client = {
+      sessionId: "human-0",
+      send: () => {},
+    } as never;
+
+    room["handleDrawCard"](client);
+
+    expect(room.state.currentPlayer).toBe(0);
+    expect(room.state.lastDrawnCardId).toBe("red_2_drawn");
+
+    room["lastActionTime"].clear();
+    room["handlePlayCard"](client, { cardId: "red_5_existing" });
+    expect(player.hand.some((card) => card.id === "red_5_existing")).toBe(true);
+
+    room["lastActionTime"].clear();
+    let playError: { message: string; code: string } | null = null;
+    const drawPlayClient = {
+      sessionId: "human-0",
+      send: (type: string, data: { message: string; code: string }) => {
+        if (type === "error") playError = data;
+      },
+    } as never;
+    room["handlePlayCard"](drawPlayClient, { cardId: "red_2_drawn" });
+    expect(playError).toBeNull();
+    expect(player.hand.some((card) => card.id === "red_2_drawn")).toBe(false);
+    expect(room.state.currentPlayer).toBe(1);
+
+    room.onDispose();
+  });
+
+  it("rejects a stale play once the pending UNO penalty advances the turn", () => {
+    const room = new UnoRoom();
+    room.onCreate();
+    clearTimeout(room["turnTimeout"]);
+
+    const player = room.state.players.get("1")!;
+    player.sessionId = "human-1";
+    player.isBot = false;
+    player.connected = true;
+    player.hand.splice(0, player.hand.length);
+    player.hand.push(makeSchemaCard("blue_5_playable", "blue", "5"));
+    player.handCount = player.hand.length;
+
+    room.state.discardPile.splice(0, room.state.discardPile.length);
+    room.state.discardPile.push(makeSchemaCard("blue_7_top", "blue", "7"));
+    room.state.activeColor = "blue";
+    room.state.currentPlayer = 1;
+    room.state.unoCaller = 0;
+    room.state.direction = 1;
+
+    let errorReceived: { message: string; code: string } | null = null;
+    const client = {
+      sessionId: "human-1",
+      send: (type: string, data: { message: string; code: string }) => {
+        if (type === "error") errorReceived = data;
+      },
+    } as never;
+
+    room["handlePlayCard"](client, { cardId: "blue_5_playable" });
+
+    expect(errorReceived?.code).toBe("NOT_YOUR_TURN");
+    expect(room.state.unoCaller).toBe(-1);
+    expect(room.state.currentPlayer).toBe(2);
+    expect(player.hand.some((card) => card.id === "blue_5_playable")).toBe(true);
+    expect(player.hand.length).toBe(3);
 
     room.onDispose();
   });
@@ -199,18 +310,25 @@ describe("UnoRoom regular human match", () => {
       const player = room.state.players.get(String(room.state.currentPlayer))!;
       room["lastActionTime"].clear();
 
-      if (player.isBot) {
+      if (room.state.wildDraw4ChallengePending) {
+        if (player.isBot) {
+          room["botTurn"]();
+        } else {
+          room["handleDrawCard"](client);
+        }
+      } else if (player.isBot) {
         room["botTurn"]();
       } else {
         const topDiscard = room.state.discardPile[room.state.discardPile.length - 1];
+        const drawnCardId = room.state.lastDrawnCardId ?? "";
         const card = player.hand.find((candidate) => {
+          if (drawnCardId && candidate.id !== drawnCardId) {
+            return false;
+          }
           if (!canPlay(candidate, topDiscard, room.state.activeColor, room.state.pendingDraw)) {
             return false;
           }
-          return candidate.cardType !== "wild" ||
-            candidate.value !== "wild_draw4" ||
-            room.state.pendingDraw >= 4 ||
-            !hasWildDrawFourAlternative(player.hand, topDiscard, room.state.activeColor);
+          return true;
         });
 
         if (card) {
@@ -218,6 +336,8 @@ describe("UnoRoom regular human match", () => {
             cardId: card.id,
             chosenColor: card.cardType === "wild" ? "red" : undefined,
           });
+        } else if (drawnCardId) {
+          room["botTurn"]();
         } else {
           room["handleDrawCard"](client);
         }

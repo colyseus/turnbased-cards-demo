@@ -16,7 +16,7 @@ export const RULE_CARD_EXAMPLES: Array<{ card: CardSchema; title: string; text: 
   {
     card: { id: "rule-draw2", cardType: "color", color: "blue", value: "draw2" },
     title: "Draw 2",
-    text: "The next player draws 2 unless they stack another Draw 2.",
+    text: "The next player draws 2 and loses their turn.",
   },
   {
     card: { id: "rule-wild", cardType: "wild", color: "wild", value: "wild" },
@@ -26,7 +26,7 @@ export const RULE_CARD_EXAMPLES: Array<{ card: CardSchema; title: string; text: 
   {
     card: { id: "rule-wild-draw4", cardType: "wild", color: "wild", value: "wild_draw4" },
     title: "Wild Draw 4",
-    text: "Choose a color and add 4 cards. Use it only when you have no matching color or symbol.",
+    text: "Choose a color and add 4 cards. If you had a matching color, the next player can challenge you.",
   },
 ];
 

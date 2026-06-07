@@ -432,7 +432,7 @@ export function useTableRoomController(props: TableRoomControllerProps) {
 
           for (let i = 0; i < drawDiff; i += 1) {
             setTimeout(() => {
-              triggerFlight(null, true, "deck-stack-anchor", targetElId);
+              triggerFlight(null, true, "draw-pile-anchor", targetElId);
             }, i * 120);
           }
 
@@ -665,7 +665,7 @@ export function useTableRoomController(props: TableRoomControllerProps) {
       } else if (event.key === " " || event.key === "Enter") {
         if (selectedCardIdx >= 0 && selectedCardIdx < hand.length) {
           const card = hand[selectedCardIdx];
-          if (isMyTurn && isPlayable(card, state, hand)) {
+          if (isMyTurn && isPlayable(card, state)) {
             playCard(card);
           }
         }
@@ -700,7 +700,7 @@ export function useTableRoomController(props: TableRoomControllerProps) {
   const { handMid, dynamicFanAngle, dynamicFanOffset, dynamicMarginValue } = getHandLayout(handCount);
 
   const hasPlayableCards = useMemo(() => {
-    return hand.some((card) => isPlayable(card, state, hand));
+    return hand.some((card) => isPlayable(card, state));
   }, [hand, state]);
 
   const pendingDraw = state?.pendingDraw ?? 0;
@@ -717,11 +717,10 @@ export function useTableRoomController(props: TableRoomControllerProps) {
         mustCallUno,
         isMyTurn,
         pendingDraw,
-        hasPlayableCards,
         selectedCard,
         isSelectedPlayable,
       }),
-    [mustCallUno, isMyTurn, pendingDraw, hasPlayableCards, selectedCard, isSelectedPlayable],
+    [mustCallUno, isMyTurn, pendingDraw, selectedCard, isSelectedPlayable],
   );
 
   const actionCallout = useMemo(
@@ -730,9 +729,8 @@ export function useTableRoomController(props: TableRoomControllerProps) {
         mustCallUno,
         isMyTurn,
         pendingDraw,
-        hasPlayableCards,
       }),
-    [mustCallUno, isMyTurn, pendingDraw, hasPlayableCards],
+    [mustCallUno, isMyTurn, pendingDraw],
   );
 
   const tutorialCards = getTutorialCards();

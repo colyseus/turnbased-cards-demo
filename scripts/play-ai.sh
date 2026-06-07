@@ -113,7 +113,7 @@ using your run_command tool:
 3. Draw a card (if you have no playable cards):
    agent-browser --session $SESSION wait --fn '
      (function() {
-       const drawDeck = document.querySelector(".deck-stack.guidance-pulse");
+       const drawDeck = document.querySelector(".draw-pile.guidance-pulse");
        if (drawDeck) { drawDeck.click(); return true; }
        return false;
      })()

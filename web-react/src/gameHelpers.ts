@@ -87,12 +87,10 @@ export function isPlayable(card: CardSchema, state: UnoState | null, hand: CardS
 
   if (card.cardType === "wild" && card.value === "wild_draw4") {
     const activeColor = state?.activeColor || "red";
-    const pendingDraw = state?.pendingDraw || 0;
     const hasMatchingColor = hand.some((c) => c.cardType === "color" && c.color === activeColor);
     const hasMatchingValue =
       top.cardType === "color" && hand.some((c) => c.cardType === "color" && c.value === top.value);
-    const canStack = pendingDraw >= 4;
-    if ((hasMatchingColor || hasMatchingValue) && !canStack) {
+    if (hasMatchingColor || hasMatchingValue) {
       return false;
     }
   }

@@ -134,7 +134,7 @@ simulate_play() {
   agent-browser --session "$SESSION" wait --fn 'document.querySelector(".table-board .card-sprite") !== null' --timeout 15000
   agent-browser --session "$SESSION" screenshot "$SHOT_DIR/web-react-game-${label}-0-initial.png"
 
-  if ! agent-browser --session "$SESSION" wait --fn 'document.querySelector(".hand-card-wrapper.playable") !== null || document.querySelector(".deck-stack.guidance-pulse") !== null' --timeout 45000; then
+  if ! agent-browser --session "$SESSION" wait --fn 'document.querySelector(".hand-card-wrapper.playable") !== null || document.querySelector(".draw-pile.guidance-pulse") !== null' --timeout 45000; then
     agent-browser --session "$SESSION" screenshot "$SHOT_DIR/web-react-game-${label}-1-waiting-turn.png"
     agent-browser --session "$SESSION" screenshot "$SHOT_DIR/web-react-game-${label}-2-waiting-turn.png"
     return 0
@@ -167,7 +167,7 @@ simulate_play() {
         playableCard.click();
         return true;
       }
-      const drawDeck = document.querySelector(".deck-stack.guidance-pulse");
+      const drawDeck = document.querySelector(".draw-pile.guidance-pulse");
       if (drawDeck) {
         drawDeck.click();
         return true;

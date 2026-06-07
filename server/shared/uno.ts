@@ -10,7 +10,7 @@ export { NUM_PLAYERS, HAND_SIZE } from '../../shared/constants.ts';
 // Import for internal use within this file
 import type { UnoColor, UnoValue, WildCard, UnoCard } from '../../shared/types.ts';
 import type { ColorCard } from '../../shared/types.ts';
-import { canPlay, hasWildDrawFourAlternative, isUnoColor } from '../../shared/gameLogic.ts';
+import { canPlay, isUnoColor } from '../../shared/gameLogic.ts';
 import { NUM_PLAYERS, HAND_SIZE } from '../../shared/constants.ts';
 
 // ── Server-only implementations ──────────────────────────────────────────────
@@ -62,6 +62,8 @@ export interface UnoState {
   direction: 1 | -1;
   activeColor: UnoColor;
   pendingDraw: number;
+  lastDrawnCardId?: string | null;
+  pendingWinnerSeat?: number | null;
   winner: number | null;
 }
 
@@ -81,6 +83,19 @@ function recycleDiscard(state: UnoState) {
   const recycled = shuffleDeck(state.discardPile.slice(0, -1));
   state.drawPile = recycled;
   state.discardPile = [top];
+}
+
+function finalizePendingWinner(state: UnoState) {
+  const pendingWinnerSeat = state.pendingWinnerSeat ?? null;
+  if (pendingWinnerSeat === null) return state;
+  if (state.pendingDraw > 0) return state;
+
+  if (state.hands[pendingWinnerSeat].length === 0) {
+    state.winner = pendingWinnerSeat;
+  }
+
+  state.pendingWinnerSeat = null;
+  return state;
 }
 
 export function drawCards(state: UnoState, player: number, count: number): UnoState {
@@ -134,6 +149,7 @@ export function createGame(): UnoState {
     direction,
     activeColor,
     pendingDraw: firstCard.type === 'color' && firstCard.value === 'draw2' ? 2 : 0,
+    pendingWinnerSeat: null,
     winner: null,
   };
 }
@@ -141,6 +157,11 @@ export function createGame(): UnoState {
 export function getPlayableCards(state: UnoState, player: number): UnoCard[] {
   if (state.winner !== null) return [];
   if (player !== state.currentPlayer) return [];
+  if (state.lastDrawnCardId) {
+    const drawnCard = state.hands[player].find((card) => card.id === state.lastDrawnCardId);
+    if (!drawnCard) return [];
+    return canLegallyPlayCard(state, player, drawnCard) ? [drawnCard] : [];
+  }
   return state.hands[player].filter(c => canLegallyPlayCard(state, player, c));
 }
 
@@ -148,13 +169,10 @@ function canLegallyPlayCard(state: UnoState, player: number, card: UnoCard): boo
   if (!Number.isInteger(player) || player < 0 || player >= state.hands.length) return false;
   if (state.winner !== null) return false;
   if (player !== state.currentPlayer) return false;
+  if (state.lastDrawnCardId && card.id !== state.lastDrawnCardId) return false;
 
   const topCard = state.discardPile[state.discardPile.length - 1];
   if (!canPlay(card, topCard, state.activeColor, state.pendingDraw)) return false;
-
-  if (card.type === 'wild' && card.wildType === 'wild_draw4') {
-    return !hasWildDrawFourAlternative(state.hands[player], topCard, state.activeColor);
-  }
 
   return true;
 }
@@ -165,7 +183,7 @@ export function handleDraw(state: UnoState): UnoState {
   let s = drawCards(state, player, count);
   s.pendingDraw = 0;
   s.currentPlayer = nextPlayer(s);
-  return s;
+  return finalizePendingWinner(s);
 }
 
 function scoreColor(
@@ -221,7 +239,29 @@ export function aiTurn(state: UnoState): UnoState {
 
   const playable = getPlayableCards(state, player);
   if (playable.length === 0) {
-    return handleDraw(state);
+    const afterDraw = drawCards(state, player, 1);
+    const drawnCard = afterDraw.hands[player][afterDraw.hands[player].length - 1];
+    if (!drawnCard) {
+      afterDraw.currentPlayer = nextPlayer(afterDraw);
+      return afterDraw;
+    }
+
+    if (!canLegallyPlayCard(afterDraw, player, drawnCard)) {
+      afterDraw.currentPlayer = nextPlayer(afterDraw);
+      return afterDraw;
+    }
+
+    let chosenColor: UnoColor | undefined;
+    if (drawnCard.type === 'wild') {
+      const colors: UnoColor[] = ['red', 'blue', 'green', 'yellow'];
+      chosenColor = colors.reduce((best, color) => {
+        const score = scoreColor(color, afterDraw.hands[player], undefined);
+        const bestScore = scoreColor(best, afterDraw.hands[player], undefined);
+        return score > bestScore ? color : best;
+      }, colors[0]);
+    }
+
+    return playCard(afterDraw, player, drawnCard.id, chosenColor);
   }
 
   const hand = state.hands[player];
@@ -366,6 +406,7 @@ export function playCard(
   if (!canLegallyPlayCard(s, player, card)) return state;
   if (card.type === 'wild' && chosenColor !== undefined && !isUnoColor(chosenColor)) return state;
 
+  s.lastDrawnCardId = null;
   s.hands[player] = [...s.hands[player].slice(0, handIdx), ...s.hands[player].slice(handIdx + 1)];
 
   if (card.type === 'wild') {
@@ -376,6 +417,20 @@ export function playCard(
   }
 
   s.discardPile.push(card);
+
+  const isPendingPenaltyCard =
+    (card.type === 'color' && card.value === 'draw2') ||
+    (card.type === 'wild' && card.wildType === 'wild_draw4');
+
+  if (s.hands[player].length === 0) {
+    if (!isPendingPenaltyCard) {
+      s.winner = player;
+      return s;
+    }
+    s.pendingWinnerSeat = player;
+  } else {
+    s.pendingWinnerSeat = null;
+  }
 
   if (card.type === 'color') {
     switch (card.value) {
@@ -398,10 +453,6 @@ export function playCard(
       s.pendingDraw += 4;
     }
     s.currentPlayer = nextPlayer(s);
-  }
-
-  if (s.hands[player].length === 0) {
-    s.winner = player;
   }
 
   return s;

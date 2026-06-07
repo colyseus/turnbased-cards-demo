@@ -74,17 +74,7 @@ export function canPlay(
   const t = topCard as any;
   const cardType = c.type ?? c.cardType;
   const topCardType = t.type ?? t.cardType;
-  // Draw-2 stacking: if pendingDraw > 0, only draw2 cards can stack
-  if (pendingDraw && pendingDraw > 0) {
-    const topValue = t.wildType ?? t.value;
-    if (topCardType === 'color' && topValue === 'draw2') {
-      return cardType === 'color' && c.value === 'draw2';
-    }
-    if (topCardType === 'wild' && topValue === 'wild_draw4') {
-      return cardType === 'wild' && (c.wildType ?? c.value) === 'wild_draw4' && pendingDraw >= 4;
-    }
-    return false;
-  }
+  if (pendingDraw && pendingDraw > 0) return false;
   if (cardType === 'wild') return true;
   if (c.color === activeColor) return true;
   if (topCardType === 'color' && c.value === t.value) return true;
@@ -114,15 +104,7 @@ export function canPlaySchema(
 ): boolean {
   if (!isValidPlayableCard(card) || !isValidTopCard(topCard) || !isUnoColor(activeColor)) return false;
 
-  if (pendingDraw && pendingDraw > 0) {
-    if (topCard.cardType === 'color' && topCard.value === 'draw2') {
-      return card.cardType === 'color' && card.value === 'draw2';
-    }
-    if (topCard.cardType === 'wild' && topCard.value === 'wild_draw4') {
-      return card.cardType === 'wild' && card.value === 'wild_draw4' && pendingDraw >= 4;
-    }
-    return false;
-  }
+  if (pendingDraw && pendingDraw > 0) return false;
   if (card.cardType === 'wild') return true;
   if (card.color === activeColor) return true;
   if (topCard.cardType === 'color' && card.value === topCard.value) return true;
@@ -132,19 +114,12 @@ export function canPlaySchema(
 /** Does this hand contain a normal legal option that blocks wild draw four? */
 export function hasWildDrawFourAlternative(
   hand: Array<UnoCard | { cardType: string; color: string; value: string }>,
-  topCard: UnoCard | { cardType: string; value: string },
+  _topCard: UnoCard | { cardType: string; value: string },
   activeColor: UnoColor | string,
 ): boolean {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const top = topCard as any;
-  const topCardType = top.type ?? top.cardType;
-
   return hand.some((card) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const c = card as any;
-    const cardType = c.type ?? c.cardType;
-    if (cardType !== 'color') return false;
-    if (c.color === activeColor) return true;
-    return topCardType === 'color' && c.value === top.value;
+    return (c.type ?? c.cardType) === 'color' && c.color === activeColor;
   });
 }

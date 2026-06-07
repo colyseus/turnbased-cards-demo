@@ -10,9 +10,18 @@ import {
 import { HUMAN_TURN_TIMEOUT_MS, BOT_TURN_DELAY_MS, ACTION_COOLDOWN_MS } from "../../shared/constants.ts";
 import { NUM_PLAYERS, HAND_SIZE } from "../../shared/uno.ts";
 import { logger } from "../logger.ts";
-import DOMPurify from "dompurify";
 
 const VALID_COLORS: readonly UnoColor[] = ["red", "blue", "green", "yellow"];
+
+function sanitizePlainText(value: string): string {
+  return value
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "")
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, "")
+    .replace(/<[^>]*>/g, "")
+    .replace(/javascript:/gi, "")
+    .replace(/[\u0000-\u001F\u007F]/g, "")
+    .trim();
+}
 
 type RoomState = InstanceType<typeof UnoRoomState>;
 type PlayerInstance = InstanceType<typeof PlayerSchema>;
@@ -57,6 +66,11 @@ export class UnoRoom extends Room<{ state: RoomState }> {
       this.state.spectatorCount = 0;
       this.state.chatMessages = new ArraySchema();
       this.state.unoCaller = -1;
+      this.state.lastDrawnCardId = "";
+      this.state.wildDraw4ChallengePending = false;
+      this.state.wildDraw4Illegal = false;
+      this.state.wildDraw4OffenderSeat = -1;
+      this.state.pendingWinnerSeat = -1;
       this.state.rematchVotes = new ArraySchema();
 
       // Fill all seats with bots
@@ -83,9 +97,13 @@ export class UnoRoom extends Room<{ state: RoomState }> {
         this.handlePlayCard(client, message);
       });
 
-      this.onMessage("draw_card", (client: Client) => {
-        this.handleDrawCard(client);
-      });
+    this.onMessage("draw_card", (client: Client) => {
+      this.handleDrawCard(client);
+    });
+
+    this.onMessage("challenge_wild_draw4", (client: Client) => {
+      this.handleChallengeWildDraw4(client);
+    });
 
       this.onMessage("restart", (client: Client) => {
         this.handleRestart(client);
@@ -162,7 +180,7 @@ export class UnoRoom extends Room<{ state: RoomState }> {
           name = trimmed;
         }
       }
-      botPlayer.name = typeof DOMPurify.sanitize === 'function' ? DOMPurify.sanitize(name) : name;
+      botPlayer.name = sanitizePlainText(name) || "Player";
       botPlayer.isBot = false;
       botPlayer.connected = true;
 
@@ -221,6 +239,7 @@ export class UnoRoom extends Room<{ state: RoomState }> {
       player.name = `Bot ${player.seatIndex + 1}`;
       player.isBot = true;
       player.connected = false;
+      this.state.lastDrawnCardId = "";
 
       // Unlock so others can join
       this.unlock();
@@ -357,18 +376,113 @@ export class UnoRoom extends Room<{ state: RoomState }> {
     const player = this.getPlayerBySeat(this.state.currentPlayer);
     const topDiscard = this.state.discardPile[this.state.discardPile.length - 1];
     if (!topDiscard) return false;
+    if (this.state.wildDraw4ChallengePending) return true;
+    if (this.state.lastDrawnCardId) {
+      const drawnCard = player.hand.find((card) => card.id === this.state.lastDrawnCardId);
+      if (!drawnCard) return false;
+      if (!canPlay(drawnCard, topDiscard, this.state.activeColor as UnoColor, this.state.pendingDraw)) return false;
+      return true;
+    }
     for (let i = 0; i < player.hand.length; i++) {
       const card = player.hand[i];
       if (!canPlay(card, topDiscard, this.state.activeColor as UnoColor, this.state.pendingDraw)) continue;
-      // Enforce Wild Draw Four rule: wild_draw4 may only be played if no alternative exists
-      if (card.cardType === "wild" && card.value === "wild_draw4") {
-        if (hasWildDrawFourAlternative(player.hand as unknown as { cardType: string; color: string; value: string }[], topDiscard, this.state.activeColor)) {
-          continue; // Has valid alternative — cannot play wild_draw4
-        }
-      }
       return true;
     }
     return false;
+  }
+
+  /**
+   * Resolve an overdue UNO call at the start of the next turn.
+   *
+   * The room protocol expects the next player to draw 2 cards if the prior
+   * player fails to clear `unoCaller` before the turn advances.
+   */
+  private resolvePendingUnoPenalty(): boolean {
+    if (this.state.unoCaller === -1) return false;
+    if (this.state.currentPlayer === this.state.unoCaller) return false;
+
+    const penalizedSeat = this.state.currentPlayer;
+    const penalizedPlayer = this.getPlayerBySeat(penalizedSeat);
+
+    this.drawCards(penalizedPlayer, 2);
+    this.state.unoCaller = -1;
+    this.state.lastDrawnCardId = "";
+    this.state.currentPlayer = this.nextPlayer();
+
+    logger.info("UnoRoom", "UNO penalty resolved", {
+      penalizedSeat,
+      nextSeat: this.state.currentPlayer,
+    });
+
+    return true;
+  }
+
+  private clearWildDraw4Challenge() {
+    this.state.wildDraw4ChallengePending = false;
+    this.state.wildDraw4Illegal = false;
+    this.state.wildDraw4OffenderSeat = -1;
+  }
+
+  private resolveWildDraw4Challenge(challengerSeat: number) {
+    const offenderSeat = this.state.wildDraw4OffenderSeat;
+    if (offenderSeat < 0) return;
+
+    const offender = this.getPlayerBySeat(offenderSeat);
+    const challenger = this.getPlayerBySeat(challengerSeat);
+    const illegal = this.state.wildDraw4Illegal;
+
+    if (illegal) {
+      this.drawCards(offender, 4);
+      this.state.currentPlayer = challengerSeat;
+      this.state.pendingWinnerSeat = -1;
+    } else {
+      this.drawCards(challenger, 6);
+      this.state.currentPlayer = this.nextPlayer();
+    }
+
+    this.state.pendingDraw = 0;
+    this.clearWildDraw4Challenge();
+    this.finalizePendingWinner();
+    if (this.state.phase === "playing" && this.state.winner === -1) {
+      this.scheduleTurn();
+    }
+  }
+
+  private resolveWildDraw4ByDrawing(challengerSeat: number) {
+    const challenger = this.getPlayerBySeat(challengerSeat);
+    const count = this.state.pendingDraw > 0 ? this.state.pendingDraw : 4;
+    this.drawCards(challenger, count);
+    this.state.pendingDraw = 0;
+    this.clearWildDraw4Challenge();
+    this.state.currentPlayer = this.nextPlayer();
+    this.finalizePendingWinner();
+    if (this.state.phase === "playing" && this.state.winner === -1) {
+      this.scheduleTurn();
+    }
+  }
+
+  private finalizePendingWinner() {
+    const pendingWinnerSeat = this.state.pendingWinnerSeat;
+    if (pendingWinnerSeat < 0) return;
+    if (this.state.pendingDraw > 0) return;
+    if (this.state.wildDraw4ChallengePending) return;
+
+    const winnerPlayer = this.getPlayerBySeat(pendingWinnerSeat);
+    if (winnerPlayer.hand.length !== 0) {
+      this.state.pendingWinnerSeat = -1;
+      return;
+    }
+
+    this.state.pendingWinnerSeat = -1;
+    this.state.winner = pendingWinnerSeat;
+    logger.info("UnoRoom", "Game finished", {
+      winnerSeat: pendingWinnerSeat,
+      winnerName: winnerPlayer.name,
+      seatIndex: pendingWinnerSeat,
+    });
+    this.state.phase = "finished";
+    this.state.rematchVotes.splice(0, this.state.rematchVotes.length);
+    clearTimeout(this.turnTimeout);
   }
 
   // ── Game Logic ────────────────────────────────────────────────
@@ -432,6 +546,11 @@ export class UnoRoom extends Room<{ state: RoomState }> {
 
     if (this.state.phase !== "playing" || this.state.winner !== -1) return;
 
+    if (this.resolvePendingUnoPenalty()) {
+      // The penalty consumed the current turn. Continue scheduling for the
+      // next seat after the forced draw.
+    }
+
     const player = this.getPlayerBySeat(this.state.currentPlayer);
     const canAct = this.playerCanAct();
     const timeout = Number(process.env.HUMAN_TURN_TIMEOUT) || HUMAN_TURN_TIMEOUT_MS;
@@ -493,9 +612,11 @@ export class UnoRoom extends Room<{ state: RoomState }> {
     player: PlayerInstance,
     cardIndex: number,
     chosenColor?: UnoColor,
+    wildDraw4Illegal = false,
   ) {
     this.turnActionActive = true;
     try {
+    this.state.lastDrawnCardId = "";
     const card = player.hand[cardIndex];
 
     // Clone card data for discard pile
@@ -538,20 +659,30 @@ export class UnoRoom extends Room<{ state: RoomState }> {
     const countKey = discardCard.cardType === "color" ? discardCard.color : discardCard.value;
     this.discardedCounts[countKey] = (this.discardedCounts[countKey] || 0) + 1;
 
+    const isPendingPenaltyCard =
+      (discardCard.cardType === "color" && discardCard.value === "draw2") ||
+      (discardCard.cardType === "wild" && discardCard.value === "wild_draw4");
+
     // Check win
     if (player.hand.length === 0) {
-      this.state.winner = player.seatIndex;
-      logger.info("UnoRoom", "Game finished", {
-        winnerSeat: player.seatIndex,
-        winnerName: player.name,
-        seatIndex: player.seatIndex,
-      });
-      this.state.phase = "finished";
-      this.state.rematchVotes.splice(0, this.state.rematchVotes.length);
-      clearTimeout(this.turnTimeout);
-      // Reset flag before the finally runs
-      this.turnActionActive = false;
-      return;
+      if (isPendingPenaltyCard) {
+        this.state.pendingWinnerSeat = player.seatIndex;
+      } else {
+        this.state.winner = player.seatIndex;
+        logger.info("UnoRoom", "Game finished", {
+          winnerSeat: player.seatIndex,
+          winnerName: player.name,
+          seatIndex: player.seatIndex,
+        });
+        this.state.phase = "finished";
+        this.state.rematchVotes.splice(0, this.state.rematchVotes.length);
+        clearTimeout(this.turnTimeout);
+        // Reset flag before the finally runs
+        this.turnActionActive = false;
+        return;
+      }
+    } else {
+      this.state.pendingWinnerSeat = -1;
     }
 
     // Apply effects
@@ -573,7 +704,10 @@ export class UnoRoom extends Room<{ state: RoomState }> {
       }
     } else {
       if (discardCard.value === "wild_draw4") {
-        this.state.pendingDraw += 4;
+        this.state.pendingDraw = 4;
+        this.state.wildDraw4ChallengePending = true;
+        this.state.wildDraw4Illegal = wildDraw4Illegal;
+        this.state.wildDraw4OffenderSeat = player.seatIndex;
       }
       this.state.currentPlayer = this.nextPlayer();
     }
@@ -589,14 +723,38 @@ export class UnoRoom extends Room<{ state: RoomState }> {
     // Guard: if a human turn action is in progress, abort this scheduled call.
     if (this.turnActionActive) return;
 
+    if (this.resolvePendingUnoPenalty()) {
+      this.scheduleTurn();
+      return;
+    }
+
     const player = this.getPlayerBySeat(this.state.currentPlayer);
+
+    if (this.state.lastDrawnCardId) {
+      this.state.lastDrawnCardId = "";
+      this.state.currentPlayer = this.nextPlayer();
+      this.scheduleTurn();
+      return;
+    }
 
     // Must draw if pending
     if (this.state.pendingDraw > 0) {
       this.drawCards(player, this.state.pendingDraw);
       this.state.pendingDraw = 0;
       this.state.currentPlayer = this.nextPlayer();
-      this.scheduleTurn();
+      this.finalizePendingWinner();
+      if (this.state.phase === "playing" && this.state.winner === -1) {
+        this.scheduleTurn();
+      }
+      return;
+    }
+
+    if (this.state.wildDraw4ChallengePending) {
+      if (player.isBot && this.state.wildDraw4Illegal) {
+        this.resolveWildDraw4Challenge(player.seatIndex);
+      } else {
+        this.resolveWildDraw4ByDrawing(player.seatIndex);
+      }
       return;
     }
 
@@ -606,19 +764,34 @@ export class UnoRoom extends Room<{ state: RoomState }> {
     for (let i = 0; i < player.hand.length; i++) {
       const card = player.hand[i];
       if (canPlay(card, topDiscard, this.state.activeColor as UnoColor, this.state.pendingDraw)) {
-        // Enforce Wild Draw Four rule: wild_draw4 may only be played if no alternative exists
-        if (card.cardType === "wild" && card.value === "wild_draw4") {
-          if (hasWildDrawFourAlternative(player.hand as unknown as { cardType: string; color: string; value: string }[], topDiscard, this.state.activeColor)) {
-            continue; // Has valid alternative — cannot play wild_draw4
-          }
-        }
         playable.push(i);
       }
     }
 
     if (playable.length === 0) {
-      // Draw 1 card, skip turn
+      // Draw 1 card. If it is playable, play it immediately; otherwise the turn passes.
       this.drawCards(player, 1);
+      const drawnCard = player.hand[player.hand.length - 1];
+      if (drawnCard && canPlay(drawnCard, topDiscard, this.state.activeColor as UnoColor, this.state.pendingDraw)) {
+        let chosenColor: UnoColor | undefined;
+        const wildDraw4Illegal =
+          drawnCard.cardType === "wild" && drawnCard.value === "wild_draw4"
+            ? hasWildDrawFourAlternative(
+              player.hand as unknown as { cardType: string; color: string; value: string }[],
+              topDiscard,
+              this.state.activeColor,
+            )
+            : false;
+        if (drawnCard.cardType === "wild") {
+          chosenColor = pickBestColorSchema(
+            player.hand as unknown as { cardType: string; color: string; value: string }[],
+            topDiscard.cardType === "color" ? topDiscard.value : undefined,
+            this.difficulty === "hard" ? this.discardedCounts : undefined,
+          );
+        }
+        this.executePlayCard(player, player.hand.length - 1, chosenColor, wildDraw4Illegal);
+        return;
+      }
       this.state.currentPlayer = this.nextPlayer();
       this.scheduleTurn();
       return;
@@ -670,6 +843,12 @@ export class UnoRoom extends Room<{ state: RoomState }> {
       const player = this.findPlayerBySession(client.sessionId);
       if (!player) return;
 
+      if (this.resolvePendingUnoPenalty()) {
+        // The current turn has already advanced because the previous player
+        // missed their UNO call, so this action can no longer apply.
+        this.scheduleTurn();
+      }
+
       // Rate limit
       if (this.checkRateLimit(client.sessionId)) {
         client.send("error", { message: "Rate limited", code: "RATE_LIMITED" });
@@ -685,13 +864,11 @@ export class UnoRoom extends Room<{ state: RoomState }> {
         client.send("error", { message: "Game is finished", code: "GAME_FINISHED" });
         return;
       }
-
-
-      // Validate chosenColor
-      if (chosenColor !== undefined && !VALID_COLORS.includes(chosenColor as UnoColor)) {
-        client.send("error", { message: "Invalid color", code: "INVALID_COLOR" });
+      if (this.state.wildDraw4ChallengePending) {
+        client.send("error", { message: "Resolve the Wild Draw 4 challenge first", code: "CHALLENGE_PENDING" });
         return;
       }
+
 
       // Find card in hand
       let cardIndex = -1;
@@ -709,21 +886,37 @@ export class UnoRoom extends Room<{ state: RoomState }> {
       const card = player.hand[cardIndex];
       const topDiscard = this.state.discardPile[this.state.discardPile.length - 1];
 
+      if (this.state.lastDrawnCardId && this.state.lastDrawnCardId !== cardId) {
+        client.send("error", { message: "Must play the drawn card first", code: "DRAWN_CARD_ONLY" });
+        return;
+      }
+
+      // Validate chosenColor
+      if (card.cardType === "wild" && chosenColor === undefined) {
+        client.send("error", { message: "Wild cards require a chosen color", code: "MISSING_COLOR" });
+        return;
+      }
+      if (chosenColor !== undefined && !VALID_COLORS.includes(chosenColor as UnoColor)) {
+        client.send("error", { message: "Invalid color", code: "INVALID_COLOR" });
+        return;
+      }
+
       // Validate playability
       if (!canPlay(card, topDiscard, this.state.activeColor as UnoColor, this.state.pendingDraw)) {
         client.send("error", { message: "Card cannot be played", code: "CANNOT_PLAY" });
         return;
       }
 
-      // Wild Draw Four rule: player may only play wild_draw4 if they have NO valid alternatives.
-      if (card.cardType === "wild" && card.value === "wild_draw4") {
-        if (this.state.pendingDraw === 0 && hasWildDrawFourAlternative(player.hand as unknown as { cardType: string; color: string; value: string }[], topDiscard, this.state.activeColor)) {
-          client.send("error", { message: "Cannot play Wild Draw 4 — you have a valid alternative", code: "WILDDRAW4_VIOLATION" });
-          return;
-        }
-      }
+      const wildDraw4Illegal =
+        card.cardType === "wild" && card.value === "wild_draw4"
+          ? hasWildDrawFourAlternative(
+            player.hand as unknown as { cardType: string; color: string; value: string }[],
+            topDiscard,
+            this.state.activeColor,
+          )
+          : false;
 
-      this.executePlayCard(player, cardIndex, chosenColor as UnoColor | undefined);
+      this.executePlayCard(player, cardIndex, chosenColor as UnoColor | undefined, wildDraw4Illegal);
     } catch (err) {
       logger.error("UnoRoom", "handlePlayCard failed", { error: String(err) });
       client.send("error", { message: "Internal error", code: "INTERNAL_ERROR" });
@@ -734,6 +927,12 @@ export class UnoRoom extends Room<{ state: RoomState }> {
     try {
       const player = this.findPlayerBySession(client.sessionId);
       if (!player) return;
+
+      if (this.resolvePendingUnoPenalty()) {
+        // The current turn has already advanced because the previous player
+        // missed their UNO call, so this draw is no longer valid.
+        this.scheduleTurn();
+      }
 
       // Rate limit
       if (this.checkRateLimit(client.sessionId)) {
@@ -749,14 +948,67 @@ export class UnoRoom extends Room<{ state: RoomState }> {
         client.send("error", { message: "Game is finished", code: "GAME_FINISHED" });
         return;
       }
+      if (this.state.lastDrawnCardId) {
+        client.send("error", { message: "You must play the drawn card or wait for the turn to pass", code: "ALREADY_DREW" });
+        return;
+      }
+
+      if (this.state.wildDraw4ChallengePending) {
+        const count = this.state.pendingDraw > 0 ? this.state.pendingDraw : 4;
+        this.drawCards(player, count);
+        this.state.pendingDraw = 0;
+        this.clearWildDraw4Challenge();
+        this.state.currentPlayer = this.nextPlayer();
+        this.finalizePendingWinner();
+        if (this.state.phase === "playing" && this.state.winner === -1) {
+          this.scheduleTurn();
+        }
+        return;
+      }
 
       const count = this.state.pendingDraw > 0 ? this.state.pendingDraw : 1;
       this.drawCards(player, count);
       this.state.pendingDraw = 0;
+
+      if (count === 1) {
+        this.state.lastDrawnCardId = player.hand[player.hand.length - 1]?.id ?? "";
+        this.scheduleTurn();
+        return;
+      }
+
+      this.state.lastDrawnCardId = "";
       this.state.currentPlayer = this.nextPlayer();
-      this.scheduleTurn();
+      this.finalizePendingWinner();
+      if (this.state.phase === "playing" && this.state.winner === -1) {
+        this.scheduleTurn();
+      }
     } catch (err) {
       logger.error("UnoRoom", "handleDrawCard failed", { error: String(err) });
+      client.send("error", { message: "Internal error", code: "INTERNAL_ERROR" });
+    }
+  }
+
+  private handleChallengeWildDraw4(client: Client) {
+    try {
+      const player = this.findPlayerBySession(client.sessionId);
+      if (!player) return;
+
+      if (this.checkRateLimit(client.sessionId)) {
+        client.send("error", { message: "Rate limited", code: "RATE_LIMITED" });
+        return;
+      }
+
+      if (this.state.currentPlayer !== player.seatIndex) {
+        client.send("error", { message: "Not your turn", code: "NOT_YOUR_TURN" });
+        return;
+      }
+      if (!this.state.wildDraw4ChallengePending) {
+        client.send("error", { message: "No Wild Draw 4 challenge is pending", code: "NO_CHALLENGE_PENDING" });
+        return;
+      }
+      this.resolveWildDraw4Challenge(player.seatIndex);
+    } catch (err) {
+      logger.error("UnoRoom", "handleChallengeWildDraw4 failed", { error: String(err) });
       client.send("error", { message: "Internal error", code: "INTERNAL_ERROR" });
     }
   }
@@ -784,6 +1036,11 @@ export class UnoRoom extends Room<{ state: RoomState }> {
     this.state.discardPile.splice(0, this.state.discardPile.length);
     this.discardedCounts = {};
     this.state.unoCaller = -1;
+    this.state.lastDrawnCardId = "";
+    this.state.wildDraw4ChallengePending = false;
+    this.state.wildDraw4Illegal = false;
+    this.state.wildDraw4OffenderSeat = -1;
+    this.state.pendingWinnerSeat = -1;
     this.state.rematchVotes.splice(0, this.state.rematchVotes.length);
     // Re-deal
     this.dealGame();
@@ -804,10 +1061,9 @@ export class UnoRoom extends Room<{ state: RoomState }> {
 
     const text = typeof message.text === "string" ? message.text.trim() : "";
     if (!text || text.length > 200) return;
-    const sanitized = (raw: string) => typeof DOMPurify.sanitize === 'function' ? DOMPurify.sanitize(raw) : raw;
     const chatMsg = new ChatMessageSchema();
-    chatMsg.sender = sanitized(senderName);
-    chatMsg.text = sanitized(text);
+    chatMsg.sender = sanitizePlainText(senderName);
+    chatMsg.text = sanitizePlainText(text);
     chatMsg.timestamp = Date.now();
     this.state.chatMessages.push(chatMsg);
     // Keep last 50 messages

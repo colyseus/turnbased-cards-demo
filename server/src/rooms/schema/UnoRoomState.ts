@@ -40,6 +40,11 @@ export const UnoRoomState = schema({
   turnDeadline: "number",      // timestamp for turn timeout
   spectatorCount: "number",    // number of spectators watching
   chatMessages: { array: ChatMessageSchema },
-  unoCaller: "number",         // seat index that just reached 1 card, must call UNO; -1 if not applicable
+  unoCaller: "number",         // seat index that just reached 1 card and must clear UNO before the next turn; -1 if not applicable
+  lastDrawnCardId: "string",   // card drawn this turn; if set, only this card may be played before the turn ends
+  wildDraw4ChallengePending: "boolean",
+  wildDraw4Illegal: "boolean",
+  wildDraw4OffenderSeat: "number",
+  pendingWinnerSeat: "number",
   rematchVotes: { array: "number" }, // seat indices that voted to rematch
 });
