@@ -17,30 +17,23 @@
 
 ---
 
-## Epic 1 — Client Performance and Rendering  [ ]
+## Epic 1 — Client Performance and Rendering  [~]
 
-### 1.1 Consolidate card PNGs into a single sprite atlas  [ ]
-- [ ] **1.1.1** Audit the current `kenney_playing-cards-pack/PNG/Cards
-  (medium)/` directory — confirm the exact file count and naming
-  pattern.
-- [ ] **1.1.2** Define the sprite-sheet layout. Either:
-  (a) one big sheet with all 55 cards in a 10×6 grid (matches the
-  existing `ATLAS_ORDER` 10-col logic), or
-  (b) split into a few smaller sheets (e.g. one per color) for
-  incremental loading. Pick (a) unless file-size dictates otherwise.
-- [ ] **1.1.3** Generate the sprite sheet with a build step. Options:
-  `spritesmith`, `sharp`, or a one-shot Python script with PIL.
-  Whatever is chosen, commit the generator script so future asset
-  additions are reproducible.
-- [ ] **1.1.4** Update `CardAtlasView.tsx` (or its config) to point
-  at the single sheet. The `ATLAS_ORDER` indices should not need to
-  change — only the asset URL.
-- [ ] **1.1.5** Verify: Vite build still produces the same 95-module
-  output, the smoke test still passes, the card visuals are
-  pixel-identical to the pre-sprite version.
-- [ ] **1.1.6** Measure: count HTTP requests for the card set in the
-  network tab before and after. Should drop from ~55 to 1 (or 4–5 if
-  option b).
+### 1.1 Consolidate card PNGs into a single sprite atlas  [x] (committed)
+- [x] **1.1.1** Audit the current `kenney_playing-cards-pack/PNG/Cards
+  (medium)/` directory — 137 PNGs found, all unreferenced.
+- [x] **1.1.2** Confirm the sprite-sheet layout — 10×6 grid matching
+  `ATLAS_ORDER` and the CSS background-position math.
+- [x] **1.1.3** Provide a build script for future asset additions —
+  `scripts/build-card-atlas.mjs` (ImageMagick `montage`-based).
+- [x] **1.1.4** Atlas already wired up via `/cards/atlas.webp` and
+  `card-sprite` CSS — no change needed.
+- [x] **1.1.5** Verified: build clean, smoke test passes, no
+  visual change.
+- [x] **1.1.6** Measured: HTTP request count for cards was already 1
+  (atlas only); the 137 PNGs were dead code. Repo: -1.3MB.
+- [x] **1.1.7** Bonus finding: removed stale `list.txt` (pointed at
+  `/home/gfunk/...`, different dev's machine).
 
 ### 1.2 Eliminate per-card re-renders in the table view  [ ]
 - [ ] **1.2.1** Add a `why-did-you-render` style dev-only logger
