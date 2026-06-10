@@ -10,6 +10,7 @@ import { TableBoardStage } from "./TableBoardStage";
 import { TableSidePanel } from "./TableSidePanel";
 import { TableTopbar } from "./TableTopbar";
 import { TableShell } from "./TableShell";
+import { removeStorage, writeStorage } from "../storage";
 import {
   cardLabel,
   getDeterministicOffsetX,
@@ -238,7 +239,7 @@ export function TableRoom(props: TableRoomProps) {
         showRules={showRules}
         onCloseRules={() => setShowRules(false)}
         onReplayGuide={() => {
-          localStorage.removeItem("uno_tutorial_complete");
+          removeStorage("uno_tutorial_complete");
           const next = getReplayGuideSnapshot({
             showRules: true,
             tutorialStep,
@@ -291,7 +292,7 @@ export function TableRoom(props: TableRoomProps) {
         cardBackTheme={cardBackTheme}
         onSetCardBackTheme={(theme) => {
           setCardBackTheme(theme);
-          localStorage.setItem("uno_card_back_skin", theme);
+          writeStorage("uno_card_back_skin", theme);
         }}
         showToast={showToast}
       />
@@ -319,7 +320,6 @@ export function TableRoom(props: TableRoomProps) {
         onUnplayableTap={handleUnplayableTap}
         scrollHand={scrollHand}
         handScrollRef={handScrollRef}
-        showToast={showToast}
         colorblindMode={colorblindMode}
       />
 

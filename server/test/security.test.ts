@@ -1,7 +1,25 @@
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach as vitestAfterEach } from "vitest";
+import type { Client } from "@colyseus/core";
 import { UnoRoom } from "../src/rooms/UnoRoom.ts";
 import { UnoCardSchema } from "../src/rooms/schema/UnoRoomState.ts";
 import { canPlay, canPlaySchema } from "../shared/uno.ts";
+import { makeTestClient } from "./testClients.ts";
+
+type RoomTestAccess = UnoRoom & {
+  spectators: Set<{ sessionId: string }>;
+};
+
+const roomCleanups: Array<() => void> = [];
+
+vitestAfterEach(() => {
+  while (roomCleanups.length > 0) {
+    roomCleanups.pop()?.();
+  }
+});
+
+function registerCleanup(cleanup: () => void) {
+  roomCleanups.push(cleanup);
+}
 
 function makeSchemaCard(id: string, color: string, value: string): InstanceType<typeof UnoCardSchema> {
   const card = new UnoCardSchema();
@@ -23,9 +41,13 @@ function makeWildCard(id: string, wildType: string, chosenColor = ""): InstanceT
   return card;
 }
 
-function createRoomWithHuman(seatIndex = 0, name = "TestPlayer"): { room: UnoRoom; client: { sessionId: string }; playerIndex: number } {
+function createRoomWithHuman(
+  seatIndex = 0,
+  name = "TestPlayer",
+): { room: UnoRoom; client: Client } {
   const room = new UnoRoom();
   room.onCreate();
+  registerCleanup(() => room.onDispose());
   clearTimeout(room["turnTimeout"]);
 
   // Make all players bots initially, then convert target seat to human
@@ -35,7 +57,7 @@ function createRoomWithHuman(seatIndex = 0, name = "TestPlayer"): { room: UnoRoo
     p.connected = false;
   }
 
-  const client = { sessionId: `human-${seatIndex}`, send: () => {} } as unknown as { sessionId: string; send: (type: string, data: unknown) => void };
+  const client = makeTestClient(`human-${seatIndex}`);
   room.onJoin(client, { name, spectator: false });
 
   // Set the player as non-bot and connected
@@ -60,7 +82,7 @@ function createRoomWithHuman(seatIndex = 0, name = "TestPlayer"): { room: UnoRoo
   room["lastActionTime"].clear();
   clearTimeout(room["turnTimeout"]);
 
-  return { room, client, playerIndex: seatIndex };
+  return { room, client };
 }
 
 /**
@@ -135,7 +157,6 @@ describe("Security: handlePlayCard", () => {
   describe("invalid cardId", () => {
     it("rejects empty string cardId", () => {
       const { room, client } = createRoomWithHuman();
-      afterEach(() => room.onDispose());
 
       const player = room.state.players.get("0")!;
       player.hand.push(makeSchemaCard("valid_red_5", "red", "5"));
@@ -150,7 +171,6 @@ describe("Security: handlePlayCard", () => {
 
     it("rejects cardId longer than 64 characters", () => {
       const { room, client } = createRoomWithHuman();
-      afterEach(() => room.onDispose());
 
       const player = room.state.players.get("0")!;
       player.hand.push(makeSchemaCard("valid_red_5", "red", "5"));
@@ -165,7 +185,6 @@ describe("Security: handlePlayCard", () => {
 
     it("rejects non-existent cardId", () => {
       const { room, client } = createRoomWithHuman();
-      afterEach(() => room.onDispose());
 
       const player = room.state.players.get("0")!;
       player.hand.push(makeSchemaCard("valid_red_5", "red", "5"));
@@ -181,7 +200,6 @@ describe("Security: handlePlayCard", () => {
   describe("card not in hand", () => {
     it("rejects playing a card not in player's hand", () => {
       const { room, client } = createRoomWithHuman();
-      afterEach(() => room.onDispose());
 
       const player = room.state.players.get("0")!;
       room.state.activeColor = "red";
@@ -198,7 +216,6 @@ describe("Security: handlePlayCard", () => {
   describe("playing out of turn", () => {
     it("rejects play from a player who is not the current player", () => {
       const { room, client } = createRoomWithHuman(0);
-      afterEach(() => room.onDispose());
 
       // Set a different player as current
       room.state.currentPlayer = 1;
@@ -215,7 +232,6 @@ describe("Security: handlePlayCard", () => {
 
     it("sends NOT_YOUR_TURN error when playing out of turn", () => {
       const { room, client } = createRoomWithHuman(0);
-      afterEach(() => room.onDispose());
 
       room.state.currentPlayer = 2; // Different player
       const player = room.state.players.get("0")!;
@@ -223,12 +239,9 @@ describe("Security: handlePlayCard", () => {
       room.state.discardPile.push(makeSchemaCard("discard_red_3", "red", "3"));
 
       let errorReceived: { message: string; code: string } | null = null;
-      const mockClient = {
-        sessionId: client.sessionId,
-        send: (type: string, data: { message: string; code: string }) => {
-          if (type === "error") errorReceived = data;
-        },
-      } as never;
+      const mockClient = makeTestClient(client.sessionId, (type: string, data: { message: string; code: string }) => {
+        if (type === "error") errorReceived = data;
+      });
 
       room["handlePlayCard"](mockClient, { cardId: "valid_red_5" });
 
@@ -240,7 +253,6 @@ describe("Security: handlePlayCard", () => {
   describe("invalid chosenColor", () => {
     it("rejects play with invalid chosenColor for wild card", () => {
       const { room, client } = createRoomWithHuman();
-      afterEach(() => room.onDispose());
 
       const player = room.state.players.get("0")!;
       player.hand.push(makeWildCard("wild_card", "wild"));
@@ -255,7 +267,6 @@ describe("Security: handlePlayCard", () => {
 
     it("accepts valid chosenColor for wild card", () => {
       const { room, client } = createRoomWithHuman();
-      afterEach(() => room.onDispose());
 
       const player = room.state.players.get("0")!;
       player.hand.push(makeWildCard("wild_card", "wild"));
@@ -270,7 +281,6 @@ describe("Security: handlePlayCard", () => {
 
     it("rejects play with missing chosenColor for wild card", () => {
       const { room, client } = createRoomWithHuman();
-      afterEach(() => room.onDispose());
 
       const player = room.state.players.get("0")!;
       player.hand.push(makeWildCard("wild_card", "wild"));
@@ -286,7 +296,6 @@ describe("Security: handlePlayCard", () => {
   describe("wild_draw4 challenge flow", () => {
     it("accepts wild_draw4 even when player has a valid color alternative and opens a challenge window", () => {
       const { room, client } = createRoomWithHuman();
-      afterEach(() => room.onDispose());
 
       const player = room.state.players.get("0")!;
       // Player has a color card matching the active color (valid alternative to wild_draw4)
@@ -309,7 +318,6 @@ describe("Security: handlePlayCard", () => {
 
     it("lets the next player challenge successfully when the offender had a matching color", () => {
       const { room, client } = createRoomWithHuman();
-      afterEach(() => room.onDispose());
 
       const offender = room.state.players.get("0")!;
       offender.hand.push(makeSchemaCard("red_5", "red", "5"));
@@ -326,7 +334,7 @@ describe("Security: handlePlayCard", () => {
       challenger.isBot = false;
       challenger.connected = true;
 
-      room["handleChallengeWildDraw4"]({ sessionId: "human-1", send: () => {} } as never);
+      room["handleChallengeWildDraw4"](makeTestClient("human-1"));
 
       expect(room.state.wildDraw4ChallengePending).toBe(false);
       expect(room.state.pendingDraw).toBe(0);
@@ -338,7 +346,6 @@ describe("Security: handlePlayCard", () => {
 
     it("gives the challenger six cards and awards the round when the offender was innocent", () => {
       const { room, client } = createRoomWithHuman();
-      afterEach(() => room.onDispose());
 
       const player = room.state.players.get("0")!;
       room.state.currentPlayer = 0;
@@ -355,7 +362,7 @@ describe("Security: handlePlayCard", () => {
       challenger.isBot = false;
       challenger.connected = true;
 
-      room["handleChallengeWildDraw4"]({ sessionId: "human-1", send: () => {} } as never);
+      room["handleChallengeWildDraw4"](makeTestClient("human-1"));
 
       expect(room.state.wildDraw4ChallengePending).toBe(false);
       expect(room.state.pendingDraw).toBe(0);
@@ -367,7 +374,6 @@ describe("Security: handlePlayCard", () => {
 
     it("rejects wild_draw4 while a draw penalty is pending", () => {
       const { room, client } = createRoomWithHuman();
-      afterEach(() => room.onDispose());
 
       const player = room.state.players.get("0")!;
       room.state.currentPlayer = 0;
@@ -393,7 +399,6 @@ describe("Security: handlePlayCard", () => {
   describe("replaying same card", () => {
     it("handles gracefully when cardId was already played (not in hand)", () => {
       const { room, client } = createRoomWithHuman();
-      afterEach(() => room.onDispose());
 
       const player = room.state.players.get("0")!;
       player.hand.push(makeSchemaCard("red_5", "red", "5"));
@@ -412,7 +417,6 @@ describe("Security: handlePlayCard", () => {
   describe("game finished state", () => {
     it("rejects play when game is finished", () => {
       const { room, client } = createRoomWithHuman();
-      afterEach(() => room.onDispose());
 
       room.state.phase = "finished";
       room.state.winner = 2;
@@ -432,7 +436,6 @@ describe("Security: handleDrawCard", () => {
   describe("draw when not your turn", () => {
     it("rejects draw from a player who is not the current player", () => {
       const { room, client } = createRoomWithHuman(0);
-      afterEach(() => room.onDispose());
 
       room.state.currentPlayer = 1; // Different player
       const handCountBefore = room.state.players.get("0")!.hand.length;
@@ -445,17 +448,13 @@ describe("Security: handleDrawCard", () => {
 
     it("sends NOT_YOUR_TURN error when drawing out of turn", () => {
       const { room, client } = createRoomWithHuman(0);
-      afterEach(() => room.onDispose());
 
       room.state.currentPlayer = 2;
 
       let errorReceived: { message: string; code: string } | null = null;
-      const mockClient = {
-        sessionId: client.sessionId,
-        send: (type: string, data: { message: string; code: string }) => {
-          if (type === "error") errorReceived = data;
-        },
-      } as never;
+      const mockClient = makeTestClient(client.sessionId, (type: string, data: { message: string; code: string }) => {
+        if (type === "error") errorReceived = data;
+      });
 
       room["handleDrawCard"](mockClient);
 
@@ -467,7 +466,6 @@ describe("Security: handleDrawCard", () => {
   describe("draw when pile empty", () => {
     it("allows draw when pile count is zero but pile recycles", () => {
       const { room, client } = createRoomWithHuman();
-      afterEach(() => room.onDispose());
 
       // Clear discard pile except one card, and empty draw pile
       room.state.discardPile.splice(0, room.state.discardPile.length);
@@ -488,7 +486,6 @@ describe("Security: handleDrawCard", () => {
   describe("game finished state", () => {
     it("rejects draw when game is finished", () => {
       const { room, client } = createRoomWithHuman();
-      afterEach(() => room.onDispose());
 
       room.state.phase = "finished";
       room.state.winner = 2;
@@ -506,7 +503,6 @@ describe("Security: handleChat", () => {
   describe("empty text", () => {
     it("rejects empty string text", () => {
       const { room, client } = createRoomWithHuman();
-      afterEach(() => room.onDispose());
 
       const messagesBefore = room.state.chatMessages.length;
       room["handleChat"](client, { text: "" });
@@ -516,7 +512,6 @@ describe("Security: handleChat", () => {
 
     it("rejects undefined text", () => {
       const { room, client } = createRoomWithHuman();
-      afterEach(() => room.onDispose());
 
       const messagesBefore = room.state.chatMessages.length;
       room["handleChat"](client, { text: undefined });
@@ -526,7 +521,6 @@ describe("Security: handleChat", () => {
 
     it("rejects missing text property", () => {
       const { room, client } = createRoomWithHuman();
-      afterEach(() => room.onDispose());
 
       const messagesBefore = room.state.chatMessages.length;
       room["handleChat"](client, {});
@@ -538,7 +532,6 @@ describe("Security: handleChat", () => {
   describe("text > 200 chars", () => {
     it("rejects text longer than 200 characters", () => {
       const { room, client } = createRoomWithHuman();
-      afterEach(() => room.onDispose());
 
       const longText = "a".repeat(201);
       const messagesBefore = room.state.chatMessages.length;
@@ -549,7 +542,6 @@ describe("Security: handleChat", () => {
 
     it("accepts text exactly 200 characters", () => {
       const { room, client } = createRoomWithHuman();
-      afterEach(() => room.onDispose());
 
       const text200 = "a".repeat(200);
       room["handleChat"](client, { text: text200 });
@@ -562,7 +554,6 @@ describe("Security: handleChat", () => {
   describe("HTML/script content", () => {
     it("sanitizes HTML script tags from chat text", () => {
       const { room, client } = createRoomWithHuman();
-      afterEach(() => room.onDispose());
 
       const maliciousText = "<script>alert('xss')</script>Hello";
       room["handleChat"](client, { text: maliciousText });
@@ -575,7 +566,6 @@ describe("Security: handleChat", () => {
 
     it("sanitizes inline JavaScript event handlers", () => {
       const { room, client } = createRoomWithHuman();
-      afterEach(() => room.onDispose());
 
       const maliciousText = "<img src=x onerror='alert(1)'>";
       room["handleChat"](client, { text: maliciousText });
@@ -586,7 +576,6 @@ describe("Security: handleChat", () => {
 
     it("sanitizes javascript: URL schemes", () => {
       const { room, client } = createRoomWithHuman();
-      afterEach(() => room.onDispose());
 
       const maliciousText = "<a href='javascript:alert(1)'>click</a>";
       room["handleChat"](client, { text: maliciousText });
@@ -597,7 +586,6 @@ describe("Security: handleChat", () => {
 
     it("sanitizes sender name to prevent XSS in displayed username", () => {
       const { room, client } = createRoomWithHuman(0, "<script>alert('xss')</script>");
-      afterEach(() => room.onDispose());
 
       room["handleChat"](client, { text: "hello" });
 
@@ -610,7 +598,6 @@ describe("Security: handleChat", () => {
   describe("whitespace-only text", () => {
     it("rejects whitespace-only text after trim", () => {
       const { room, client } = createRoomWithHuman();
-      afterEach(() => room.onDispose());
 
       const messagesBefore = room.state.chatMessages.length;
       room["handleChat"](client, { text: "   \t\n  " });
@@ -620,7 +607,6 @@ describe("Security: handleChat", () => {
 
     it("accepts text with leading/trailing whitespace that is otherwise valid", () => {
       const { room, client } = createRoomWithHuman();
-      afterEach(() => room.onDispose());
 
       room["handleChat"](client, { text: "  Hello  " });
 
@@ -632,7 +618,6 @@ describe("Security: handleChat", () => {
   describe("non-string text types", () => {
     it("rejects numeric text", () => {
       const { room, client } = createRoomWithHuman();
-      afterEach(() => room.onDispose());
 
       const messagesBefore = room.state.chatMessages.length;
       room["handleChat"](client, { text: 12345 as unknown as string });
@@ -642,7 +627,6 @@ describe("Security: handleChat", () => {
 
     it("rejects array text", () => {
       const { room, client } = createRoomWithHuman();
-      afterEach(() => room.onDispose());
 
       const messagesBefore = room.state.chatMessages.length;
       room["handleChat"](client, { text: ["hello", "world"] } as unknown as string);
@@ -652,7 +636,6 @@ describe("Security: handleChat", () => {
 
     it("rejects object text", () => {
       const { room, client } = createRoomWithHuman();
-      afterEach(() => room.onDispose());
 
       const messagesBefore = room.state.chatMessages.length;
       room["handleChat"](client, { text: { value: "hello" } } as unknown as string);
@@ -666,7 +649,6 @@ describe("Security: handleUno", () => {
   describe("calling when not unoCaller", () => {
     it("does not clear unoCaller if player is not the uno caller", () => {
       const { room, client } = createRoomWithHuman(0);
-      afterEach(() => room.onDispose());
 
       // Set a different player as unoCaller
       room.state.unoCaller = 2;
@@ -681,7 +663,6 @@ describe("Security: handleUno", () => {
 
     it("clears unoCaller when called by the correct player", () => {
       const { room, client } = createRoomWithHuman(0);
-      afterEach(() => room.onDispose());
 
       room.state.unoCaller = 0;
       const player = room.state.players.get("0")!;
@@ -696,7 +677,6 @@ describe("Security: handleUno", () => {
   describe("calling when game finished", () => {
     it("handles uno call gracefully when game is finished", () => {
       const { room, client } = createRoomWithHuman(0);
-      afterEach(() => room.onDispose());
 
       room.state.phase = "finished";
       room.state.winner = 2;
@@ -710,19 +690,15 @@ describe("Security: handleUno", () => {
 
     it("does not send error when game is finished (silent no-op)", () => {
       const { room, client } = createRoomWithHuman(0);
-      afterEach(() => room.onDispose());
 
       room.state.phase = "finished";
       room.state.winner = 2;
       room.state.unoCaller = 0;
 
       let errorReceived: { message: string; code: string } | null = null;
-      const mockClient = {
-        sessionId: client.sessionId,
-        send: (type: string, data: { message: string; code: string }) => {
-          if (type === "error") errorReceived = data;
-        },
-      } as never;
+      const mockClient = makeTestClient(client.sessionId, (type: string, data: { message: string; code: string }) => {
+        if (type === "error") errorReceived = data;
+      });
 
       room["handleUno"](mockClient);
 
@@ -734,13 +710,12 @@ describe("Security: handleUno", () => {
   describe("spectator calling uno", () => {
     it("silently ignores uno call from spectator", () => {
       const { room } = createRoomWithHuman(0);
-      afterEach(() => room.onDispose());
 
       room.state.unoCaller = 0;
 
-      const spectatorClient = { sessionId: "spectator-session" } as never;
+      const spectatorClient = makeTestClient("spectator-session");
       // Add as spectator
-      room["spectators"].add(spectatorClient as any);
+      (room as RoomTestAccess).spectators.add(spectatorClient);
 
       // Should not throw
       expect(() => {
@@ -757,7 +732,6 @@ describe("Security: handleVoteRematch", () => {
   describe("voting twice", () => {
     it("only accepts one vote per player", () => {
       const { room, client } = createRoomWithHuman(0);
-      afterEach(() => room.onDispose());
 
       room.state.phase = "finished";
       const player = room.state.players.get("0")!;
@@ -783,7 +757,6 @@ describe("Security: handleVoteRematch", () => {
 
     it("allows voting again if vote was cleared", () => {
       const { room, client } = createRoomWithHuman(0);
-      afterEach(() => room.onDispose());
 
       room.state.phase = "finished";
       const player = room.state.players.get("0")!;
@@ -811,9 +784,9 @@ describe("Security: handleVoteRematch", () => {
       const room = new UnoRoom();
       room.onCreate();
 
-      const spectatorClient = { sessionId: "spectator-session" } as never;
+      const spectatorClient = makeTestClient("spectator-session");
       // Add as spectator
-      room["spectators"].add(spectatorClient as any);
+      (room as RoomTestAccess).spectators.add(spectatorClient);
 
       room.state.phase = "finished";
 
@@ -827,7 +800,6 @@ describe("Security: handleVoteRematch", () => {
 
     it("rejects vote from bot player", () => {
       const { room, client } = createRoomWithHuman(0);
-      afterEach(() => room.onDispose());
 
       room.state.phase = "finished";
       const player = room.state.players.get("0")!;
@@ -844,7 +816,6 @@ describe("Security: handleVoteRematch", () => {
   describe("voting when game not finished", () => {
     it("rejects vote when game is still in progress", () => {
       const { room, client } = createRoomWithHuman(0);
-      afterEach(() => room.onDispose());
 
       room.state.phase = "playing"; // Not finished
       room.state.winner = null;
@@ -862,7 +833,6 @@ describe("Security: handleVoteRematch", () => {
   describe("disconnected player voting", () => {
     it("rejects vote from disconnected player", () => {
       const { room, client } = createRoomWithHuman(0);
-      afterEach(() => room.onDispose());
 
       room.state.phase = "finished";
       const player = room.state.players.get("0")!;
@@ -881,7 +851,6 @@ describe("Security: handleVoteRematch", () => {
 describe("Security: rate limiting", () => {
   it("rate limits rapid draw_card messages", () => {
     const { room, client } = createRoomWithHuman();
-    afterEach(() => room.onDispose());
 
     // First draw should go through
     room["handleDrawCard"](client);
@@ -902,7 +871,6 @@ describe("Security: rate limiting", () => {
 describe("Security: handlePlayCard edge cases", () => {
   it("handles play with non-string cardId gracefully", () => {
     const { room, client } = createRoomWithHuman();
-    afterEach(() => room.onDispose());
 
     const player = room.state.players.get("0")!;
     player.hand.push(makeSchemaCard("red_5", "red", "5"));
@@ -918,7 +886,6 @@ describe("Security: handlePlayCard edge cases", () => {
 
   it("rejects missing chosenColor for wild card", () => {
     const { room, client } = createRoomWithHuman();
-    afterEach(() => room.onDispose());
 
     const player = room.state.players.get("0")!;
     player.hand.push(makeWildCard("wild_card", "wild"));
@@ -936,7 +903,6 @@ describe("Security: handlePlayCard edge cases", () => {
 describe("Security: handleChat edge cases", () => {
   it("limits chat messages to 50", () => {
     const { room, client } = createRoomWithHuman();
-    afterEach(() => room.onDispose());
 
     // Add 60 messages
     for (let i = 0; i < 60; i++) {
@@ -949,7 +915,6 @@ describe("Security: handleChat edge cases", () => {
 
   it("accepts unicode text including emoji", () => {
     const { room, client } = createRoomWithHuman();
-    afterEach(() => room.onDispose());
 
     room["handleChat"](client, { text: "Hello! 👋🎉🔥" });
 

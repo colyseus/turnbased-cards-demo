@@ -2,6 +2,11 @@ import { describe, expect, it } from "vitest";
 import { UnoRoom } from "../src/rooms/UnoRoom.ts";
 import { UnoCardSchema } from "../src/rooms/schema/UnoRoomState.ts";
 import { canPlay } from "../shared/uno.ts";
+import { makeTestClient } from "./testClients.ts";
+
+type RoomTestAccess = UnoRoom & {
+  drawPile: Array<{ type: "color"; color: string; value: string; id: string }>;
+};
 
 function makeSchemaCard(
   id: string,
@@ -100,12 +105,13 @@ describe("UnoRoom turn scheduling logic", () => {
     room.state.discardPile.push(makeSchemaCard("red_7_top", "red", "7"));
     room.state.activeColor = "red";
     room.state.direction = 1;
-    (room as any).drawPile = [{ type: "color", color: "red", value: "2", id: "red_2_drawn" }];
+    room.state.unoCaller = -1;
+    room.state.pendingDraw = 0;
+    room.state.lastDrawnCardId = "";
+    room.state.wildDraw4ChallengePending = false;
+    (room as RoomTestAccess).drawPile = [{ type: "color", color: "red", value: "2", id: "red_2_drawn" }];
 
-    const client = {
-      sessionId: "human-0",
-      send: () => {},
-    } as never;
+    const client = makeTestClient("human-0");
 
     room["handleDrawCard"](client);
 
@@ -118,16 +124,58 @@ describe("UnoRoom turn scheduling logic", () => {
 
     room["lastActionTime"].clear();
     let playError: { message: string; code: string } | null = null;
-    const drawPlayClient = {
-      sessionId: "human-0",
-      send: (type: string, data: { message: string; code: string }) => {
-        if (type === "error") playError = data;
-      },
-    } as never;
+    const drawPlayClient = makeTestClient("human-0", (type: string, data: { message: string; code: string }) => {
+      if (type === "error") playError = data;
+    });
     room["handlePlayCard"](drawPlayClient, { cardId: "red_2_drawn" });
     expect(playError).toBeNull();
     expect(player.hand.some((card) => card.id === "red_2_drawn")).toBe(false);
     expect(room.state.currentPlayer).toBe(1);
+
+    room.onDispose();
+  });
+
+  it("keeps the draw-only lock when another seat disconnects", () => {
+    const room = new UnoRoom();
+    room.onCreate();
+    clearTimeout(room["turnTimeout"]);
+
+    const player = room.state.players.get("0")!;
+    player.sessionId = "human-0";
+    player.isBot = false;
+    player.connected = true;
+    player.hand.splice(0, player.hand.length);
+    player.hand.push(makeSchemaCard("red_5_existing", "red", "5"));
+    player.hand.push(makeSchemaCard("green_9_existing", "green", "9"));
+    room.state.currentPlayer = 0;
+    room.state.discardPile.splice(0, room.state.discardPile.length);
+    room.state.discardPile.push(makeSchemaCard("red_7_top", "red", "7"));
+    room.state.activeColor = "red";
+    room.state.direction = 1;
+    room.state.pendingDraw = 0;
+    room.state.lastDrawnCardId = "";
+    (room as RoomTestAccess).drawPile = [{ type: "color", color: "red", value: "2", id: "red_2_drawn" }];
+
+    const currentClient = makeTestClient("human-0");
+    room["handleDrawCard"](currentClient);
+    expect(room.state.lastDrawnCardId).toBe("red_2_drawn");
+
+    const otherSeat = room.state.players.get("1")!;
+    otherSeat.sessionId = "human-1";
+    otherSeat.isBot = false;
+    otherSeat.connected = true;
+    room.onLeave(makeTestClient("human-1"));
+
+    room["lastActionTime"].clear();
+    let playError: { message: string; code: string } | null = null;
+    const playClient = makeTestClient("human-0", (type: string, data: { message: string; code: string }) => {
+      if (type === "error") playError = data;
+    });
+    room["handlePlayCard"](playClient, { cardId: "red_5_existing" });
+
+    expect(playError?.code).toBe("DRAWN_CARD_ONLY");
+    expect(room.state.lastDrawnCardId).toBe("red_2_drawn");
+    expect(player.hand.some((card) => card.id === "red_5_existing")).toBe(true);
 
     room.onDispose();
   });
@@ -153,12 +201,9 @@ describe("UnoRoom turn scheduling logic", () => {
     room.state.direction = 1;
 
     let errorReceived: { message: string; code: string } | null = null;
-    const client = {
-      sessionId: "human-1",
-      send: (type: string, data: { message: string; code: string }) => {
-        if (type === "error") errorReceived = data;
-      },
-    } as never;
+    const client = makeTestClient("human-1", (type: string, data: { message: string; code: string }) => {
+      if (type === "error") errorReceived = data;
+    });
 
     room["handlePlayCard"](client, { cardId: "blue_5_playable" });
 
@@ -189,7 +234,7 @@ describe("UnoRoom restart logic", () => {
     room.state.discardPile.push(makeSchemaCard("marker_red_5", "red", "5"));
     const originalDeadline = room.state.turnDeadline;
 
-    room["handleRestart"]({ sessionId: "human-0" } as never);
+    room["handleRestart"](makeTestClient("human-0"));
 
     expect(room.state.phase).toBe("playing");
     expect(room.state.winner).toBe(-1);
@@ -215,7 +260,7 @@ describe("UnoRoom restart logic", () => {
     room.state.rematchVotes.push(0, 1);
     room.state.discardPile.push(makeSchemaCard("extra_red_5", "red", "5"));
 
-    room["handleRestart"]({ sessionId: "human-0" } as never);
+    room["handleRestart"](makeTestClient("human-0"));
 
     const handCounts = [...room.state.players.values()].map((p) => p.hand.length);
     expect(room.state.phase).toBe("playing");
@@ -229,6 +274,56 @@ describe("UnoRoom restart logic", () => {
     expect([1, -1]).toContain(room.state.direction);
     expect(["red", "blue", "green", "yellow"]).toContain(room.state.activeColor);
     expect([0, 2]).toContain(room.state.pendingDraw);
+
+    room.onDispose();
+  });
+
+  it("clears pending bot takeover callbacks when restarting", () => {
+    const room = new UnoRoom();
+    room.onCreate();
+
+    const pendingTimeout = setTimeout(() => undefined, 10_000);
+    room["turnCallbacks"].set(2, pendingTimeout);
+    room["seatsHandedToBot"].add(2);
+    room["lastActionTime"].set("human-0", Date.now());
+
+    room.state.phase = "finished";
+    room.state.winner = 1;
+    room.state.discardPile.splice(0, room.state.discardPile.length);
+    room.state.discardPile.push(makeSchemaCard("marker_red_5", "red", "5"));
+
+    room["handleRestart"](makeTestClient("bot-0"));
+
+    expect(room["turnCallbacks"].size).toBe(0);
+    expect(room["seatsHandedToBot"].size).toBe(0);
+    expect(room["lastActionTime"].size).toBe(0);
+
+    room.onDispose();
+  });
+
+  it("cancels in-progress rematch votes when a player disconnects", () => {
+    const room = new UnoRoom();
+    room.onCreate();
+
+    const human = room.state.players.get("0")!;
+    human.sessionId = "human-0";
+    human.isBot = false;
+    human.connected = true;
+
+    const otherHuman = room.state.players.get("1")!;
+    otherHuman.sessionId = "human-1";
+    otherHuman.isBot = false;
+    otherHuman.connected = true;
+
+    room.state.phase = "finished";
+    room.state.winner = 2;
+    room.state.rematchVotes.push(0);
+
+    room.onLeave(makeTestClient("human-0"));
+
+    expect(room.state.rematchVotes).toHaveLength(0);
+    expect(room.state.players.get("0")!.isBot).toBe(true);
+    expect(room.state.players.get("0")!.connected).toBe(false);
 
     room.onDispose();
   });
@@ -301,7 +396,7 @@ describe("UnoRoom regular human match", () => {
     room.onCreate();
     clearTimeout(room["turnTimeout"]);
 
-    const client = { sessionId: "human-0", send: () => {} } as never;
+    const client = makeTestClient("human-0");
     room.onJoin(client, { name: "Human" });
     clearTimeout(room["turnTimeout"]);
 

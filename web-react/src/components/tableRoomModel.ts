@@ -30,6 +30,27 @@ export const RULE_CARD_EXAMPLES: Array<{ card: CardSchema; title: string; text: 
   },
 ];
 
+export const TUTORIAL_CARDS = [
+  {
+    eyebrow: "Step 1 of 3",
+    title: "Match the discard",
+    text: "Look at the face-up card in the center. Play a card with the same color or symbol. Wild cards match anything.",
+    target: "The face-up card sets the match",
+  },
+  {
+    eyebrow: "Step 2 of 3",
+    title: "Draw when stuck",
+    text: "No matching card? Tap the face-down deck. It glows when drawing is your best move.",
+    target: "Tap the deck to draw one card",
+  },
+  {
+    eyebrow: "Step 3 of 3",
+    title: "Play from your hand",
+    text: "Playable cards glow below the table. Tap once to inspect and again to play. When prompted at one card, tap UNO.",
+    target: "Your playable cards glow",
+  },
+] as const;
+
 export interface HandLayout {
   handMid: number;
   dynamicFanAngle: number;
@@ -46,24 +67,5 @@ export function getHandLayout(handCount: number): HandLayout {
 }
 
 export function getTutorialCards() {
-  return [
-    {
-      eyebrow: "Step 1 of 3",
-      title: "Match the discard",
-      text: "Look at the face-up card in the center. Play a card with the same color or symbol. Wild cards match anything.",
-      target: "The face-up card sets the match",
-    },
-    {
-      eyebrow: "Step 2 of 3",
-      title: "Draw when stuck",
-      text: "No matching card? Tap the face-down deck. It glows when drawing is your best move.",
-      target: "Tap the deck to draw one card",
-    },
-    {
-      eyebrow: "Step 3 of 3",
-      title: "Play from your hand",
-      text: "Playable cards glow below the table. Tap once to inspect and again to play. When prompted at one card, tap UNO.",
-      target: "Your playable cards glow",
-    },
-  ];
+  return TUTORIAL_CARDS;
 }

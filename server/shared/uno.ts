@@ -4,13 +4,22 @@
 
 // Re-export pure types and shared functions from shared/ for server use
 export type { UnoColor, UnoValue, WildType, ColorCard, WildCard, UnoCard } from '../../shared/types.ts';
-export { canPlay, cardTextureFromSchema, canPlaySchema, getActiveColor, cardTexture, hasWildDrawFourAlternative, isUnoColor } from '../../shared/gameLogic.ts';
+export {
+  canPlay,
+  cardTextureFromSchema,
+  canPlaySchema,
+  getActiveColor,
+  cardTexture,
+  hasWildDrawFourAlternative,
+  isUnoColor,
+} from '../../shared/gameLogic.ts';
 export { NUM_PLAYERS, HAND_SIZE } from '../../shared/constants.ts';
 
 // Import for internal use within this file
 import type { UnoColor, UnoValue, WildCard, UnoCard } from '../../shared/types.ts';
 import type { ColorCard } from '../../shared/types.ts';
 import { canPlay, isUnoColor } from '../../shared/gameLogic.ts';
+import { pickBestPlayableCard } from '../../shared/gameLogic.ts';
 import { NUM_PLAYERS, HAND_SIZE } from '../../shared/constants.ts';
 
 // ── Server-only implementations ──────────────────────────────────────────────
@@ -201,32 +210,6 @@ function scoreColor(
   return score;
 }
 
-function pickBestCard(playable: UnoCard[], _hand: UnoCard[], activeColor: UnoColor): UnoCard {
-  const actionCards = playable.filter((c): c is ColorCard => c.type === 'color' && ['skip', 'reverse', 'draw2'].includes(c.value));
-  const numberCards = playable.filter((c): c is ColorCard => c.type === 'color' && !['skip', 'reverse', 'draw2'].includes(c.value));
-  const wildCards = playable.filter((c) => c.type === 'wild');
-
-  if (actionCards.length > 0) {
-    const reverse = actionCards.filter((c) => c.value === 'reverse');
-    if (reverse.length > 0) return reverse[Math.floor(Math.random() * reverse.length)];
-    const skip = actionCards.filter((c) => c.value === 'skip');
-    if (skip.length > 0) return skip[Math.floor(Math.random() * skip.length)];
-    if (numberCards.length === 0 && wildCards.length === 0) {
-      return actionCards[0];
-    }
-  }
-
-  if (numberCards.length > 0) {
-    const matchingColor = numberCards.filter((c) => c.color === activeColor);
-    if (matchingColor.length > 0) {
-      return matchingColor[Math.floor(Math.random() * matchingColor.length)];
-    }
-    return numberCards[Math.floor(Math.random() * numberCards.length)];
-  }
-
-  return wildCards[0] ?? playable[0];
-}
-
 export function aiTurn(state: UnoState): UnoState {
   const player = state.currentPlayer;
 
@@ -268,7 +251,7 @@ export function aiTurn(state: UnoState): UnoState {
   const topCard = state.discardPile[state.discardPile.length - 1];
   const topCardValue = topCard.type === 'color' ? topCard.value : undefined;
 
-  const card = pickBestCard(playable, hand, state.activeColor);
+  const card = pickBestPlayableCard(playable, state.activeColor, topCardValue);
 
   let chosenColor: UnoColor | undefined;
   if (card.type === 'wild') {
@@ -346,32 +329,11 @@ export function pickBestCardSchema(
   playableIndices: number[],
   hand: { cardType: string; color: string; value: string; id: string }[],
   activeColor: UnoColor,
+  topCardValue?: string,
 ): number {
   const playable = playableIndices.map((i) => hand[i]);
-
-  const actionCards = playable.filter((c) => c.cardType === 'color' && ['skip', 'reverse', 'draw2'].includes(c.value));
-  const numberCards = playable.filter((c) => c.cardType === 'color' && !['skip', 'reverse', 'draw2'].includes(c.value));
-  const wildCards = playable.filter((c) => c.cardType === 'wild');
-
-  if (actionCards.length > 0) {
-    const reverse = actionCards.filter((c) => c.value === 'reverse');
-    if (reverse.length > 0) return playableIndices[playable.indexOf(reverse[0])];
-    const skip = actionCards.filter((c) => c.value === 'skip');
-    if (skip.length > 0) return playableIndices[playable.indexOf(skip[0])];
-    if (numberCards.length === 0 && wildCards.length === 0) {
-      return playableIndices[playable.indexOf(actionCards[0])];
-    }
-  }
-
-  if (numberCards.length > 0) {
-    const matchingColor = numberCards.filter((c) => c.color === activeColor);
-    if (matchingColor.length > 0) {
-      return playableIndices[playable.indexOf(matchingColor[0])];
-    }
-    return playableIndices[playable.indexOf(numberCards[0])];
-  }
-
-  return playableIndices[0];
+  const card = pickBestPlayableCard(playable, activeColor, topCardValue);
+  return playableIndices[playable.indexOf(card)];
 }
 
 export function pickBestColorSchema(

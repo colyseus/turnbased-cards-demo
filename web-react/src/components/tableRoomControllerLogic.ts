@@ -121,10 +121,11 @@ export function buildGuidanceState(params: {
   mustCallUno: boolean;
   isMyTurn: boolean;
   pendingDraw: number;
+  hasPlayableCards: boolean;
   selectedCard: CardSchema | null;
   isSelectedPlayable: boolean;
 }): GuidanceState {
-  const { mustCallUno, isMyTurn, pendingDraw, selectedCard, isSelectedPlayable } = params;
+  const { mustCallUno, isMyTurn, pendingDraw, hasPlayableCards, selectedCard, isSelectedPlayable } = params;
 
   if (mustCallUno) {
     return {
@@ -150,7 +151,7 @@ export function buildGuidanceState(params: {
       guidanceStatus: "error",
     };
   }
-  if (pendingDraw === 0) {
+  if (!hasPlayableCards) {
     return {
       guidanceText: "No playable cards in hand! Click the glowing draw pile to draw.",
       guidanceStatus: "warning",
@@ -166,8 +167,9 @@ export function buildActionCallout(params: {
   mustCallUno: boolean;
   isMyTurn: boolean;
   pendingDraw: number;
+  hasPlayableCards: boolean;
 }): ActionCallout {
-  const { mustCallUno, isMyTurn, pendingDraw } = params;
+  const { mustCallUno, isMyTurn, pendingDraw, hasPlayableCards } = params;
   if (mustCallUno) {
     return {
       kind: "uno",
@@ -179,7 +181,9 @@ export function buildActionCallout(params: {
     return {
       kind: "penalty",
       title: `Take +${pendingDraw}`,
-      text: "Tap the glowing deck to take the cards.",
+      text: hasPlayableCards
+        ? "Draw penalty active. Tap the glowing deck to take the cards."
+        : "No stacking card available. Tap the glowing deck to take the cards.",
     };
   }
   return null;

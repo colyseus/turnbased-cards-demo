@@ -29,7 +29,7 @@ Make sure the [game server](../server/) is running on port 2567.
 
 ### Lobby Match History
 
-Access match history from the lobby screen. Each entry shows the date, player names, winner, and final scores. Filter by date range or search by player name. Click any entry to review the full move-by-move recap.
+Access match history from the lobby screen. Each entry shows the date, winner, duration, cards played, and opponent list for recent matches. The dashboard is read-only and is persisted in browser storage.
 
 ### UNO Call Mechanic
 
@@ -48,8 +48,8 @@ To create a private room, enter a room name and set an optional password before 
 When adding bots, choose a difficulty level:
 
 - **Easy** - Bots play cards at random from their valid moves.
-- **Medium** - Bots follow a basic strategy: match by color first, then by value, then draw.
-- **Hard** - Bots track card frequencies and probabilities to minimize the chance of drawing.
+- **Medium** - Bots use the strategic picker in the server: prioritize reverse/skip cards, then prefer color matches, then value matches, then draw if needed.
+- **Hard** - Bots use the strategic picker plus discarded-card counting to bias color choices more aggressively.
 
 ### Rematch Flow
 
@@ -58,9 +58,10 @@ After a round ends, a rematch vote button appears for all players. Clicking Vote
 ## Verification
 
 ```bash
+npm run test:unit
 npm run lint
 npm run build
 npm run test:smoke
 ```
 
-`npm run test:smoke` starts the server and client, exercises desktop and mobile browser sessions through `agent-browser`, and writes screenshots to `../.tmp-agent-browser/`.
+`npm run test:smoke` exercises desktop and mobile browser sessions through `agent-browser` against a running game server on port `2567`, and writes screenshots to `../.tmp-agent-browser/`. If the environment lacks a display server, run it under `xvfb-run -a`.

@@ -1,6 +1,6 @@
 import type { CardSchema, PlayerSchema, UnoState } from "./gameTypes";
 import type { Room } from "@colyseus/sdk";
-import { canPlaySchema } from "../../shared/index.ts";
+import { canPlaySchema, hasWildDrawFourAlternative } from "../../shared/index.ts";
 
 export function parsePlayerName(rawName: string) {
   const match = rawName.match(/^\[av-([a-z0-9]+)-([a-z0-9]+)\](.*)$/);
@@ -87,12 +87,10 @@ export function isPlayable(card: CardSchema, state: UnoState | null, hand: CardS
 
   if (card.cardType === "wild" && card.value === "wild_draw4") {
     const activeColor = state?.activeColor || "red";
-    const hasMatchingColor = hand.some((c) => c.cardType === "color" && c.color === activeColor);
-    const hasMatchingValue =
-      top.cardType === "color" && hand.some((c) => c.cardType === "color" && c.value === top.value);
-    if (hasMatchingColor || hasMatchingValue) {
-      return false;
-    }
+    return !hasWildDrawFourAlternative(
+      hand as Array<{ cardType: string; color: string; value: string }>,
+      activeColor,
+    );
   }
   return true;
 }

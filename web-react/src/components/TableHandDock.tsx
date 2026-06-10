@@ -2,19 +2,7 @@ import type { CSSProperties, RefObject } from "react";
 import { HandCardItem } from "./HandCardItem";
 import type { CardSchema, UnoColor, UnoState } from "../gameTypes";
 import { isPlayable } from "../gameHelpers";
-
-type ActionCallout =
-  | {
-      kind: "uno";
-      title: string;
-      text: string;
-    }
-  | {
-      kind: "penalty";
-      title: string;
-      text: string;
-    }
-  | null;
+import type { ActionCallout } from "./tableRoomControllerLogic";
 
 interface HandDockProps {
   room: { send: (type: string, payload?: unknown) => void } | null;
@@ -39,7 +27,6 @@ interface HandDockProps {
   onUnplayableTap: (card: CardSchema) => void;
   scrollHand: (direction: "left" | "right") => void;
   handScrollRef: RefObject<HTMLDivElement | null>;
-  showToast: (message: string, kind?: "info" | "success" | "warning" | "error") => void;
   colorblindMode: boolean;
 }
 
@@ -66,7 +53,6 @@ export function TableHandDock({
   onUnplayableTap,
   scrollHand,
   handScrollRef,
-  showToast,
   colorblindMode,
 }: HandDockProps) {
   return (
@@ -117,7 +103,6 @@ export function TableHandDock({
               className="uno-btn"
               onClick={() => {
                 room?.send("uno");
-                showToast("UNO called successfully!", "success");
               }}
               type="button"
             >

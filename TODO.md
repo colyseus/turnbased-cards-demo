@@ -133,3 +133,66 @@
 | 🟡 | Verify GitHub Actions pass | ✅ Passing |
 | 🟡 | Fix e2e test server dependency | ✅ Documented |
 | 🟢 | All nice-to-have features | ✅ Complete |
+
+---
+
+## Verified Audit Pass (2026-06-10)
+
+A second-pass recursive audit was performed on the working tree (uncommitted
+as of 2026-06-08) and committed on 2026-06-10. This was a **cleanup /
+hardening** pass — not a feature pass. The full verified-fix list and the
+re-run command log live in [`AUDIT_LOG.md`](./AUDIT_LOG.md) at the repository
+root.
+
+**Scope (39 files, +895 / −1287):**
+
+- 30 files modified (server + web client)
+- 9 files added: 2 src modules (`web-react/src/stateSnapshot.ts`,
+  `web-react/src/storage.ts`), 6 test files, 1 audit log
+
+**Categories of change:**
+
+- **Type safety** — removed remaining `any` casts in `shared/gameLogic.ts`,
+  `web-react/src/main.tsx`, `web-react/src/audio/sfx.ts`,
+  `server/test/uno-room.test.ts`, `server/test/security.test.ts`.
+- **Helper extraction (DRY)** — `populateSchemaCard`, `toSchemaCard`,
+  `schemaHand`, `resetRoundActionState`, `createRoomWithHuman`, and the
+  centralized `testClients.ts` mock-client helper.
+- **Test coverage** — added `demo-room.test.ts` (lifecycle, replay, draw),
+  `stateSnapshot.test.ts`, `sfx.test.ts`, `stats.test.ts`,
+  `gameHelpers.test.ts`, plus reconnection coverage that replaced stubs.
+- **Browser hardening** — `AudioContext` resume on user gesture, storage
+  validation/trim/clamp, connect-generation guard to prevent stale
+  `Room` handlers, PWA `serviceWorker` registration moved out of the
+  `load` listener.
+- **Server room correctness** — `UnoRoom` restart/rate-limit/rematch
+  cleanup, `DemoRoom` lifecycle (no duplicate tick timers), wild color
+  persistence, replay selector alignment with the shared strategy.
+- **Dependency hygiene** — direct `@colyseus/core` (no umbrella `colyseus`),
+  explicit `ws` dep, dropped playground/monitor middleware. `npm audit
+  --omit=dev` clean on both server and client.
+
+**Verification (run 2026-06-10 on the committed tree):**
+
+| Check | Server | Web |
+|---|---|---|
+| Build | ✓ `npx tsc --noEmit` | ✓ tsc + vite (95 modules, 261KB main) |
+| Tests | ✓ 143 / 143 | ✓ 19 / 19 (unit) |
+| Lint | n/a | ✓ 0 errors, 0 warnings (oxlint) |
+| Smoke | n/a | ✓ xvfb-run captured screenshots + video |
+| `npm audit --omit=dev` | ✓ 0 vulns | ✓ 0 vulns |
+
+**Production roadmap (`.gemini-plans/production-roadmap.md`)** — **NOT
+addressed by this audit pass.** All 13 items across the 4 epics
+(Texture Atlases, InstancedMesh, matchmaker, Pino/Winston, /metrics,
+Sentry, E2E, payload validation, anti-cheat, middleware) remain
+unimplemented. This audit did not touch them.
+
+**What this pass did NOT do (and should be tracked separately):**
+
+- The 4 production roadmap epics (see `.gemini-plans/production-roadmap.md`).
+- Visual polish / mobile UX iteration (the audit hardens what is there but
+  does not add new surfaces).
+- Docs that describe lobby history, bot behavior, or rematch flow may now
+  be slightly stale relative to the cleaned-up code — re-read the
+  mentioned files before publishing new behavior.

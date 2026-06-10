@@ -1,4 +1,4 @@
-import { defineServer, defineRoom, playground, monitor } from "colyseus";
+import { defineServer, defineRoom } from "@colyseus/core";
 import { RedisPresence } from "@colyseus/redis-presence";
 import { UnoRoom } from "./rooms/UnoRoom.ts";
 import { DemoRoom } from "./rooms/DemoRoom.ts";
@@ -30,10 +30,6 @@ export default defineServer({
   rooms: {
     uno: defineRoom(UnoRoom),
     demo: defineRoom(DemoRoom),
-  },
-  express: (app) => {
-    app.use("/", playground());
-    app.use("/monitor", monitor());
   },
   ...(presence ? { presence } : {}),
 })

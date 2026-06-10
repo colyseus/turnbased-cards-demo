@@ -8,6 +8,7 @@ import { updateStats } from "../stats";
 import { useDialogFocus } from "../hooks/useDialogFocus";
 import { getHandLayout, getTutorialCards } from "./tableRoomModel";
 import { getCloseTutorialSnapshot } from "./tableRoomOverlayFlow";
+import { readStorage, writeStorage } from "../storage";
 import {
   buildActionCallout,
   buildGuidanceState,
@@ -66,7 +67,7 @@ export function useTableRoomController(props: TableRoomControllerProps) {
   const topCard = discardPile[discardPile.length - 1] ?? null;
 
   const [sortBy, setSortBy] = useState<"none" | "color" | "value">("color");
-  const hand = useMemo(() => sortHand(me?.hand ?? [], sortBy), [me?.hand, sortBy]);
+  const hand = sortHand(me?.hand ?? [], sortBy);
 
   const [wildFor, setWildFor] = useState<CardSchema | null>(null);
   const [chatText, setChatText] = useState("");
@@ -97,7 +98,7 @@ export function useTableRoomController(props: TableRoomControllerProps) {
   const [ping, setPing] = useState<number | null>(null);
   const [showRules, setShowRules] = useState(false);
   const [tutorialStep, setTutorialStep] = useState(() => {
-    return isTutorialCompleteFlagSet(localStorage) ? -1 : 0;
+    return isTutorialCompleteFlagSet({ getItem: (key) => readStorage(key) }) ? -1 : 0;
   });
   const [cardAlert, setCardAlert] = useState<string | null>(null);
   const [particles, setParticles] = useState<ParticleData[]>([]);
@@ -110,12 +111,14 @@ export function useTableRoomController(props: TableRoomControllerProps) {
   const [botEmotions, setBotEmotions] = useState<Record<number, string>>({});
   const [shockwaves, setShockwaves] = useState<{ id: string; color: string }[]>([]);
   const [cardBackTheme, setCardBackTheme] = useState<string>(() => {
-    return localStorage.getItem("uno_card_back_skin") || "classic";
+    return readStorage("uno_card_back_skin") || "classic";
   });
 
   const prevCurrentPlayer = useRef<number>(-1);
   const prevDiscardPile = useRef<CardSchema[]>([]);
   const prevPlayersHandCounts = useRef<Record<number, number>>({});
+  const activeTimers = useRef<Set<number>>(new Set());
+  const activeAnimationFrames = useRef<Set<number>>(new Set());
 
   const handScrollRef = useRef<HTMLDivElement | null>(null);
   const chatLogRef = useRef<HTMLDivElement | null>(null);
@@ -132,8 +135,52 @@ export function useTableRoomController(props: TableRoomControllerProps) {
   const lastPending = useRef(0);
   const localPlayerCardsPlayed = useRef(0);
 
+  const clearTrackedTimer = useCallback((timerId: number) => {
+    window.clearTimeout(timerId);
+    window.clearInterval(timerId);
+    activeTimers.current.delete(timerId);
+  }, []);
+
+  const clearTrackedAnimationFrame = useCallback((frameId: number) => {
+    window.cancelAnimationFrame(frameId);
+    activeAnimationFrames.current.delete(frameId);
+  }, []);
+
+  const trackTimeout = useCallback((handler: () => void, delay: number) => {
+    const timerId = window.setTimeout(() => {
+      activeTimers.current.delete(timerId);
+      handler();
+    }, delay);
+    activeTimers.current.add(timerId);
+    return timerId;
+  }, []);
+
+  const trackInterval = useCallback((handler: () => void, delay: number) => {
+    const timerId = window.setInterval(handler, delay);
+    activeTimers.current.add(timerId);
+    return timerId;
+  }, []);
+
+  const trackAnimationFrame = useCallback((handler: () => void) => {
+    const frameId = window.requestAnimationFrame(() => {
+      activeAnimationFrames.current.delete(frameId);
+      handler();
+    });
+    activeAnimationFrames.current.add(frameId);
+    return frameId;
+  }, []);
+
   useDialogFocus(showRules, rulesDialogRef);
   useDialogFocus(Boolean(wildFor), wildDialogRef);
+
+  useEffect(() => {
+    return () => {
+      activeTimers.current.forEach((timerId) => clearTrackedTimer(timerId));
+      activeTimers.current.clear();
+      activeAnimationFrames.current.forEach((frameId) => clearTrackedAnimationFrame(frameId));
+      activeAnimationFrames.current.clear();
+    };
+  }, [clearTrackedAnimationFrame, clearTrackedTimer]);
 
   const triggerFlight = useCallback(
     (card: CardSchema | null, isBack: boolean, startElId: string, endElId: string) => {
@@ -166,10 +213,10 @@ export function useTableRoomController(props: TableRoomControllerProps) {
 
       const flightDuration = 600;
       const startTime = Date.now();
-      const trailInterval = setInterval(() => {
+      const trailInterval = trackInterval(() => {
         const elapsed = Date.now() - startTime;
         if (elapsed >= flightDuration) {
-          clearInterval(trailInterval);
+          clearTrackedTimer(trailInterval);
           return;
         }
         const t = elapsed / flightDuration;
@@ -194,34 +241,34 @@ export function useTableRoomController(props: TableRoomControllerProps) {
           },
         ]);
 
-        setTimeout(() => {
+        trackTimeout(() => {
           setParticles((prev) => prev.filter((p) => p.id !== sparkId));
         }, 550);
       }, 45);
 
-      requestAnimationFrame(() => {
-        setTimeout(() => {
+      trackAnimationFrame(() => {
+        trackTimeout(() => {
           setFlights((prev) => prev.map((f) => (f.id === flightId ? { ...f, animating: true } : f)));
         }, 20);
       });
 
-      setTimeout(() => {
+      trackTimeout(() => {
         setFlights((prev) => prev.filter((f) => f.id !== flightId));
       }, 650);
     },
-    [],
+    [clearTrackedAnimationFrame, clearTrackedTimer, trackAnimationFrame, trackInterval, trackTimeout],
   );
 
   const triggerBotEmotion = useCallback((seatIndex: number, emoji: string, duration = 2000) => {
     setBotEmotions((prev) => ({ ...prev, [seatIndex]: emoji }));
-    setTimeout(() => {
+    trackTimeout(() => {
       setBotEmotions((prev) => {
         const next = { ...prev };
         delete next[seatIndex];
         return next;
       });
     }, duration);
-  }, []);
+  }, [trackTimeout]);
 
   const triggerParticles = (x: number, y: number, count = 20, isWild = false) => {
     const emojis = isWild
@@ -246,7 +293,7 @@ export function useTableRoomController(props: TableRoomControllerProps) {
     }
     const newParticleIds = new Set(newParticles.map((p) => p.id));
     setParticles((prev) => [...prev, ...newParticles]);
-    setTimeout(() => {
+    trackTimeout(() => {
       setParticles((prev) => prev.filter((p) => !newParticleIds.has(p.id)));
     }, 1200);
   };
@@ -280,7 +327,7 @@ export function useTableRoomController(props: TableRoomControllerProps) {
     };
 
     const cleanupPong = room.onMessage("pong", handlePong);
-    const interval = setInterval(() => {
+    const interval = trackInterval(() => {
       lastPingTime = Date.now();
       room.send("ping");
     }, 3000);
@@ -289,10 +336,10 @@ export function useTableRoomController(props: TableRoomControllerProps) {
     room.send("ping");
 
     return () => {
-      clearInterval(interval);
+      clearTrackedTimer(interval);
       cleanupPong();
     };
-  }, [room]);
+  }, [room, clearTrackedTimer, trackInterval]);
 
   useEffect(() => {
     if (!state) return;
@@ -314,7 +361,7 @@ export function useTableRoomController(props: TableRoomControllerProps) {
           emoji,
           themeColor: themeInfo ? themeInfo.primary : "var(--gold)",
         });
-        setTimeout(() => setTurnBanner(null), 1200);
+        trackTimeout(() => setTurnBanner(null), 1200);
 
         const direction = state.direction ?? 1;
         const totalPlayers = playersSnapshot.length;
@@ -322,7 +369,7 @@ export function useTableRoomController(props: TableRoomControllerProps) {
           const expectedNext = (prevSeat + direction + totalPlayers) % totalPlayers;
           if (expectedNext !== currentSeat) {
             setSkippedSeatIndex(expectedNext);
-            setTimeout(() => setSkippedSeatIndex(-1), 1500);
+            trackTimeout(() => setSkippedSeatIndex(-1), 1500);
 
             const skippedPlayer = playersSnapshot.find((p) => p.seatIndex === expectedNext);
             if (skippedPlayer && skippedPlayer.isBot) {
@@ -355,11 +402,11 @@ export function useTableRoomController(props: TableRoomControllerProps) {
           else setCardAlert("WILD PLAY!");
         }
 
-        setTimeout(() => {
+        trackTimeout(() => {
           const swColor = top.chosenColor || top.color || "gold";
           const swId = `shockwave-${Date.now()}-${Math.random()}`;
           setShockwaves((prev) => [...prev, { id: swId, color: swColor }]);
-          setTimeout(() => {
+          trackTimeout(() => {
             setShockwaves((prev) => prev.filter((sw) => sw.id !== swId));
           }, 800);
         }, 350);
@@ -369,7 +416,7 @@ export function useTableRoomController(props: TableRoomControllerProps) {
           if (playedPlayer) {
             const startElId =
               playedPlayer.sessionId === room?.sessionId ? "hand-dock" : `player-pill-${prevSeat}`;
-            setTimeout(() => {
+            trackTimeout(() => {
               triggerFlight(top, false, startElId, "discard-pile-anchor");
             }, 50);
 
@@ -392,7 +439,7 @@ export function useTableRoomController(props: TableRoomControllerProps) {
                 themeColor: themeInfo ? themeInfo.primary : "var(--gold)",
               },
             ]);
-            setTimeout(() => {
+            trackTimeout(() => {
               setActionBubbles((prev) => prev.filter((b) => b.id !== bubbleId));
             }, 1800);
 
@@ -410,11 +457,11 @@ export function useTableRoomController(props: TableRoomControllerProps) {
 
         if (top.cardType === "color" && top.value === "reverse") {
           setShowReverseSweep(true);
-          setTimeout(() => setShowReverseSweep(false), 1500);
+          trackTimeout(() => setShowReverseSweep(false), 1500);
           const boardEl = document.querySelector(".table-board");
           if (boardEl) {
             boardEl.classList.add("camera-shake");
-            setTimeout(() => boardEl.classList.remove("camera-shake"), 600);
+            trackTimeout(() => boardEl.classList.remove("camera-shake"), 600);
           }
         }
       }
@@ -431,7 +478,7 @@ export function useTableRoomController(props: TableRoomControllerProps) {
             player.sessionId === room?.sessionId ? "hand-dock" : `player-pill-${player.seatIndex}`;
 
           for (let i = 0; i < drawDiff; i += 1) {
-            setTimeout(() => {
+            trackTimeout(() => {
               triggerFlight(null, true, "draw-pile-anchor", targetElId);
             }, i * 120);
           }
@@ -457,7 +504,7 @@ export function useTableRoomController(props: TableRoomControllerProps) {
                 });
               }
               setParticles((prev) => [...prev, ...fireList]);
-              setTimeout(() => {
+              trackTimeout(() => {
                 const ids = new Set(fireList.map((p) => p.id));
                 setParticles((prev) => prev.filter((p) => !ids.has(p.id)));
               }, 1200);
@@ -556,10 +603,10 @@ export function useTableRoomController(props: TableRoomControllerProps) {
 
   useEffect(() => {
     if (cardAlert) {
-      const timer = setTimeout(() => setCardAlert(null), 1600);
-      return () => clearTimeout(timer);
+      const timer = trackTimeout(() => setCardAlert(null), 1600);
+      return () => clearTrackedTimer(timer);
     }
-  }, [cardAlert]);
+  }, [cardAlert, clearTrackedTimer, trackTimeout]);
 
   useEffect(() => {
     setSelectedCardIdx(-1);
@@ -601,13 +648,14 @@ export function useTableRoomController(props: TableRoomControllerProps) {
     return () => {
       document.removeEventListener("click", handleUnlock);
       document.removeEventListener("touchstart", handleUnlock);
+      sfx.stopAmbientSoundscape();
     };
   }, [cardBackTheme]);
 
   useEffect(() => {
     if (!isMyTurn || !state?.turnDeadline) return;
 
-    let heartbeatInterval: ReturnType<typeof setInterval>;
+    let heartbeatInterval: number;
 
     const checkHeartbeat = () => {
       const remaining = (state.turnDeadline || 0) - Date.now();
@@ -617,12 +665,12 @@ export function useTableRoomController(props: TableRoomControllerProps) {
     };
 
     checkHeartbeat();
-    heartbeatInterval = setInterval(checkHeartbeat, 1000);
+    heartbeatInterval = trackInterval(checkHeartbeat, 1000);
 
     return () => {
-      clearInterval(heartbeatInterval);
+      clearTrackedTimer(heartbeatInterval);
     };
-  }, [isMyTurn, state?.turnDeadline]);
+  }, [isMyTurn, state?.turnDeadline, clearTrackedTimer, trackInterval]);
 
   useEffect(() => {
     if (state?.phase === "playing" && matchStartTime.current === null) {
@@ -717,10 +765,11 @@ export function useTableRoomController(props: TableRoomControllerProps) {
         mustCallUno,
         isMyTurn,
         pendingDraw,
+        hasPlayableCards,
         selectedCard,
         isSelectedPlayable,
       }),
-    [mustCallUno, isMyTurn, pendingDraw, selectedCard, isSelectedPlayable],
+    [mustCallUno, isMyTurn, pendingDraw, hasPlayableCards, selectedCard, isSelectedPlayable],
   );
 
   const actionCallout = useMemo(
@@ -729,14 +778,15 @@ export function useTableRoomController(props: TableRoomControllerProps) {
         mustCallUno,
         isMyTurn,
         pendingDraw,
+        hasPlayableCards,
       }),
-    [mustCallUno, isMyTurn, pendingDraw],
+    [mustCallUno, isMyTurn, pendingDraw, hasPlayableCards],
   );
 
   const tutorialCards = getTutorialCards();
   const tutorial = tutorialStep >= 0 ? tutorialCards[tutorialStep] : null;
   const closeTutorial = () => {
-    localStorage.setItem("uno_tutorial_complete", "true");
+    writeStorage("uno_tutorial_complete", "true");
     setTutorialStep(
       getCloseTutorialSnapshot({
         showRules,

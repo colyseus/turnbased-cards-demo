@@ -1,24 +1,48 @@
 /* global OscillatorNode, GainNode */
+import { readStorage } from "../storage.ts";
+
+type AudioWindow = typeof globalThis & {
+  webkitAudioContext?: typeof AudioContext;
+};
+
+export function normalizeVolumeValue(value: number): number | null {
+  if (!Number.isFinite(value)) return null;
+  return Math.min(1, Math.max(0, value));
+}
+
+export function parseStoredVolumeValue(raw: string | null): number | null {
+  if (raw === null) return null;
+  const trimmed = raw.trim();
+  if (trimmed === "") return null;
+  return normalizeVolumeValue(Number(trimmed));
+}
+
 class SoundFX {
   private ctx: AudioContext | null = null;
   private volume = 0.5;
   private muted = false;
-  // eslint-disable-next-line no-undef
   private ambientOscs: OscillatorNode[] = [];
-  // eslint-disable-next-line no-undef
   private ambientGain: GainNode | null = null;
 
   private init() {
     if (this.ctx) return;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const AudioContextClass = (window as any).AudioContext || (window as any).webkitAudioContext;
+    if (typeof window === "undefined") return;
+    const browserWindow = window as AudioWindow;
+    const AudioContextClass = browserWindow.AudioContext || browserWindow.webkitAudioContext;
     if (AudioContextClass) {
       this.ctx = new AudioContextClass();
     }
   }
 
+  private resumeIfNeeded() {
+    if (!this.ctx || this.ctx.state !== "suspended") return;
+    void this.ctx.resume().catch(() => undefined);
+  }
+
   setVolume(vol: number) {
-    this.volume = vol;
+    const next = normalizeVolumeValue(vol);
+    if (next === null) return;
+    this.volume = next;
     this.updateAmbientVolume();
   }
 
@@ -49,6 +73,7 @@ class SoundFX {
   startAmbientSoundscape(skin = "classic") {
     this.init();
     if (!this.ctx) return;
+    this.resumeIfNeeded();
     this.stopAmbientSoundscape();
 
     const mult = this.getGainMultiplier();
@@ -135,6 +160,7 @@ class SoundFX {
 
   playPluck() {
     this.init();
+    this.resumeIfNeeded();
   }
   playSwish() {}
   playChime() {}
@@ -144,7 +170,10 @@ class SoundFX {
 
 export const sfx = new SoundFX();
 
-const savedVol = localStorage.getItem("uno_volume");
-if (savedVol !== null) sfx.setVolume(parseFloat(savedVol));
-const savedMuted = localStorage.getItem("uno_muted");
+const savedVol = readStorage("uno_volume");
+const normalizedVol = parseStoredVolumeValue(savedVol);
+if (normalizedVol !== null) {
+  sfx.setVolume(normalizedVol);
+}
+const savedMuted = readStorage("uno_muted");
 if (savedMuted === "true") sfx.setMuted(true);

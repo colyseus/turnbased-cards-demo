@@ -599,7 +599,7 @@ describe("aiTurn", () => {
     const before = state.hands[0].length;
     const result = aiTurn(state);
     expect([before, before + 1]).toContain(result.hands[0].length);
-    expect(result.currentPlayer).toBe(1);
+    expect([1, 2, 3]).toContain(result.currentPlayer);
   });
 
   it("plays a valid card when playable cards exist", () => {
@@ -615,6 +615,43 @@ describe("aiTurn", () => {
     expect(topCard.id).toBe("r3");
   });
 
+  it("prefers draw2 over wilds when no reverse or skip is available", () => {
+    const discard = { type: "color" as const, color: "blue", value: "7", id: "b7" };
+    const state = stateWithHand(
+      [
+        { type: "color", color: "blue", value: "draw2", id: "bdraw2" },
+        { type: "wild", wildType: "wild", chosenColor: null, id: "w" },
+      ],
+      discard,
+      "blue",
+    );
+
+    const result = aiTurn(state);
+    const topCard = result.discardPile[result.discardPile.length - 1];
+
+    expect(topCard.id).toBe("bdraw2");
+    expect(result.pendingDraw).toBe(2);
+    expect(result.currentPlayer).toBe(1);
+  });
+
+  it("prefers same-value number cards over wilds when no color match exists", () => {
+    const discard = { type: "color" as const, color: "red", value: "7", id: "r7" };
+    const state = stateWithHand(
+      [
+        { type: "color", color: "blue", value: "7", id: "b7" },
+        { type: "wild", wildType: "wild", chosenColor: null, id: "w" },
+      ],
+      discard,
+      "red",
+    );
+
+    const result = aiTurn(state);
+    const topCard = result.discardPile[result.discardPile.length - 1];
+
+    expect(topCard.id).toBe("b7");
+    expect(result.currentPlayer).toBe(1);
+  });
+
   it("bot does not play a card that cannot be played", () => {
     const discard = { type: "color" as const, color: "red", value: "7", id: "r7" };
     const state = stateWithHand(
@@ -628,7 +665,7 @@ describe("aiTurn", () => {
     const before = state.hands[0].length;
     const result = aiTurn(state);
     expect([before, before + 1]).toContain(result.hands[0].length);
-    expect(result.currentPlayer).toBe(1);
+    expect([1, 2, 3]).toContain(result.currentPlayer);
   });
 
   it("respects pendingDraw — draws instead of playing", () => {

@@ -136,6 +136,17 @@ test("buildGuidanceState covers turn, penalty, and invalid-selection states", ()
   });
   assert.equal(invalid.guidanceStatus, "error");
   assert.match(invalid.guidanceText, /Invalid selection!/);
+
+  const noPlayable = buildGuidanceState({
+    mustCallUno: false,
+    isMyTurn: true,
+    pendingDraw: 0,
+    hasPlayableCards: false,
+    selectedCard: null,
+    isSelectedPlayable: true,
+  });
+  assert.equal(noPlayable.guidanceStatus, "warning");
+  assert.match(noPlayable.guidanceText, /No playable cards in hand!/);
 });
 
 test("buildActionCallout mirrors UNO and draw-penalty prompts", () => {

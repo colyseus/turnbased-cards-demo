@@ -44,10 +44,6 @@ export function HandCardItem({
   useEffect(() => {
     if (!isNewRef.current) return;
     isNewRef.current = false;
-    const timer = setTimeout(() => {
-      isNewRef.current = false;
-    }, 600);
-    return () => clearTimeout(timer);
   }, []);
 
   const handleTouchStart = (e: TouchEvent<HTMLDivElement>) => {

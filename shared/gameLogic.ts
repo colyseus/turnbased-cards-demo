@@ -6,24 +6,41 @@ const UNO_COLORS: readonly UnoColor[] = ['red', 'blue', 'green', 'yellow'];
 const UNO_VALUES = new Set(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'skip', 'reverse', 'draw2']);
 const WILD_VALUES = new Set(['wild', 'wild_draw4']);
 
+export type CardLike = {
+  type?: string;
+  cardType?: string;
+  color?: string;
+  value?: string;
+  wildType?: string;
+};
+
+type SchemaCardLike = {
+  id: string;
+  cardType: string;
+  color: string;
+  value: string;
+  chosenColor: string;
+};
+
 export function isUnoColor(value: unknown): value is UnoColor {
   return typeof value === 'string' && UNO_COLORS.includes(value as UnoColor);
 }
 
-function normalizedCardType(card: unknown): string | undefined {
+function normalizedCardType(card: CardLike | unknown): string | undefined {
   if (!card || typeof card !== 'object') return undefined;
-  return (card as { type?: string; cardType?: string }).type ?? (card as { type?: string; cardType?: string }).cardType;
+  const raw = card as CardLike;
+  return raw.type ?? raw.cardType;
 }
 
-function normalizedCardValue(card: unknown): string | undefined {
+function normalizedCardValue(card: CardLike | unknown): string | undefined {
   if (!card || typeof card !== 'object') return undefined;
-  const raw = card as { value?: string; wildType?: string };
+  const raw = card as CardLike;
   return raw.wildType ?? raw.value;
 }
 
 function isValidPlayableCard(card: unknown): boolean {
   if (!card || typeof card !== 'object') return false;
-  const raw = card as { color?: string };
+  const raw = card as CardLike;
   const cardType = normalizedCardType(card);
   const value = normalizedCardValue(card);
 
@@ -54,6 +71,74 @@ function isValidTopCard(card: unknown): boolean {
   return false;
 }
 
+function canPlayNormalized(
+  card: CardLike,
+  topCard: CardLike,
+  activeColor: UnoColor,
+  pendingDraw?: number,
+): boolean {
+  const cardType = card.type ?? card.cardType;
+  const topCardType = topCard.type ?? topCard.cardType;
+  if (pendingDraw && pendingDraw > 0) return false;
+  if (cardType === 'wild') return true;
+  if (card.color === activeColor) return true;
+  if (topCardType === 'color' && card.value === topCard.value) return true;
+  return false;
+}
+
+export function pickBestPlayableCard<T extends CardLike>(
+  playable: readonly T[],
+  activeColor: UnoColor,
+  topCardValue?: string,
+): T {
+  const actionCards = playable.filter(
+    (c) => normalizedCardType(c) === 'color' && ['skip', 'reverse', 'draw2'].includes(normalizedCardValue(c) ?? ''),
+  );
+
+  const reverse = actionCards.filter((c) => normalizedCardValue(c) === 'reverse');
+  if (reverse.length > 0) return reverse[0];
+
+  const skip = actionCards.filter((c) => normalizedCardValue(c) === 'skip');
+  if (skip.length > 0) return skip[0];
+
+  const draw2 = actionCards.filter((c) => normalizedCardValue(c) === 'draw2');
+  if (draw2.length > 0) return draw2[0];
+
+  const colorCards = playable.filter((c) => normalizedCardType(c) === 'color' && c.color === activeColor);
+  const numberCards = colorCards.filter((c) => !['skip', 'reverse', 'draw2'].includes(normalizedCardValue(c) ?? ''));
+  if (numberCards.length > 0) return numberCards[0];
+
+  if (typeof topCardValue === 'string') {
+    const matchingValueCards = playable.filter(
+      (c) =>
+        normalizedCardType(c) === 'color' &&
+        c.color !== activeColor &&
+        !['skip', 'reverse', 'draw2'].includes(normalizedCardValue(c) ?? '') &&
+        normalizedCardValue(c) === topCardValue,
+    );
+    if (matchingValueCards.length > 0) return matchingValueCards[0];
+  }
+
+  const wildCards = playable.filter((c) => normalizedCardType(c) === 'wild');
+  return wildCards[0] ?? playable[0];
+}
+
+export function populateSchemaCard<T extends SchemaCardLike>(target: T, card: UnoCard): T {
+  target.id = card.id;
+  if (card.type === 'color') {
+    target.cardType = 'color';
+    target.color = card.color;
+    target.value = card.value;
+    target.chosenColor = '';
+  } else {
+    target.cardType = 'wild';
+    target.color = '';
+    target.value = card.wildType;
+    target.chosenColor = card.chosenColor || '';
+  }
+  return target;
+}
+
 /** The filename (without extension) used to load the card texture */
 export function cardTexture(card: UnoCard): string {
   if (card.type === 'wild') return card.wildType;
@@ -68,17 +153,7 @@ export function canPlay(
   pendingDraw?: number,
 ): boolean {
   if (!isValidPlayableCard(card) || !isValidTopCard(topCard) || !isUnoColor(activeColor)) return false;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const c = card as any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const t = topCard as any;
-  const cardType = c.type ?? c.cardType;
-  const topCardType = t.type ?? t.cardType;
-  if (pendingDraw && pendingDraw > 0) return false;
-  if (cardType === 'wild') return true;
-  if (c.color === activeColor) return true;
-  if (topCardType === 'color' && c.value === t.value) return true;
-  return false;
+  return canPlayNormalized(card as CardLike, topCard as CardLike, activeColor, pendingDraw);
 }
 
 /** Get the active color (considering wild card choices) */
@@ -103,23 +178,16 @@ export function canPlaySchema(
   pendingDraw?: number,
 ): boolean {
   if (!isValidPlayableCard(card) || !isValidTopCard(topCard) || !isUnoColor(activeColor)) return false;
-
-  if (pendingDraw && pendingDraw > 0) return false;
-  if (card.cardType === 'wild') return true;
-  if (card.color === activeColor) return true;
-  if (topCard.cardType === 'color' && card.value === topCard.value) return true;
-  return false;
+  return canPlayNormalized(card as CardLike, topCard as CardLike, activeColor, pendingDraw);
 }
 
 /** Does this hand contain a normal legal option that blocks wild draw four? */
 export function hasWildDrawFourAlternative(
   hand: Array<UnoCard | { cardType: string; color: string; value: string }>,
-  _topCard: UnoCard | { cardType: string; value: string },
   activeColor: UnoColor | string,
 ): boolean {
   return hand.some((card) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const c = card as any;
+    const c = card as CardLike;
     return (c.type ?? c.cardType) === 'color' && c.color === activeColor;
   });
 }

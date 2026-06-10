@@ -1,23 +1,7 @@
 import { AvatarIcon } from "./AvatarIcon";
 import type { Toast } from "../gameTypes";
-
-interface MeSummary {
-  displayName: string;
-  symbol: string;
-  theme: string;
-  seatIndex: number;
-  spectatorCount: number;
-}
-
-interface RosterEntry {
-  sessionId: string;
-  displayName: string;
-  symbol: string;
-  theme: string;
-  isBot: boolean;
-  cardCount: number;
-  active: boolean;
-}
+import { getCardCountClass } from "../gameHelpers";
+import type { MeSummary, RosterEntry } from "./tableRoomControllerLogic";
 
 interface TableSidePanelProps {
   me: MeSummary | null;
@@ -28,12 +12,6 @@ interface TableSidePanelProps {
   onSetCardBackTheme: (theme: string) => void;
   showToast: (message: string, kind?: Toast["kind"]) => void;
 }
-
-const getCardCountClass = (count: number) => {
-  if (count === 1) return "gauge-critical";
-  if (count <= 3) return "gauge-alert";
-  return "gauge-safe";
-};
 
 export function TableSidePanel({
   me,

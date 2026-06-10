@@ -7,6 +7,7 @@ import { StatsDashboard } from "./StatsDashboard";
 import { LobbyShell } from "./LobbyShell";
 import { AVATAR_SYMBOLS, AVATAR_THEMES, ATLAS_ORDER } from "../tableConfig";
 import { parsePlayerName } from "../gameHelpers";
+import { readStorage, writeStorage } from "../storage";
 
 interface LobbyProps {
   busy: boolean;
@@ -28,23 +29,23 @@ export function Lobby({
   onToggleColorblind,
 }: LobbyProps) {
   const [name, setName] = useState(() => {
-    const raw = localStorage.getItem("uno_nickname") || "";
+    const raw = readStorage("uno_nickname") || "";
     return parsePlayerName(raw).name;
   });
   const [roomCode, setRoomCode] = useState("");
   const [password, setPassword] = useState("");
   const [privateRoom, setPrivateRoom] = useState(false);
   const [difficulty, setDifficulty] = useState<"easy" | "medium" | "hard">("medium");
-  const [avatarSymbol, setAvatarSymbol] = useState(() => localStorage.getItem("uno_av_symbol") || "tiger");
-  const [avatarTheme, setAvatarTheme] = useState(() => localStorage.getItem("uno_av_theme") || "rose");
+  const [avatarSymbol, setAvatarSymbol] = useState(() => readStorage("uno_av_symbol") || "tiger");
+  const [avatarTheme, setAvatarTheme] = useState(() => readStorage("uno_av_theme") || "rose");
 
   const trimmedName = name.trim();
   const validName = trimmedName.length >= 2 && trimmedName.length <= 16;
 
   const handleStart = (action: (options: Record<string, unknown>) => void) => {
-    localStorage.setItem("uno_av_symbol", avatarSymbol);
-    localStorage.setItem("uno_av_theme", avatarTheme);
-    localStorage.setItem("uno_nickname", trimmedName);
+    writeStorage("uno_av_symbol", avatarSymbol);
+    writeStorage("uno_av_theme", avatarTheme);
+    writeStorage("uno_nickname", trimmedName);
 
     const serializedName = `[av-${avatarSymbol}-${avatarTheme}]${trimmedName}`;
     action({

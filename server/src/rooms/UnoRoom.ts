@@ -7,6 +7,7 @@ import {
   pickBestCardSchema, pickBestColorSchema,
   hasWildDrawFourAlternative, isUnoColor,
 } from "../../shared/uno.ts";
+import { populateSchemaCard } from "../../../shared/gameLogic.ts";
 import { HUMAN_TURN_TIMEOUT_MS, BOT_TURN_DELAY_MS, ACTION_COOLDOWN_MS } from "../../shared/constants.ts";
 import { NUM_PLAYERS, HAND_SIZE } from "../../shared/uno.ts";
 import { logger } from "../logger.ts";
@@ -26,6 +27,7 @@ function sanitizePlainText(value: string): string {
 type RoomState = InstanceType<typeof UnoRoomState>;
 type PlayerInstance = InstanceType<typeof PlayerSchema>;
 type CardInstance = InstanceType<typeof UnoCardSchema>;
+type SchemaCardLike = { cardType: string; color: string; value: string; id: string };
 
 export class UnoRoom extends Room<{ state: RoomState }> {
   private drawPile: UnoCard[] = [];
@@ -60,18 +62,12 @@ export class UnoRoom extends Room<{ state: RoomState }> {
       }
       this.setState(new UnoRoomState());
 
+      this.resetRoundActionState();
       this.state.phase = "waiting";
       this.state.winner = -1;
       this.state.direction = 1;
       this.state.spectatorCount = 0;
       this.state.chatMessages = new ArraySchema();
-      this.state.unoCaller = -1;
-      this.state.lastDrawnCardId = "";
-      this.state.wildDraw4ChallengePending = false;
-      this.state.wildDraw4Illegal = false;
-      this.state.wildDraw4OffenderSeat = -1;
-      this.state.pendingWinnerSeat = -1;
-      this.state.rematchVotes = new ArraySchema();
 
       // Fill all seats with bots
       for (let i = 0; i < NUM_PLAYERS; i++) {
@@ -239,7 +235,6 @@ export class UnoRoom extends Room<{ state: RoomState }> {
       player.name = `Bot ${player.seatIndex + 1}`;
       player.isBot = true;
       player.connected = false;
-      this.state.lastDrawnCardId = "";
 
       // Unlock so others can join
       this.unlock();
@@ -253,6 +248,10 @@ export class UnoRoom extends Room<{ state: RoomState }> {
         if (this.turnTimeout !== undefined) {
           this.turnCallbacks.set(player.seatIndex, this.turnTimeout);
         }
+      }
+
+      if (this.state.phase === "finished" && this.state.rematchVotes.length > 0) {
+        this.state.rematchVotes.splice(0, this.state.rematchVotes.length);
       }
 
       // Clean up StateView to prevent memory leaks
@@ -277,6 +276,16 @@ export class UnoRoom extends Room<{ state: RoomState }> {
   }
 
   // ── Helpers ───────────────────────────────────────────────────
+
+  private resetRoundActionState() {
+    this.state.unoCaller = -1;
+    this.state.lastDrawnCardId = "";
+    this.state.wildDraw4ChallengePending = false;
+    this.state.wildDraw4Illegal = false;
+    this.state.wildDraw4OffenderSeat = -1;
+    this.state.pendingWinnerSeat = -1;
+    this.state.rematchVotes = new ArraySchema();
+  }
 
   /** Returns true if the client should be rate-limited. Updates last-action time. */
   private checkRateLimit(sessionId: string): boolean {
@@ -328,30 +337,13 @@ export class UnoRoom extends Room<{ state: RoomState }> {
    * invisible to the client.
    */
   private pushCardToHand(player: PlayerInstance, card: UnoCard) {
-    const schemaCard = this.createCardSchema(card);
+    const schemaCard = populateSchemaCard(new UnoCardSchema(), card);
     player.hand.push(schemaCard);
 
     const client = this.getClientForPlayer(player);
     if (client?.view) {
       client.view.add(schemaCard);
     }
-  }
-
-  private createCardSchema(card: UnoCard): CardInstance {
-    const c = new UnoCardSchema();
-    c.id = card.id;
-    if (card.type === "color") {
-      c.cardType = "color";
-      c.color = card.color;
-      c.value = card.value;
-      c.chosenColor = "";
-    } else {
-      c.cardType = "wild";
-      c.color = "";
-      c.value = card.wildType;
-      c.chosenColor = card.chosenColor || "";
-    }
-    return c;
   }
 
   private toPlainCard(schema: CardInstance): UnoCard {
@@ -370,6 +362,19 @@ export class UnoRoom extends Room<{ state: RoomState }> {
         id: schema.id,
       };
     }
+  }
+
+  private schemaHand(player: PlayerInstance): SchemaCardLike[] {
+    return Array.from(player.hand, (card) => ({
+      id: card.id,
+      cardType: card.cardType,
+      color: card.color,
+      value: card.value,
+    }));
+  }
+
+  private isWildDraw4Illegal(player: PlayerInstance): boolean {
+    return hasWildDrawFourAlternative(this.schemaHand(player), this.state.activeColor as UnoColor);
   }
 
   private playerCanAct(): boolean {
@@ -512,7 +517,7 @@ export class UnoRoom extends Room<{ state: RoomState }> {
     const firstCard = deck[startIdx];
     const remaining = [...deck.slice(idx, startIdx), ...deck.slice(startIdx + 1)];
 
-    this.state.discardPile.push(this.createCardSchema(firstCard));
+    this.state.discardPile.push(populateSchemaCard(new UnoCardSchema(), firstCard));
 
     // Server-only draw pile
     this.drawPile = remaining;
@@ -776,15 +781,11 @@ export class UnoRoom extends Room<{ state: RoomState }> {
         let chosenColor: UnoColor | undefined;
         const wildDraw4Illegal =
           drawnCard.cardType === "wild" && drawnCard.value === "wild_draw4"
-            ? hasWildDrawFourAlternative(
-              player.hand as unknown as { cardType: string; color: string; value: string }[],
-              topDiscard,
-              this.state.activeColor,
-            )
+            ? this.isWildDraw4Illegal(player)
             : false;
         if (drawnCard.cardType === "wild") {
           chosenColor = pickBestColorSchema(
-            player.hand as unknown as { cardType: string; color: string; value: string }[],
+            this.schemaHand(player),
             topDiscard.cardType === "color" ? topDiscard.value : undefined,
             this.difficulty === "hard" ? this.discardedCounts : undefined,
           );
@@ -797,16 +798,21 @@ export class UnoRoom extends Room<{ state: RoomState }> {
       return;
     }
 
-    // Pick card based on difficulty
-    let cardIndex: number;
-    if (this.difficulty === "easy") {
-      // Random playable card
-      cardIndex = playable[Math.floor(Math.random() * playable.length)];
-    } else {
-      // Medium / Hard: strategic card selection
+      // Pick card based on difficulty
+      let cardIndex: number;
       const topCardValue = topDiscard.cardType === "color" ? topDiscard.value : undefined;
-      cardIndex = pickBestCardSchema(playable, player.hand as unknown as { cardType: string; color: string; value: string; id: string }[], this.state.activeColor as UnoColor);
-    }
+      if (this.difficulty === "easy") {
+        // Random playable card
+        cardIndex = playable[Math.floor(Math.random() * playable.length)];
+      } else {
+        // Medium / Hard: strategic card selection
+        cardIndex = pickBestCardSchema(
+          playable,
+          this.schemaHand(player),
+          this.state.activeColor as UnoColor,
+          topCardValue,
+        );
+      }
     const card = player.hand[cardIndex];
 
     // Choose color for wild cards
@@ -818,7 +824,7 @@ export class UnoRoom extends Room<{ state: RoomState }> {
       } else {
         // Medium and hard use strategic selection; hard additionally considers card depletion
         chosenColor = pickBestColorSchema(
-          player.hand as unknown as { cardType: string; color: string; value: string }[],
+          this.schemaHand(player),
           topDiscard.cardType === "color" ? topDiscard.value : undefined,
           this.difficulty === "hard" ? this.discardedCounts : undefined,
         );
@@ -907,14 +913,10 @@ export class UnoRoom extends Room<{ state: RoomState }> {
         return;
       }
 
-      const wildDraw4Illegal =
-        card.cardType === "wild" && card.value === "wild_draw4"
-          ? hasWildDrawFourAlternative(
-            player.hand as unknown as { cardType: string; color: string; value: string }[],
-            topDiscard,
-            this.state.activeColor,
-          )
-          : false;
+        const wildDraw4Illegal =
+          card.cardType === "wild" && card.value === "wild_draw4"
+            ? this.isWildDraw4Illegal(player)
+            : false;
 
       this.executePlayCard(player, cardIndex, chosenColor as UnoColor | undefined, wildDraw4Illegal);
     } catch (err) {
@@ -1026,7 +1028,13 @@ export class UnoRoom extends Room<{ state: RoomState }> {
     }
 
     clearTimeout(this.turnTimeout);
+    this.turnTimeout = undefined;
+    for (const timeout of this.turnCallbacks.values()) {
+      clearTimeout(timeout);
+    }
+    this.turnCallbacks.clear();
     this.seatsHandedToBot.clear();
+    this.lastActionTime.clear();
 
     // Clear all hands and discard pile
     this.state.players.forEach((player: PlayerInstance) => {
@@ -1035,13 +1043,7 @@ export class UnoRoom extends Room<{ state: RoomState }> {
     });
     this.state.discardPile.splice(0, this.state.discardPile.length);
     this.discardedCounts = {};
-    this.state.unoCaller = -1;
-    this.state.lastDrawnCardId = "";
-    this.state.wildDraw4ChallengePending = false;
-    this.state.wildDraw4Illegal = false;
-    this.state.wildDraw4OffenderSeat = -1;
-    this.state.pendingWinnerSeat = -1;
-    this.state.rematchVotes.splice(0, this.state.rematchVotes.length);
+    this.resetRoundActionState();
     // Re-deal
     this.dealGame();
     this.state.phase = "playing";

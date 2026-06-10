@@ -8,4 +8,4 @@ export {
   HUMAN_TURN_TIMEOUT_MS,
   NUM_PLAYERS,
 } from './constants.ts';
-export { canPlay, canPlaySchema, cardTexture, cardTextureFromSchema, getActiveColor } from './gameLogic.ts';
+export { canPlay, canPlaySchema, cardTexture, cardTextureFromSchema, getActiveColor, hasWildDrawFourAlternative } from './gameLogic.ts';

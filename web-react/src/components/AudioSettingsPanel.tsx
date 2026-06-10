@@ -1,23 +1,25 @@
 import { useState } from "react";
 import type { ChangeEvent, CSSProperties } from "react";
-import { sfx } from "../audio/sfx";
+import { normalizeVolumeValue, sfx } from "../audio/sfx";
+import { writeStorage } from "../storage";
 
 function AudioSettingsPanel() {
   const [vol, setVol] = useState(() => sfx.getVolume());
   const [muted, setMuted] = useState(() => sfx.isMuted());
 
   const handleVolChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const value = parseFloat(event.target.value);
-    setVol(value);
-    sfx.setVolume(value);
-    localStorage.setItem("uno_volume", String(value));
+    const next = normalizeVolumeValue(parseFloat(event.target.value));
+    if (next === null) return;
+    setVol(next);
+    sfx.setVolume(next);
+    writeStorage("uno_volume", String(next));
   };
 
   const handleMuteToggle = () => {
     const isMutedNow = !muted;
     setMuted(isMutedNow);
     sfx.setMuted(isMutedNow);
-    localStorage.setItem("uno_muted", isMutedNow ? "true" : "false");
+    writeStorage("uno_muted", isMutedNow ? "true" : "false");
   };
 
   return (
