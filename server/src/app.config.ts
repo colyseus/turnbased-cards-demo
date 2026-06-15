@@ -34,7 +34,7 @@ export default defineServer({
     demo: defineRoom(DemoRoom),
   },
   ...(presence ? { presence } : {}),
-  initializeExpress: (app) => {
+  express: (app) => {
     applyMiddleware(app);
 
     app.get("/healthz", (_req, res) => {

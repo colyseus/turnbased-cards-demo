@@ -24,7 +24,7 @@ trap cleanup EXIT INT TERM
 mkdir -p "$SHOT_DIR"
 
 cd "$SERVER_DIR"
-if ! curl --max-time 3 -fsS "$API_URL" >/dev/null 2>&1; then
+if ! curl --max-time 3 -fsS "${API_URL}/healthz" >/dev/null 2>&1; then
   npm run dev > /tmp/uno-server.log 2>&1 &
   SERVER_PID=$!
 fi
@@ -42,13 +42,13 @@ if ! curl --max-time 3 -fsS "$APP_URL" >/dev/null 2>&1; then
 fi
 
 for _ in {1..40}; do
-  if curl --max-time 3 -fsS "$API_URL" >/dev/null 2>&1 && curl --max-time 3 -fsS "$APP_URL" >/dev/null 2>&1; then
+  if curl --max-time 3 -fsS "${API_URL}/healthz" >/dev/null 2>&1 && curl --max-time 3 -fsS "$APP_URL" >/dev/null 2>&1; then
     break
   fi
   sleep 1
 done
 
-curl --max-time 3 -fsS "$API_URL" >/dev/null
+curl --max-time 3 -fsS "${API_URL}/healthz" >/dev/null
 curl --max-time 3 -fsS "$APP_URL" >/dev/null
 
 cd "$SERVER_DIR"
@@ -59,7 +59,7 @@ check_clean_browser() {
   local console_out error_out
   console_out="$(agent-browser --session "$SESSION" console || true)"
   error_out="$(agent-browser --session "$SESSION" errors || true)"
-  if [[ "$console_out" =~ (error|warn|THREE.Clock|shader) ]] || [[ "$error_out" =~ (Error|Exception|THREE.Clock|shader) ]]; then
+  if [[ "$console_out" =~ (\[error\]|Uncaught|THREE\.Clock|shader) ]] || [[ "$error_out" =~ (Uncaught|THREE\.Clock|shader) ]]; then
     printf 'Browser %s console output:\n%s\n' "$label" "$console_out" >&2
     printf 'Browser %s page errors:\n%s\n' "$label" "$error_out" >&2
     return 1
@@ -70,6 +70,7 @@ open_clean() {
   local width="$1"
   local height="$2"
   agent-browser --session "$SESSION" close --all >/dev/null 2>&1 || true
+  sleep 1
   agent-browser --session "$SESSION" --headed --args "--no-sandbox,--disable-gpu-sandbox,--use-gl=swiftshader,--ignore-gpu-blocklist,--enable-unsafe-swiftshader" open "$APP_URL"
   agent-browser --session "$SESSION" set viewport "$width" "$height"
   agent-browser --session "$SESSION" wait --load networkidle

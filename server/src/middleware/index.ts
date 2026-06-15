@@ -1,5 +1,5 @@
 import express from "express";
-import type { Express } from "express";
+import type { Application } from "express";
 import helmet from "helmet";
 import cors from "cors";
 import { rateLimit } from "express-rate-limit";
@@ -16,7 +16,7 @@ const apiRateLimiter = rateLimit({
   message: { error: "Too many requests" },
 });
 
-export function applyMiddleware(app: Express): void {
+export function applyMiddleware(app: Application): void {
   app.use(helmet());
   app.use(cors());
   app.use(express.json({ limit: "16kb" }));
