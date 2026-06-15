@@ -131,6 +131,10 @@ export class UnoRoom extends Room<{ state: RoomState }> {
         this.handleVoteRematch(client);
       });
 
+      this.onMessage("matchmake", (client: Client, message: unknown) => {
+        this.handleMatchmake(client, message);
+      });
+
       this.onMessage("ping", (client: Client) => {
         client.send("pong");
       });
@@ -208,7 +212,9 @@ export class UnoRoom extends Room<{ state: RoomState }> {
       this.state.players.forEach((p: PlayerInstance) => {
         if (p.isBot) allHuman = false;
       });
-      if (allHuman) this.lock();
+      if (allHuman) {
+        this.lock().catch(() => {});
+      }
 
       // Only schedule a turn if a NEW player is taking over a seat that was
       // abandoned by the current player. A player returning to their own seat
@@ -1139,5 +1145,67 @@ export class UnoRoom extends Room<{ state: RoomState }> {
       this.state.rematchVotes.splice(0, this.state.rematchVotes.length);
       this.handleRestart(client);
     }
+  }
+
+  private handleMatchmake(client: Client, message: unknown) {
+    const data = message as { elo?: number; region?: string } | undefined;
+
+    const elo = typeof data?.elo === "number" ? Math.max(0, Math.min(3000, data.elo)) : 1000;
+    const region = typeof data?.region === "string" ? data.region : "global";
+
+    const player = this.findPlayerBySession(client.sessionId);
+    if (player) {
+      client.send("matchmake_joined", {
+        sessionId: client.sessionId,
+        seatIndex: player.seatIndex,
+        elo,
+        region,
+      });
+      return;
+    }
+
+    const botPlayer = this.findBotSeat();
+    if (!botPlayer) {
+      client.send("error", { message: "No seats available", code: "NO_SEATS" });
+      return;
+    }
+
+    botPlayer.sessionId = client.sessionId;
+    let name = "Player";
+    if (typeof (data as { name?: string })?.name === "string") {
+      const trimmed = ((data as { name?: string }).name || "").trim();
+      if (trimmed.length >= 2 && trimmed.length <= 16) {
+        name = trimmed;
+      }
+    }
+    botPlayer.name = sanitizePlainText(name) || "Player";
+    botPlayer.isBot = false;
+    botPlayer.connected = true;
+
+    client.view = new StateView();
+    client.view.add(botPlayer);
+
+    let allHuman = true;
+    this.state.players.forEach((p: PlayerInstance) => {
+      if (p.isBot) allHuman = false;
+    });
+    if (allHuman) {
+      this.lock().catch(() => {});
+    }
+
+    client.send("matchmake_joined", {
+      sessionId: client.sessionId,
+      seatIndex: botPlayer.seatIndex,
+      elo,
+      region,
+    });
+
+    log.info({
+      sessionId: client.sessionId,
+      seatIndex: botPlayer.seatIndex,
+      name: botPlayer.name,
+      elo,
+      region,
+    }, "Player matched via matchmaking");
   }
 }
