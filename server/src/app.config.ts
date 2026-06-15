@@ -2,6 +2,7 @@ import { defineServer, defineRoom } from "@colyseus/core";
 import { RedisPresence } from "@colyseus/redis-presence";
 import { UnoRoom } from "./rooms/UnoRoom.ts";
 import { DemoRoom } from "./rooms/DemoRoom.ts";
+import { register } from "./metrics.ts";
 
 function createPresence() {
   const redisUrl = process.env.REDIS_URL;
@@ -32,4 +33,15 @@ export default defineServer({
     demo: defineRoom(DemoRoom),
   },
   ...(presence ? { presence } : {}),
+  initializeExpress: (app) => {
+    app.get("/metrics", async (_req, res) => {
+      try {
+        const metrics = await register.metrics();
+        res.set("Content-Type", register.contentType);
+        res.end(metrics);
+      } catch (err) {
+        res.status(500).end(err instanceof Error ? err.message : "Unknown error");
+      }
+    });
+  },
 })
