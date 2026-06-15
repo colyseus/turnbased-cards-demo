@@ -4,12 +4,34 @@ This document describes the server-side security model for the UNO card game, fo
 
 ## Threat Model
 
+### Game-Level Threats
+
 **Adversary:** A malicious client that can:
 - Send arbitrary messages to the server
 - Inspect all data received from the server
 - Attempt to infer hidden game state from public information
 
 **Goal:** Prevent clients from gaining an unfair advantage by accessing hidden state (deck order, opponent hand contents, draw pile composition).
+
+### HTTP Transport Threats
+
+**Adversary:** Any HTTP client (not just game participants) that can:
+- Send arbitrary HTTP requests to any Express endpoint
+- Probe for information via headers, error messages, or timing
+- Flood endpoints with requests (DoS)
+- Submit oversized payloads to exhaust memory
+- Exploit missing security headers for clickjacking or MIME sniffing
+
+**Mitigations (applied via Express middleware in `server/src/middleware/index.ts`):**
+
+| Layer | Mechanism | Purpose |
+|-------|-----------|---------|
+| Security headers | `helmet` | Sets `X-Content-Type-Options`, `X-Frame-Options`, `Strict-Transport-Security`, `Content-Security-Policy`, etc. Prevents clickjacking, MIME sniffing, and protocol downgrade attacks. |
+| CORS | `cors` | Allows cross-origin requests from any origin (game clients). In production, restrict to the deployed frontend domain. |
+| Body size limit | `express.json({ limit: "16kb" })` | Rejects oversized JSON payloads before they reach application logic. Prevents memory exhaustion from large POST bodies. |
+| Request logging | Pino logger middleware | Logs method and URL for every request. Aids incident response and abuse detection. |
+| Rate limiting | `express-rate-limit` | Applied to `/metrics` and `/healthz` endpoints. Limits each IP to 60 requests per minute. Prevents scraping of Prometheus metrics and DoS of health checks. |
+| Health check | `GET /healthz` | Returns `{ status: "ok" }`. Used by load balancers and orchestrators; rate-limited to prevent abuse. |
 
 ## Information Architecture
 
@@ -101,6 +123,28 @@ The `antiCheat.test.ts` file verifies:
 4. **State snapshot comparison** — client view matches expected visible state
 5. **Bot RNG isolation** — bot decisions not predictable, difficulty not exposed
 6. **Card count conservation** — total cards (108) conserved across all state transitions
+
+## Rate Limiting Configuration
+
+### Application-Level (WebSocket Messages)
+
+The `RateLimiter` class in `server/src/rateLimiter.ts` enforces per-player cooldowns on game actions:
+
+| Message Type | Cooldown |
+|-------------|----------|
+| `play_card` | Configurable (default from `ACTION_COOLDOWN_MS`) |
+| `draw_config` | Configurable (default from `ACTION_COOLDOWN_MS`) |
+| `challenge_wild_draw4` | Configurable (default from `ACTION_COOLDOWN_MS`) |
+| `chat` | 1000ms |
+| `uno_call` | 500ms |
+| `join` | 1000ms |
+
+### HTTP-Level (Express Endpoints)
+
+`express-rate-limit` protects `/metrics` and `/healthz`:
+- **Window:** 60 seconds
+- **Max requests:** 60 per IP per window
+- Uses `RateLimit-*` standard headers (not legacy `X-RateLimit-*`)
 
 ## Recommendations for Future Hardening
 

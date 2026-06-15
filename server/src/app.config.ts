@@ -3,6 +3,7 @@ import { RedisPresence } from "@colyseus/redis-presence";
 import { UnoRoom } from "./rooms/UnoRoom.ts";
 import { DemoRoom } from "./rooms/DemoRoom.ts";
 import { register } from "./metrics.ts";
+import { applyMiddleware } from "./middleware/index.ts";
 
 function createPresence() {
   const redisUrl = process.env.REDIS_URL;
@@ -34,6 +35,12 @@ export default defineServer({
   },
   ...(presence ? { presence } : {}),
   initializeExpress: (app) => {
+    applyMiddleware(app);
+
+    app.get("/healthz", (_req, res) => {
+      res.json({ status: "ok" });
+    });
+
     app.get("/metrics", async (_req, res) => {
       try {
         const metrics = await register.metrics();
