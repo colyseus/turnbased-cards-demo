@@ -1,3 +1,5 @@
+import { memo } from "react";
+
 function ChampionshipCrest({
   kind,
   icon,
@@ -52,7 +54,7 @@ interface TableCardAlertProps {
   cardAlert: string;
 }
 
-export function TableCardAlert({ cardAlert }: TableCardAlertProps) {
+function TableCardAlertInner({ cardAlert }: TableCardAlertProps) {
   return (
     <div className="card-alert-overlay">
       {cardAlert.includes("CALLED UNO!") ? (
@@ -85,3 +87,7 @@ export function TableCardAlert({ cardAlert }: TableCardAlertProps) {
     </div>
   );
 }
+
+export const TableCardAlert = memo(TableCardAlertInner, (prev, next) => {
+  return prev.cardAlert === next.cardAlert;
+});

@@ -738,11 +738,11 @@ export function useTableRoomController(props: TableRoomControllerProps) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [hand, selectedCardIdx, isMyTurn, state, me, playCard, room, tableReady, showRules, wildFor]);
 
-  const scrollHand = (direction: "left" | "right") => {
+  const scrollHand = useCallback((direction: "left" | "right") => {
     if (!handScrollRef.current) return;
     const amount = 200 * (direction === "left" ? -1 : 1);
     handScrollRef.current.scrollBy({ left: amount, behavior: "smooth" });
-  };
+  }, []);
 
   const handCount = hand.length;
   const { handMid, dynamicFanAngle, dynamicFanOffset, dynamicMarginValue } = getHandLayout(handCount);
@@ -785,7 +785,7 @@ export function useTableRoomController(props: TableRoomControllerProps) {
 
   const tutorialCards = getTutorialCards();
   const tutorial = tutorialStep >= 0 ? tutorialCards[tutorialStep] : null;
-  const closeTutorial = () => {
+  const closeTutorial = useCallback(() => {
     writeStorage("uno_tutorial_complete", "true");
     setTutorialStep(
       getCloseTutorialSnapshot({
@@ -797,7 +797,7 @@ export function useTableRoomController(props: TableRoomControllerProps) {
         showReverseSweep,
       }).tutorialStep,
     );
-  };
+  }, [showRules, tutorialStep, wildFor, cardAlert, turnBanner, showReverseSweep]);
 
   return {
     me,

@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { memo } from "react";
 import { AmbientStardust } from "./AmbientStardust";
 import { CardAtlasView } from "./CardAtlasView";
 import { PlayDirectionRing } from "./PlayDirectionRing";
@@ -23,10 +24,12 @@ import {
   type TableRoomControllerProps,
 } from "./useTableRoomController";
 import { getReplayGuideSnapshot } from "./tableRoomOverlayFlow";
+import { useTableRoomPerformance } from "../hooks/useTableRoomPerformance";
 
 type TableRoomProps = TableRoomControllerProps;
 
-export function TableRoom(props: TableRoomProps) {
+export const TableRoom = memo(function TableRoom(props: TableRoomProps) {
+  useTableRoomPerformance("TableRoom");
   const { room, state, onLeave, colorblindMode, onToggleColorblind, showToast, disconnected } = props;
   const {
     me,
@@ -416,4 +419,4 @@ export function TableRoom(props: TableRoomProps) {
       </div>
     </TableShell>
   );
-}
+});

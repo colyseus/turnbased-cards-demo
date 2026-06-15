@@ -1,5 +1,5 @@
 import type { CSSProperties, TouchEvent } from "react";
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { CardAtlasView } from "./CardAtlasView";
 import { sfx } from "../audio/sfx";
 import { cardLabel } from "../gameHelpers";
@@ -20,7 +20,7 @@ interface HandCardItemProps {
   onUnplayableTap: (card: CardSchema) => void;
 }
 
-export function HandCardItem({
+function HandCardItemInner({
   card,
   idx,
   handMid,
@@ -171,3 +171,22 @@ export function HandCardItem({
     </div>
   );
 }
+
+export const HandCardItem = memo(HandCardItemInner, (prev, next) => {
+  if (prev.idx !== next.idx) return false;
+  if (prev.handMid !== next.handMid) return false;
+  if (prev.dynamicFanAngle !== next.dynamicFanAngle) return false;
+  if (prev.dynamicFanOffset !== next.dynamicFanOffset) return false;
+  if (prev.playable !== next.playable) return false;
+  if (prev.isSelected !== next.isSelected) return false;
+  if (prev.colorblindMode !== next.colorblindMode) return false;
+  if (prev.dynamicMarginValue !== next.dynamicMarginValue) return false;
+  if (prev.setSelectedCardIdx !== next.setSelectedCardIdx) return false;
+  if (prev.playCard !== next.playCard) return false;
+  if (prev.onUnplayableTap !== next.onUnplayableTap) return false;
+  if (prev.card.id !== next.card.id) return false;
+  if (prev.card.color !== next.card.color) return false;
+  if (prev.card.value !== next.card.value) return false;
+  if (prev.card.chosenColor !== next.card.chosenColor) return false;
+  return true;
+});
