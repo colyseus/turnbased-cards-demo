@@ -17,6 +17,7 @@
   "dependencies": {
     "@colyseus/react": "^0.1.14",
     "@colyseus/sdk": "^0.17.0",
+    "@sentry/react": "^10.57.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "ws": "^8.21.0"

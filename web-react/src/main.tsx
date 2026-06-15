@@ -1,12 +1,14 @@
 import "./index.css";
 import { Client, Room } from "@colyseus/sdk";
-import { Component, ReactNode, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Lobby } from "./components/Lobby";
 import { TableRoom } from "./components/TableRoom";
 import type { Mode, Toast, UnoState } from "./gameTypes";
 import { snapshotState } from "./stateSnapshot";
 import { readStorage, writeStorage } from "./storage";
+import { ErrorBoundary } from "./sentry";
+import "./sentry";
 
 const WS_URL = import.meta.env.VITE_WS_URL || "ws://localhost:2567";
 const client = new Client(WS_URL);
@@ -143,7 +145,19 @@ function App() {
   return (
     <>
       {mode === "table" ? (
-        <ErrorBoundary onReset={leaveRoom}>
+        <ErrorBoundary
+          fallback={({ resetError }) => (
+            <main className="crash-screen">
+              <section>
+                <h1>Table crashed rendering</h1>
+                <button onClick={resetError} type="button">
+                  Return to Lobby
+                </button>
+              </section>
+            </main>
+          )}
+          onReset={leaveRoom}
+        >
           <TableRoom
             room={room}
             state={state}
@@ -180,40 +194,12 @@ function App() {
   );
 }
 
-class ErrorBoundary extends Component<
-  { children: ReactNode; onReset: () => void },
-  { error: Error | null }
-> {
-  state: { error: Error | null } = { error: null };
-
-  static getDerivedStateFromError(error: Error) {
-    return { error };
-  }
-
-  render() {
-    if (this.state.error) {
-      return (
-        <main className="crash-screen">
-          <section>
-            <h1>Table crashed rendering</h1>
-            <p>
-              {this.state.error instanceof Error
-                ? this.state.error.message
-                : "Unknown render error"}
-            </p>
-            <button onClick={this.props.onReset} type="button">
-              Return to Lobby
-            </button>
-          </section>
-        </main>
-      );
-    }
-    return this.props.children;
-  }
-}
-
 const root = createRoot(document.getElementById("root")!);
-root.render(<App />);
+root.render(
+  <ErrorBoundary fallback={<main className="crash-screen"><section><h1>Something went wrong</h1></section></main>}>
+    <App />
+  </ErrorBoundary>,
+);
 
 // Register PWA service worker
 if ("serviceWorker" in navigator) {
