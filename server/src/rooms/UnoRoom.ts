@@ -12,6 +12,8 @@ import { HUMAN_TURN_TIMEOUT_MS, BOT_TURN_DELAY_MS, ACTION_COOLDOWN_MS } from "..
 import { NUM_PLAYERS, HAND_SIZE } from "../../shared/uno.ts";
 import { logger } from "../logger.ts";
 
+const log = logger.child({ ns: "UnoRoom" });
+
 const VALID_COLORS: readonly UnoColor[] = ["red", "blue", "green", "yellow"];
 
 function sanitizePlainText(value: string): string {
@@ -86,7 +88,7 @@ export class UnoRoom extends Room<{ state: RoomState }> {
       this.state.phase = "playing";
       this.scheduleTurn();
 
-      logger.info("UnoRoom", "Game started", { roomId: this.roomId });
+      log.info({ roomId: this.roomId }, "Game started");
 
       // Message handlers
       this.onMessage("play_card", (client: Client, message: { cardId: string; chosenColor?: string }) => {
@@ -121,7 +123,7 @@ export class UnoRoom extends Room<{ state: RoomState }> {
         client.send("pong");
       });
     } catch (err) {
-      logger.error("UnoRoom", "onCreate failed", { error: String(err) });
+      log.error({ err }, "onCreate failed");
       throw err;
     }
   }
@@ -137,7 +139,7 @@ export class UnoRoom extends Room<{ state: RoomState }> {
       if (options?.spectator) {
         this.spectators.add(client);
         this.state.spectatorCount = this.spectators.size;
-        logger.info("UnoRoom", "Spectator joined", { sessionId: client.sessionId });
+        log.info({ sessionId: client.sessionId }, "Spectator joined");
         return;
       }
 
@@ -203,14 +205,14 @@ export class UnoRoom extends Room<{ state: RoomState }> {
         this.scheduleTurn();
       }
 
-      logger.info("UnoRoom", "Player joined", {
+      log.info({
         sessionId: client.sessionId,
         seatIndex: botPlayer.seatIndex,
         name: botPlayer.name,
         takingAbandonedSeat,
-      });
+      }, "Player joined");
     } catch (err) {
-      logger.error("UnoRoom", "onJoin failed", { error: String(err) });
+      log.error({ err }, "onJoin failed");
       throw err;
     }
   }
@@ -221,7 +223,7 @@ export class UnoRoom extends Room<{ state: RoomState }> {
       if (this.spectators.has(client)) {
         this.spectators.delete(client);
         this.state.spectatorCount = this.spectators.size;
-        logger.info("UnoRoom", "Spectator left", { sessionId: client.sessionId });
+        log.info({ sessionId: client.sessionId }, "Spectator left");
         return;
       }
 
@@ -257,13 +259,13 @@ export class UnoRoom extends Room<{ state: RoomState }> {
       // Clean up StateView to prevent memory leaks
       client.view = undefined;
 
-      logger.info("UnoRoom", "Player left", {
+      log.info({
         sessionId: client.sessionId,
         seatIndex: player.seatIndex,
         wasCurrentPlayer,
-      });
+      }, "Player left");
     } catch (err) {
-      logger.error("UnoRoom", "onLeave failed", { error: String(err) });
+      log.error({ err }, "onLeave failed");
     }
   }
 
@@ -414,10 +416,10 @@ export class UnoRoom extends Room<{ state: RoomState }> {
     this.state.lastDrawnCardId = "";
     this.state.currentPlayer = this.nextPlayer();
 
-    logger.info("UnoRoom", "UNO penalty resolved", {
+    log.info({
       penalizedSeat,
       nextSeat: this.state.currentPlayer,
-    });
+    }, "UNO penalty resolved");
 
     return true;
   }
@@ -480,11 +482,11 @@ export class UnoRoom extends Room<{ state: RoomState }> {
 
     this.state.pendingWinnerSeat = -1;
     this.state.winner = pendingWinnerSeat;
-    logger.info("UnoRoom", "Game finished", {
+    log.info({
       winnerSeat: pendingWinnerSeat,
       winnerName: winnerPlayer.name,
       seatIndex: pendingWinnerSeat,
-    });
+    }, "Game finished");
     this.state.phase = "finished";
     this.state.rematchVotes.splice(0, this.state.rematchVotes.length);
     clearTimeout(this.turnTimeout);
@@ -568,7 +570,7 @@ export class UnoRoom extends Room<{ state: RoomState }> {
       try {
         this.botTurn();
       } catch (err) {
-        logger.error("UnoRoom", "botTurn failed", { error: String(err) });
+        log.error({ err }, "botTurn failed");
       }
     }, delay);
   }
@@ -674,11 +676,11 @@ export class UnoRoom extends Room<{ state: RoomState }> {
         this.state.pendingWinnerSeat = player.seatIndex;
       } else {
         this.state.winner = player.seatIndex;
-        logger.info("UnoRoom", "Game finished", {
+        log.info({
           winnerSeat: player.seatIndex,
           winnerName: player.name,
           seatIndex: player.seatIndex,
-        });
+        }, "Game finished");
         this.state.phase = "finished";
         this.state.rematchVotes.splice(0, this.state.rematchVotes.length);
         clearTimeout(this.turnTimeout);
@@ -920,7 +922,7 @@ export class UnoRoom extends Room<{ state: RoomState }> {
 
       this.executePlayCard(player, cardIndex, chosenColor as UnoColor | undefined, wildDraw4Illegal);
     } catch (err) {
-      logger.error("UnoRoom", "handlePlayCard failed", { error: String(err) });
+      log.error({ err }, "handlePlayCard failed");
       client.send("error", { message: "Internal error", code: "INTERNAL_ERROR" });
     }
   }
@@ -985,7 +987,7 @@ export class UnoRoom extends Room<{ state: RoomState }> {
         this.scheduleTurn();
       }
     } catch (err) {
-      logger.error("UnoRoom", "handleDrawCard failed", { error: String(err) });
+      log.error({ err }, "handleDrawCard failed");
       client.send("error", { message: "Internal error", code: "INTERNAL_ERROR" });
     }
   }
@@ -1010,7 +1012,7 @@ export class UnoRoom extends Room<{ state: RoomState }> {
       }
       this.resolveWildDraw4Challenge(player.seatIndex);
     } catch (err) {
-      logger.error("UnoRoom", "handleChallengeWildDraw4 failed", { error: String(err) });
+      log.error({ err }, "handleChallengeWildDraw4 failed");
       client.send("error", { message: "Internal error", code: "INTERNAL_ERROR" });
     }
   }

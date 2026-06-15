@@ -20,6 +20,8 @@ import {
 import { pickBestPlayableCard, populateSchemaCard } from "../../../shared/gameLogic.ts";
 import { logger } from "../logger.ts";
 
+const log = logger.child({ ns: "DemoRoom" });
+
 export class DemoRoom extends Room<{ state: InstanceType<typeof DemoState> }> {
   private drawPile: UnoCard[] = [];
   private tickTimer?: ReturnType<typeof setTimeout>;
@@ -73,7 +75,7 @@ export class DemoRoom extends Room<{ state: InstanceType<typeof DemoState> }> {
       this.state.demo.tickMs = this.tickMs;
     });
 
-    logger.info("DemoRoom", "Created");
+    log.info("Created");
   }
 
   onJoin(client: Client, _options: Record<string, unknown> = {}) {
@@ -86,11 +88,11 @@ export class DemoRoom extends Room<{ state: InstanceType<typeof DemoState> }> {
       localPlayer.isBot = false;
       localPlayer.connected = true;
     }
-    logger.info("DemoRoom", "Client joined", { sessionId: client.sessionId });
+    log.info({ sessionId: client.sessionId }, "Client joined");
   }
 
   onLeave(client: Client) {
-    logger.info("DemoRoom", "Client left", { sessionId: client.sessionId });
+    log.info({ sessionId: client.sessionId }, "Client left");
   }
 
   private startGame() {
@@ -149,7 +151,7 @@ export class DemoRoom extends Room<{ state: InstanceType<typeof DemoState> }> {
     this.syncState();
     this.recordHistory("start", "", "");
     this.scheduleTick();
-    logger.info("DemoRoom", "Game started");
+    log.info("Game started");
   }
 
   private pauseGame() {
@@ -397,7 +399,7 @@ export class DemoRoom extends Room<{ state: InstanceType<typeof DemoState> }> {
     this.recordHistory(`win:${this.currentState.winner ?? -1}`, "", "", this.currentState.winner ?? -1);
     clearTimeout(this.tickTimer);
     this.tickTimer = undefined;
-    logger.info("DemoRoom", "Game finished", { winner: this.currentState.winner });
+    log.info({ winner: this.currentState.winner }, "Game finished");
   }
 
   onDispose() {
