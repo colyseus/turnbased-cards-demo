@@ -12,6 +12,7 @@ import { HUMAN_TURN_TIMEOUT_MS, BOT_TURN_DELAY_MS } from "../../shared/constants
 import { NUM_PLAYERS, HAND_SIZE } from "../../shared/uno.ts";
 import { logger } from "../logger.ts";
 import { RateLimiter } from "../rateLimiter.ts";
+import { playCardSchema, chatSchema, validateMessage } from "../schemas/index.ts";
 
 const log = logger.child({ ns: "UnoRoom" });
 
@@ -92,8 +93,13 @@ export class UnoRoom extends Room<{ state: RoomState }> {
       log.info({ roomId: this.roomId }, "Game started");
 
       // Message handlers
-      this.onMessage("play_card", (client: Client, message: { cardId: string; chosenColor?: string }) => {
-        this.handlePlayCard(client, message);
+      this.onMessage("play_card", (client: Client, message: unknown) => {
+        const result = validateMessage(playCardSchema, message);
+        if (!result.ok) {
+          client.send("error", { message: "Invalid payload", code: "MESSAGE_REJECTED", details: result.error });
+          return;
+        }
+        this.handlePlayCard(client, result.data);
       });
 
     this.onMessage("draw_card", (client: Client) => {
@@ -108,8 +114,13 @@ export class UnoRoom extends Room<{ state: RoomState }> {
         this.handleRestart(client);
       });
 
-      this.onMessage("chat", (client: Client, message: { text?: unknown }) => {
-        this.handleChat(client, message);
+      this.onMessage("chat", (client: Client, message: unknown) => {
+        const result = validateMessage(chatSchema, message);
+        if (!result.ok) {
+          client.send("error", { message: "Invalid payload", code: "MESSAGE_REJECTED", details: result.error });
+          return;
+        }
+        this.handleChat(client, result.data);
       });
 
       this.onMessage("uno", (client: Client) => {
@@ -859,9 +870,6 @@ export class UnoRoom extends Room<{ state: RoomState }> {
     try {
       const { cardId, chosenColor } = message;
 
-      // Input validation
-      if (typeof cardId !== "string" || cardId.length > 64) return;
-
       const player = this.findPlayerBySession(client.sessionId);
       if (!player) return;
 
@@ -1063,7 +1071,7 @@ export class UnoRoom extends Room<{ state: RoomState }> {
     this.scheduleTurn();
   }
 
-  private handleChat(client: Client, message: { text?: unknown }) {
+  private handleChat(client: Client, message: { text: string }) {
     let senderName = "";
     const player = this.findPlayerBySession(client.sessionId);
     if (player) {
