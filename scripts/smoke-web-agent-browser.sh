@@ -205,6 +205,99 @@ simulate_play() {
   agent-browser --session "$SESSION" screenshot "$SHOT_DIR/web-react-game-${label}-2-played.png"
 }
 
+play_one_turn() {
+  if agent-browser --session "$SESSION" wait --fn 'document.querySelector(".winner-podium-overlay") !== null' --timeout 2000; then
+    echo "game-over"
+    return
+  fi
+
+  if ! agent-browser --session "$SESSION" wait --fn 'document.querySelector(".hand-card-wrapper.playable") !== null || document.querySelector(".draw-pile.guidance-pulse") !== null' --timeout 10000; then
+    echo "waiting"
+    return
+  fi
+
+  local result
+  result=$(agent-browser --session "$SESSION" wait --fn '
+    (function() {
+      const wildCard = document.querySelector(".hand-card-wrapper.playable button[aria-label$=\"Wild\"]");
+      if (wildCard) { wildCard.click(); return "wild"; }
+      const wildDraw4 = document.querySelector(".hand-card-wrapper.playable button[aria-label$=\"Wild +4\"]");
+      if (wildDraw4) { wildDraw4.click(); return "wild"; }
+      const reverseCard = document.querySelector(".hand-card-wrapper.playable button[aria-label$=\"Reverse\"]");
+      if (reverseCard) { reverseCard.click(); return "reverse"; }
+      const skipCard = document.querySelector(".hand-card-wrapper.playable button[aria-label$=\"Skip\"]");
+      if (skipCard) { skipCard.click(); return "skip"; }
+      const playableCard = document.querySelector(".hand-card-wrapper.playable button");
+      if (playableCard) { playableCard.click(); return "played"; }
+      const drawDeck = document.querySelector(".draw-pile.guidance-pulse");
+      if (drawDeck) { drawDeck.click(); return "drawn"; }
+      return false;
+    })()
+  ')
+
+  if [[ "$result" == *"wild"* ]]; then
+    agent-browser --session "$SESSION" wait 800
+    agent-browser --session "$SESSION" wait --fn '
+      (function() {
+        const modal = document.querySelector(".color-modal");
+        if (!modal) return true;
+        const red = document.querySelector("[data-testid=\"wild-color-red\"]");
+        if (red) red.click();
+        return true;
+      })()
+    '
+    echo "wild-picked"
+    return
+  fi
+
+  if [[ "$result" == *"drawn"* ]]; then
+    echo "drawn"
+    return
+  fi
+
+  echo "played"
+}
+
+full_game_loop() {
+  local label="$1"
+  local max_turns=200
+  local turns=0
+
+  echo "=== Full game loop: $label ==="
+  agent-browser --session "$SESSION" wait --fn 'document.querySelector(".table-board .card-sprite") !== null' --timeout 15000
+  agent-browser --session "$SESSION" screenshot "$SHOT_DIR/full-game-${label}-0-start.png"
+
+  while [[ $turns -lt $max_turns ]]; do
+    local result
+    result=$(play_one_turn)
+
+    if [[ "$result" == "game-over" ]]; then
+      agent-browser --session "$SESSION" screenshot "$SHOT_DIR/full-game-${label}-winner.png"
+      local winner
+      winner=$(agent-browser --session "$SESSION" wait --fn '
+        (function() {
+          const h1 = document.querySelector(".winner-podium-box h1");
+          return h1 ? h1.textContent : null;
+        })()
+      ' --timeout 5000)
+      echo "Winner: $winner"
+      echo "Game completed in $turns turns"
+      return 0
+    fi
+
+    if [[ "$result" == "waiting" ]]; then
+      sleep 1
+      continue
+    fi
+
+    turns=$((turns + 1))
+    sleep 0.3
+  done
+
+  echo "Game did not finish within $max_turns turns"
+  return 1
+}
+
 open_clean 1280 720
 agent-browser --session "$SESSION" record start "$SHOT_DIR/desktop.webm"
 quick_game "SmokeDesk"
@@ -220,6 +313,13 @@ exercise_overlay_states
 simulate_play "mobile"
 agent-browser --session "$SESSION" record stop
 check_clean_browser "mobile"
+
+# Full game loop test
+echo "=== Full game loop E2E test ==="
+open_clean 1280 720
+quick_game "FullLoop"
+full_game_loop "full"
+check_clean_browser "full-loop"
 
 # Stitch screenshots
 echo "=== Stitching screenshots ==="
@@ -265,6 +365,8 @@ Smoke test passed. Screenshots:
 - $SHOT_DIR/web-react-game-mobile-0-initial.png
 - $SHOT_DIR/web-react-game-mobile-1-selected.png or $SHOT_DIR/web-react-game-mobile-1-waiting-turn.png
 - $SHOT_DIR/web-react-game-mobile-2-played.png or $SHOT_DIR/web-react-game-mobile-2-waiting-turn.png
+- $SHOT_DIR/full-game-full-0-start.png
+- $SHOT_DIR/full-game-full-winner.png
 - Stitched image: $SHOT_DIR/stitched_screenshots.png
 - Stitched video: $SHOT_DIR/stitched_video.mp4
 
@@ -273,4 +375,5 @@ Manual visual pass required:
 - Lobby and table surfaces render with the rebuilt frontend only.
 - Room join creates a live table on desktop and mobile.
 - HUD, hand dock, opponent strips, chat, and table controls do not incoherently overlap.
+- Full game loop completes with a winner and winner podium displayed.
 EOF
