@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prebuild": "../scripts/compress-pngs.sh",
     "build": "tsc && vite build",
     "test:unit": "node --test tests/*.test.ts",
     "test:smoke": "../scripts/smoke-web-agent-browser.sh",
@@ -26,6 +27,7 @@
     "@vitejs/plugin-react": "^5.1.4",
     "babel-plugin-react-compiler": "^1.0.0",
     "oxfmt": "^0.51.0",
+    "oxipng": "^1.0.1",
     "oxlint": "^1.66.0",
     "typescript": "^5.2.2",
     "vite": "^7.3.1",
