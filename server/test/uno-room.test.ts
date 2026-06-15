@@ -118,11 +118,11 @@ describe("UnoRoom turn scheduling logic", () => {
     expect(room.state.currentPlayer).toBe(0);
     expect(room.state.lastDrawnCardId).toBe("red_2_drawn");
 
-    room["lastActionTime"].clear();
+    room["rateLimiter"].clear();
     room["handlePlayCard"](client, { cardId: "red_5_existing" });
     expect(player.hand.some((card) => card.id === "red_5_existing")).toBe(true);
 
-    room["lastActionTime"].clear();
+    room["rateLimiter"].clear();
     let playError: { message: string; code: string } | null = null;
     const drawPlayClient = makeTestClient("human-0", (type: string, data: { message: string; code: string }) => {
       if (type === "error") playError = data;
@@ -166,7 +166,7 @@ describe("UnoRoom turn scheduling logic", () => {
     otherSeat.connected = true;
     room.onLeave(makeTestClient("human-1"));
 
-    room["lastActionTime"].clear();
+    room["rateLimiter"].clear();
     let playError: { message: string; code: string } | null = null;
     const playClient = makeTestClient("human-0", (type: string, data: { message: string; code: string }) => {
       if (type === "error") playError = data;
@@ -285,7 +285,7 @@ describe("UnoRoom restart logic", () => {
     const pendingTimeout = setTimeout(() => undefined, 10_000);
     room["turnCallbacks"].set(2, pendingTimeout);
     room["seatsHandedToBot"].add(2);
-    room["lastActionTime"].set("human-0", Date.now());
+    room["rateLimiter"].check("human-0", "play_card");
 
     room.state.phase = "finished";
     room.state.winner = 1;
@@ -296,7 +296,6 @@ describe("UnoRoom restart logic", () => {
 
     expect(room["turnCallbacks"].size).toBe(0);
     expect(room["seatsHandedToBot"].size).toBe(0);
-    expect(room["lastActionTime"].size).toBe(0);
 
     room.onDispose();
   });
@@ -403,7 +402,7 @@ describe("UnoRoom regular human match", () => {
     let humanActions = 0;
     for (let turn = 0; turn < 3000 && room.state.winner === -1; turn++) {
       const player = room.state.players.get(String(room.state.currentPlayer))!;
-      room["lastActionTime"].clear();
+      room["rateLimiter"].clear();
 
       if (room.state.wildDraw4ChallengePending) {
         if (player.isBot) {

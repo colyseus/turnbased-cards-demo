@@ -79,7 +79,7 @@ function createRoomWithHuman(
   room.state.wildDraw4ChallengePending = false;
   room.state.wildDraw4Illegal = false;
   room.state.wildDraw4OffenderSeat = -1;
-  room["lastActionTime"].clear();
+  room["rateLimiter"].clear();
   clearTimeout(room["turnTimeout"]);
 
   return { room, client };
@@ -327,7 +327,7 @@ describe("Security: handlePlayCard", () => {
       room.state.discardPile.push(makeSchemaCard("discard_blue_3", "blue", "3"));
 
       room["handlePlayCard"](client, { cardId: "wild_draw4", chosenColor: "blue" });
-      room["lastActionTime"].clear();
+      room["rateLimiter"].clear();
 
       const challenger = room.state.players.get("1")!;
       challenger.sessionId = "human-1";
@@ -355,7 +355,7 @@ describe("Security: handlePlayCard", () => {
       room.state.discardPile.push(makeSchemaCard("discard_red_7", "red", "7"));
 
       room["handlePlayCard"](client, { cardId: "wild_draw4", chosenColor: "green" });
-      room["lastActionTime"].clear();
+      room["rateLimiter"].clear();
 
       const challenger = room.state.players.get("1")!;
       challenger.sessionId = "human-1";
@@ -856,7 +856,7 @@ describe("Security: rate limiting", () => {
     room["handleDrawCard"](client);
 
     // Set last action time to now to trigger rate limit on next call
-    room["lastActionTime"].set(client.sessionId, Date.now());
+    room["rateLimiter"].check(client.sessionId, "draw_card");
 
     // Second draw immediately should be rate limited
     const handCountBefore = room.state.players.get("0")!.hand.length;
@@ -906,6 +906,7 @@ describe("Security: handleChat edge cases", () => {
 
     // Add 60 messages
     for (let i = 0; i < 60; i++) {
+      room["rateLimiter"].clear();
       room["handleChat"](client, { text: `message ${i}` });
     }
 

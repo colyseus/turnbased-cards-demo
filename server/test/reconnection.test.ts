@@ -45,6 +45,7 @@ describe("UnoRoom reconnection behavior", () => {
     expect(player.connected).toBe(false);
     expect(room["seatsHandedToBot"].has(0)).toBe(true);
 
+    room["rateLimiter"].clear();
     room.onJoin(client, { name: "Player 1" });
 
     expect(player.isBot).toBe(false);

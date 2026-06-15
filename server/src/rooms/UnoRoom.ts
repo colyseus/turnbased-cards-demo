@@ -8,9 +8,10 @@ import {
   hasWildDrawFourAlternative, isUnoColor,
 } from "../../shared/uno.ts";
 import { populateSchemaCard } from "../../../shared/gameLogic.ts";
-import { HUMAN_TURN_TIMEOUT_MS, BOT_TURN_DELAY_MS, ACTION_COOLDOWN_MS } from "../../shared/constants.ts";
+import { HUMAN_TURN_TIMEOUT_MS, BOT_TURN_DELAY_MS } from "../../shared/constants.ts";
 import { NUM_PLAYERS, HAND_SIZE } from "../../shared/uno.ts";
 import { logger } from "../logger.ts";
+import { RateLimiter } from "../rateLimiter.ts";
 
 const log = logger.child({ ns: "UnoRoom" });
 
@@ -42,8 +43,8 @@ export class UnoRoom extends Room<{ state: RoomState }> {
   private spectators = new Set<Client>();
   /** Guard flag: prevents botTurn from firing during an active human turn action. */
   private turnActionActive = false;
-  /** Rate limiting: sessionId → timestamp of last game action (ms). */
-  private lastActionTime = new Map<string, number>();
+  /** Per-message-type rate limiter. */
+  private rateLimiter = new RateLimiter();
   /** Bot difficulty: "easy" | "medium" | "hard" */
   private difficulty: "easy" | "medium" | "hard" = "medium";
   /** Optional room password. */
@@ -130,6 +131,11 @@ export class UnoRoom extends Room<{ state: RoomState }> {
 
   onJoin(client: Client, options: { name?: string; spectator?: boolean; password?: string }) {
     try {
+      // Rate limit join attempts
+      if (this.rateLimiter.check(client.sessionId, "join").allowed === false) {
+        throw new Error("Rate limited");
+      }
+
       // Validate password first
       if (this.password && options?.password !== this.password) {
         throw new Error("Invalid password");
@@ -289,12 +295,20 @@ export class UnoRoom extends Room<{ state: RoomState }> {
     this.state.rematchVotes = new ArraySchema();
   }
 
-  /** Returns true if the client should be rate-limited. Updates last-action time. */
-  private checkRateLimit(sessionId: string): boolean {
-    const now = Date.now();
-    const last = this.lastActionTime.get(sessionId) ?? 0;
-    if (now - last < ACTION_COOLDOWN_MS) return true;
-    this.lastActionTime.set(sessionId, now);
+  private checkRateLimit(
+    client: Client,
+    messageType: "play_card" | "draw_card" | "challenge_wild_draw4" | "chat" | "uno_call" | "join",
+  ): boolean {
+    const result = this.rateLimiter.check(client.sessionId, messageType);
+    if (!result.allowed) {
+      client.send("error", {
+        message: "Rate limited",
+        code: "RATE_LIMITED",
+        messageType,
+        retryAfterMs: result.retryAfterMs,
+      });
+      return true;
+    }
     return false;
   }
 
@@ -858,8 +872,7 @@ export class UnoRoom extends Room<{ state: RoomState }> {
       }
 
       // Rate limit
-      if (this.checkRateLimit(client.sessionId)) {
-        client.send("error", { message: "Rate limited", code: "RATE_LIMITED" });
+      if (this.checkRateLimit(client, "play_card")) {
         return;
       }
 
@@ -939,8 +952,7 @@ export class UnoRoom extends Room<{ state: RoomState }> {
       }
 
       // Rate limit
-      if (this.checkRateLimit(client.sessionId)) {
-        client.send("error", { message: "Rate limited", code: "RATE_LIMITED" });
+      if (this.checkRateLimit(client, "draw_card")) {
         return;
       }
 
@@ -997,8 +1009,7 @@ export class UnoRoom extends Room<{ state: RoomState }> {
       const player = this.findPlayerBySession(client.sessionId);
       if (!player) return;
 
-      if (this.checkRateLimit(client.sessionId)) {
-        client.send("error", { message: "Rate limited", code: "RATE_LIMITED" });
+      if (this.checkRateLimit(client, "challenge_wild_draw4")) {
         return;
       }
 
@@ -1036,7 +1047,7 @@ export class UnoRoom extends Room<{ state: RoomState }> {
     }
     this.turnCallbacks.clear();
     this.seatsHandedToBot.clear();
-    this.lastActionTime.clear();
+    this.rateLimiter.clear();
 
     // Clear all hands and discard pile
     this.state.players.forEach((player: PlayerInstance) => {
@@ -1063,6 +1074,10 @@ export class UnoRoom extends Room<{ state: RoomState }> {
       return;
     }
 
+    if (this.checkRateLimit(client, "chat")) {
+      return;
+    }
+
     const text = typeof message.text === "string" ? message.text.trim() : "";
     if (!text || text.length > 200) return;
     const chatMsg = new ChatMessageSchema();
@@ -1079,6 +1094,9 @@ export class UnoRoom extends Room<{ state: RoomState }> {
   private handleUno(client: Client) {
     const player = this.findPlayerBySession(client.sessionId);
     if (!player) return;
+    if (this.checkRateLimit(client, "uno_call")) {
+      return;
+    }
     // Only the player who must call UNO can do so
     if (this.state.unoCaller === player.seatIndex) {
       this.state.unoCaller = -1;
