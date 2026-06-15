@@ -73,6 +73,12 @@
 - [x] Godot implementation
 - [x] Unity implementation
 
+### Production Roadmap Epics
+- [x] Epic 1: Client Performance and Rendering (Tasks 1.1, 1.2, 1.3)
+- [x] Epic 2: Server Scalability and Architecture (Tasks 2.1, 2.2, 2.3, 2.4)
+- [x] Epic 3: Observability and Monitoring (Tasks 3.1, 3.2, 3.3)
+- [x] Epic 4: Quality Assurance and Security (Tasks 4.1, 4.2, 4.3, 4.4)
+
 ### Docs
 - [x] README.md
 - [x] QUICKSTART.md
@@ -182,17 +188,26 @@ root.
 | Smoke | n/a | ✓ xvfb-run captured screenshots + video |
 | `npm audit --omit=dev` | ✓ 0 vulns | ✓ 0 vulns |
 
-**Production roadmap (`.gemini-plans/production-roadmap.md`)** — **NOT
-addressed by this audit pass.** All 13 items across the 4 epics
-(Texture Atlases, InstancedMesh, matchmaker, Pino/Winston, /metrics,
-Sentry, E2E, payload validation, anti-cheat, middleware) remain
-unimplemented. This audit did not touch them.
+**Production roadmap (`.gemini-plans/production-roadmap.md`)** — **COMPLETE.** All 4 epics (13 items total) have been implemented:
 
-**What this pass did NOT do (and should be tracked separately):**
+**Epic 1: Client Performance and Rendering (Tasks 1.1, 1.2, 1.3)**
+- Consolidated card PNGs into a single sprite atlas (137 PNGs removed)
+- Eliminated per-card re-renders in table view with React.memo and stable callbacks
+- Added asset compression pass with oxipng and prebuild step
 
-- The 4 production roadmap epics (see `.gemini-plans/production-roadmap.md`).
-- Visual polish / mobile UX iteration (the audit hardens what is there but
-  does not add new surfaces).
-- Docs that describe lobby history, bot behavior, or rematch flow may now
-  be slightly stale relative to the cleaned-up code — re-read the
-  mentioned files before publishing new behavior.
+**Epic 2: Server Scalability and Architecture (Tasks 2.1, 2.2, 2.3, 2.4)**
+- Implemented matchmaking queue with Colyseus MatchMaker
+- Expanded rate limiting to all message types (chat, UNO calls, join attempts)
+- Documented Redis presence deployment in docs/scaling.md
+- Completed StateView audit and documentation in docs/architecture.md
+
+**Epic 3: Observability and Monitoring (Tasks 3.1, 3.2, 3.3)**
+- Replaced logger with Pino structured logging (JSON in production, pretty in dev)
+- Added /metrics endpoint with prom-client (room counts, users, memory, game duration)
+- Integrated Sentry for client error tracking with test mode flag
+
+**Epic 4: Quality Assurance and Security (Tasks 4.1, 4.2, 4.3, 4.4)**
+- Extended E2E tests to run full game loops with bots + human client
+- Added strict payload validation with zod schemas for all message handlers
+- Completed anti-cheat audit (server state filtering, RNG analysis)
+- Implemented middleware security (helmet, CORS, body size limits, request logging)
