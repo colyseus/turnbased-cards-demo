@@ -18,7 +18,6 @@
     "@types/cors": "^2.8.19",
     "@types/helmet": "^0.0.48",
     "cors": "^2.8.6",
-    "dompurify": "^3.4.7",
     "express": "^4.21.0",
     "express-rate-limit": "^8.5.2",
     "helmet": "^8.2.0",
@@ -29,10 +28,10 @@
     "zod": "^4.4.3"
   },
   "overrides": {
-    "qs": "^6.15.2"
+    "qs": "^6.15.2",
+    "ws": "^8.21.0"
   },
   "devDependencies": {
-    "@types/dompurify": "^3.0.5",
     "@types/supertest": "^7.2.0",
     "esbuild": "^0.28.0",
     "supertest": "^7.2.2",

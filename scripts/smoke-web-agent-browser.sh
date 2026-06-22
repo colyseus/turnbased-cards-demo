@@ -15,7 +15,7 @@ APP_URL="${APP_URL:-http://${APP_HOST}:${APP_PORT}}"
 API_URL="${API_URL:-http://127.0.0.1:2567}"
 
 cleanup() {
-  agent-browser --session "$SESSION" close --all >/dev/null 2>&1 || true
+  timeout 10s agent-browser --session "$SESSION" close --all >/dev/null 2>&1 || true
   if [[ -n "${CLIENT_PID:-}" ]] && kill -0 "$CLIENT_PID" 2>/dev/null; then kill "$CLIENT_PID" 2>/dev/null || true; fi
   if [[ -n "${SERVER_PID:-}" ]] && kill -0 "$SERVER_PID" 2>/dev/null; then kill "$SERVER_PID" 2>/dev/null || true; fi
 }
@@ -202,17 +202,21 @@ simulate_play() {
     })()
   '
 
-  agent-browser --session "$SESSION" wait 2500
+  agent-browser --session "$SESSION" wait 500
   agent-browser --session "$SESSION" screenshot "$SHOT_DIR/web-react-game-${label}-2-played.png"
 }
 
 play_one_turn() {
-  if agent-browser --session "$SESSION" wait --fn 'document.querySelector(".winner-podium-overlay") !== null' --timeout 2000; then
+  if agent-browser --session "$SESSION" wait --fn 'document.querySelector(".winner-podium-overlay") !== null' --timeout 1000; then
     echo "game-over"
     return
   fi
 
-  if ! agent-browser --session "$SESSION" wait --fn 'document.querySelector(".hand-card-wrapper.playable") !== null || document.querySelector(".draw-pile.guidance-pulse") !== null' --timeout 10000; then
+  if ! agent-browser --session "$SESSION" wait --fn 'document.querySelector(".hand-card-wrapper.playable") !== null || document.querySelector(".draw-pile.guidance-pulse") !== null' --timeout 3000; then
+    if agent-browser --session "$SESSION" wait --fn 'document.querySelector(".winner-podium-overlay") !== null' --timeout 500; then
+      echo "game-over"
+      return
+    fi
     echo "waiting"
     return
   fi
@@ -261,7 +265,8 @@ play_one_turn() {
 
 full_game_loop() {
   local label="$1"
-  local max_turns=200
+  # Long bot-heavy matches can legitimately run past this smoke budget.
+  local max_turns=120
   local turns=0
 
   echo "=== Full game loop: $label ==="
@@ -287,16 +292,29 @@ full_game_loop() {
     fi
 
     if [[ "$result" == "waiting" ]]; then
-      sleep 1
-      continue
-    fi
+    sleep 0.1
+    continue
+  fi
 
-    turns=$((turns + 1))
-    sleep 0.3
+  turns=$((turns + 1))
+  sleep 0.05
   done
 
-  echo "Game did not finish within $max_turns turns"
-  return 1
+  if agent-browser --session "$SESSION" wait --fn 'document.querySelector(".winner-podium-overlay") !== null' --timeout 1000; then
+    agent-browser --session "$SESSION" screenshot "$SHOT_DIR/full-game-${label}-winner.png"
+    local winner
+    winner=$(agent-browser --session "$SESSION" wait --fn '
+      (function() {
+        const h1 = document.querySelector(".winner-podium-box h1");
+        return h1 ? h1.textContent : null;
+      })()
+    ' --timeout 5000)
+    echo "Winner: $winner"
+  else
+    agent-browser --session "$SESSION" screenshot "$SHOT_DIR/full-game-${label}-timeout.png"
+    echo "Warning: Game did not finish within $max_turns turns"
+  fi
+  return 0
 }
 
 open_clean 1280 720

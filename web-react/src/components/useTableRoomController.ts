@@ -518,15 +518,28 @@ export function useTableRoomController(props: TableRoomControllerProps) {
       });
     }
 
-    playersSnapshot.forEach((p) => {
-      if (p.isBot) {
+    setBotEmotions((prev) => {
+      let changed = false;
+      const next = { ...prev };
+
+      playersSnapshot.forEach((p) => {
+        if (!p.isBot) return;
+
         const cardCount = p.handCount ?? p.hand?.length ?? 0;
         if (cardCount === 1) {
-          setBotEmotions((prev) => ({ ...prev, [p.seatIndex]: "😰" }));
+          if (next[p.seatIndex] !== "😰") {
+            next[p.seatIndex] = "😰";
+            changed = true;
+          }
         } else if (cardCount === 2) {
-          setBotEmotions((prev) => ({ ...prev, [p.seatIndex]: "😬" }));
+          if (next[p.seatIndex] !== "😬") {
+            next[p.seatIndex] = "😬";
+            changed = true;
+          }
         }
-      }
+      });
+
+      return changed ? next : prev;
     });
 
     const currentUno = state.unoCaller ?? -1;
